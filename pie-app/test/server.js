@@ -8,7 +8,10 @@ const { loadWorkbook, createGas } = require('./fake-gas');
 
 const ss = loadWorkbook(process.argv[2]);
 const books = process.argv[4] ? { FODID: loadWorkbook(process.argv[4]) } : {};
-const gas = createGas(ss, { PIE_TOKEN: process.env.PIE_TOKEN || '', FOD02_ID: process.argv[4] ? 'FODID' : '' }, { books });
+const FODID = 'FODID0000000000000000000';
+if (process.argv[4]) { books[FODID] = books.FODID; delete books.FODID; }
+const files = { [FODID]: { mime: 'application/vnd.google-apps.spreadsheet', name: 'FOD-02 Rev. 3' } };
+const gas = createGas(ss, { PIE_TOKEN: process.env.PIE_TOKEN || '', FOD02_ID: process.argv[4] ? FODID : '' }, { books, files });
 const PORT = Number(process.argv[3] || 8080);
 const appDir = path.join(__dirname, '../app');
 const types = { '.html': 'text/html', '.js': 'text/javascript', '.webmanifest': 'application/manifest+json', '.svg': 'image/svg+xml', '.png': 'image/png' };

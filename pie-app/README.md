@@ -35,7 +35,7 @@ Apps Script sólo funciona sobre Google Sheets (el archivo hoy está en SharePoi
 5. Guardá, volvé a la planilla y recargala: aparece el menú **PIE**. La primera vez pide autorización.
 6. **PIE › Configurar clave de acceso**: elegí una clave (la va a pedir la app del celular).
 
-7. **PIE › Vincular FOD 02**: pegá el enlace del FOD 02 convertido a Hoja de cálculo de Google (mismo procedimiento del paso 1). Alternativa: copiar la pestaña `FOD-02` dentro de la planilla del PIE y dejar el enlace vacío. Como se vincula al archivo vivo, cada revisión nueva que se cargue en el FOD 02 aparece en la app en la próxima sincronización.
+7. **PIE › Vincular FOD 02**: pegá el enlace del FOD 02 que está en Google Drive (Hoja de cálculo de Google, o el .xlsx subido a Drive: el script lo convierte solo y lo vuelve a convertir cuando subís una versión nueva). No sirve un enlace de SharePoint. Alternativa: copiar la pestaña del FOD 02 dentro de la planilla del PIE y dejar el enlace vacío (la encuentra aunque se llame "Copia de FOD-02"). El cartel de respuesta dice qué archivo, qué pestaña y cuántos documentos encontró, o por qué no pudo.
 8. La primera foto pide permiso de Google Drive (el script crea la carpeta de fotos en tu Drive). Compartí esa carpeta con quien tenga que ver las fotos.
 
 Con eso ya podés usar **PIE › Abrir carga PIE (panel)** desde la compu (botón “Ver fila” lleva al bloque en la planilla).

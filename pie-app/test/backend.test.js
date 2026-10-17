@@ -219,7 +219,8 @@ test('si una escritura falla, el bloque nuevo no queda a medio crear', () => {
 test('FOD 02: sólo la última revisión de cada código', () => {
   const { loadWorkbook: lw } = require('./fake-gas');
   const fodBook = lw(process.argv[3]);
-  gas = createGas(ss, { FOD02_ID: 'FODID' }, { books: { FODID: fodBook } });
+  const FID = 'FODID0000000000000000000';
+  gas = createGas(ss, { FOD02_ID: FID }, { books: { [FID]: fodBook }, files: { [FID]: { mime: 'application/vnd.google-apps.spreadsheet', name: 'FOD-02' } } });
   const c = call({ action: 'catalog' });
   const docs = c.fod.docs;
   assert.strictEqual(docs.length, 709, 'códigos distintos (S12p y S12P son el mismo)');
@@ -230,6 +231,47 @@ test('FOD 02: sólo la última revisión de cada código', () => {
   assert.strictEqual(by('KIR-COMR-REF-ESTR-S12P')[7], 'si');
   assert.ok(docs[0][5] >= docs[docs.length - 1][5], 'ordenados por fecha descendente');
   assert.ok(!c.categorias.some(x => x.sheet === 'FOD-02'));
+});
+
+test('vincular FOD 02: enlaces de SharePoint, Excel sin convertir, Excel con conversión y pestaña copiada', () => {
+  const { loadWorkbook: lw } = require('./fake-gas');
+  const GS = 'GSHEET00000000000000000001', XL = 'XLSX000000000000000000001';
+  const extra = {
+    books: { [GS]: lw(process.argv[3]) },
+    files: { [GS]: { mime: 'application/vnd.google-apps.spreadsheet', name: 'FOD 02 Google' },
+             [XL]: { mime: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', name: 'FOD-02 Rev. 3.xlsx', updated: 1 } }
+  };
+  const props = {};
+  let g = createGas(ss, props, extra);
+  let r = g.linkFod_('https://kirsrl.sharepoint.com/:x:/r/sites/Centrodedocumentos/Documentos/FOD-02.xlsx?d=abc');
+  assert.ok(!r.ok && /SharePoint/.test(r.msg), r.msg);
+  r = g.linkFod_('cualquier cosa');
+  assert.ok(!r.ok && /No reconozco/.test(r.msg));
+  r = g.linkFod_('https://drive.google.com/file/d/NOEXISTE0000000000000000/view');
+  assert.ok(!r.ok && /no tiene acceso/.test(r.msg), r.msg);
+  r = g.linkFod_(`https://drive.google.com/file/d/${XL}/view?usp=sharing`);
+  assert.ok(!r.ok && /sin convertir/.test(r.msg), r.msg);
+  r = g.linkFod_(`https://docs.google.com/spreadsheets/d/${GS}/edit#gid=0`);
+  assert.ok(r.ok && /709/.test(r.msg), r.msg);
+  assert.strictEqual(props.FOD02_ID, GS);
+  // con el servicio avanzado Drive: el .xlsx se convierte solo y se reutiliza mientras no cambie
+  extra.advancedDrive = () => lw(process.argv[3]);
+  g = createGas(ss, props, extra);
+  r = g.linkFod_(`https://drive.google.com/file/d/${XL}/view`);
+  assert.ok(r.ok && /709/.test(r.msg), r.msg);
+  g.api({ action: 'catalog' });
+  assert.strictEqual(extra.conversions, 1, 'reutiliza la copia convertida');
+  extra.files[XL].updated = 2; // subieron una versión nueva del Excel
+  assert.strictEqual(g.api({ action: 'catalog' }).fod.docs.length, 709);
+  assert.strictEqual(extra.conversions, 2, 'reconvierte cuando cambia el Excel');
+  // pestaña copiada dentro del PIE con otro nombre
+  const copia = ss.insertSheet('Copia de FOD-02');
+  copia.maxRows = 2000;
+  lw(process.argv[3]).getSheetByName('FOD-02').cells.forEach((v, k) => copia.cells.set(k, v));
+  r = g.linkFod_('');
+  assert.ok(r.ok && /Copia de FOD-02/.test(r.msg) && /709/.test(r.msg), r.msg);
+  assert.strictEqual(g.api({ action: 'catalog' }).fod.docs.length, 709);
+  ss.sheets.splice(ss.sheets.indexOf(copia), 1);
 });
 
 test('fotos: se guardan en Drive, se anotan en la fila y no se duplican', () => {

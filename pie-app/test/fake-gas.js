@@ -232,10 +232,24 @@ function createGas(ss, props = {}, extra = {}) {
     PropertiesService: { getScriptProperties: () => ({ getProperty: k => props[k] || null, setProperty: (k, v) => { props[k] = v; }, deleteProperty: k => { delete props[k]; } }) },
     DriveApp: {
       getRootFolder: () => root,
+      getFileById: (id) => {
+        const f = (extra.files || {})[id];
+        if (!f) throw new Error('No se encontró el archivo');
+        return { getMimeType: () => f.mime, getName: () => f.name, getId: () => id, getLastUpdated: () => new Date(f.updated || 0),
+          getBlob: () => ({ bytes: [] }), setTrashed: () => { f.trashed = true; } };
+      },
       getFolderById: (id) => { if (!drive.byId[id]) throw new Error('No existe la carpeta'); return drive.byId[id]; }
     },
     __drive: drive,
-    Session: { getScriptTimeZone: () => 'UTC' },
+    MimeType: { GOOGLE_SHEETS: 'application/vnd.google-apps.spreadsheet', MICROSOFT_EXCEL: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', MICROSOFT_EXCEL_LEGACY: 'application/vnd.ms-excel' },
+    Drive: extra.advancedDrive ? { Files: { create: (meta) => {
+      const id = 'conv' + (++drive.n) + 'xxxxxxxxxxxxxxxxxxxx';
+      extra.books[id] = extra.advancedDrive();
+      extra.files[id] = { mime: 'application/vnd.google-apps.spreadsheet', name: meta.name };
+      extra.conversions = (extra.conversions || 0) + 1;
+      return { id };
+    } } } : undefined,
+    Session: { getScriptTimeZone: () => 'UTC', getEffectiveUser: () => ({ getEmail: () => 'dueño@kir.com' }) },
     Utilities: {
       formatDate(d) { const p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; },
       base64Decode: (s) => Array.from(Buffer.from(s, 'base64')),

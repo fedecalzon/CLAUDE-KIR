@@ -80,24 +80,89 @@ function configurarClave() {
 
 function vincularFod02() {
   var ui = SpreadsheetApp.getUi();
-  var props = PropertiesService.getScriptProperties();
-  var actual = props.getProperty('FOD02_ID');
-  var r = ui.prompt('FOD 02',
-    'Pegá el enlace de la Hoja de cálculo de Google del FOD 02 (Registro de Control y Distribución de Documentos).\n' +
-    'Vacío = usar una pestaña "' + PIE.FOD_SHEET + '" dentro de esta misma planilla.' +
-    (actual ? '\nVinculado ahora: ' + actual : ''), ui.ButtonSet.OK_CANCEL);
+  var actual = PropertiesService.getScriptProperties().getProperty('FOD02_ID');
+  var r = ui.prompt('Vincular FOD 02',
+    'Pegá el enlace del FOD 02 que está en Google Drive (Hoja de cálculo de Google o el .xlsx subido a Drive).\n' +
+    'Dejalo vacío si copiaste la pestaña del FOD 02 dentro de esta planilla.' +
+    (actual ? '\n\nVinculado ahora: https://docs.google.com/spreadsheets/d/' + actual : ''), ui.ButtonSet.OK_CANCEL);
   if (r.getSelectedButton() !== ui.Button.OK) return;
-  var v = r.getResponseText().trim();
-  var m = /\/d\/([a-zA-Z0-9_-]{20,})/.exec(v);
-  var id = m ? m[1] : v;
-  if (!id) { props.deleteProperty('FOD02_ID'); ui.alert('Se usará la pestaña ' + PIE.FOD_SHEET + ' de esta planilla.'); return; }
+  var res = linkFod_(r.getResponseText());
+  ui.alert(res.ok ? 'FOD 02 vinculado' : 'No se pudo vincular el FOD 02', res.msg, ui.ButtonSet.OK);
+}
+
+/** Valida y guarda el vínculo al FOD 02. Devuelve {ok, msg} con un diagnóstico legible. */
+function linkFod_(text) {
+  var props = PropertiesService.getScriptProperties();
+  var v = String(text || '').trim();
   try {
-    var fod = parseFod_(readValues_(fodSheet_(SpreadsheetApp.openById(id))));
+    if (!v) {
+      var own = fodSheet_(SpreadsheetApp.getActiveSpreadsheet());
+      var docsOwn = parseFod_(readValues_(own)).docs;
+      props.deleteProperty('FOD02_ID');
+      props.setProperty('FOD02_SHEET', own.getName());
+      return { ok: true, msg: 'Se usa la pestaña "' + own.getName() + '" de esta planilla: ' + docsOwn.length + ' documentos (última revisión de cada código).' };
+    }
+    if (/sharepoint\.com|onedrive|1drv\.ms|office\.com|live\.com/i.test(v)) {
+      return { ok: false, msg: 'Ese enlace es de SharePoint/OneDrive y Apps Script sólo puede leer archivos de Google Drive.\n\n' +
+        'Descargá el FOD 02 desde SharePoint, subilo a tu Google Drive (Nuevo › Subir archivo) y pegá el enlace del archivo de Drive ' +
+        '(clic derecho › Compartir › Copiar vínculo).' };
+    }
+    var id = extractDriveId_(v);
+    if (!id) return { ok: false, msg: 'No reconozco ese enlace. Tiene que ser algo como https://docs.google.com/spreadsheets/d/…/edit o https://drive.google.com/file/d/…/view' };
+    var book = openFodBook_(id);
+    var sh = fodSheet_(book);
+    var docs = parseFod_(readValues_(sh)).docs;
+    if (!docs.length) return { ok: false, msg: 'Abrí "' + book.getName() + '" (pestaña "' + sh.getName() + '") pero no encontré documentos debajo de la columna CÓDIGO DEL DOCUMENTO/PLANO.' };
     props.setProperty('FOD02_ID', id);
-    ui.alert('FOD 02 vinculado: ' + fod.docs.length + ' documentos (última revisión de cada código).');
+    props.deleteProperty('FOD02_SHEET');
+    return { ok: true, msg: 'Archivo: ' + book.getName() + '\nPestaña: ' + sh.getName() + '\nDocumentos: ' + docs.length + ' (última revisión de cada código).\n\n' +
+      'En el celular: Ajustes › Sincronizar y descargar todo.' };
   } catch (err) {
-    ui.alert('No se pudo abrir el FOD 02: ' + err.message);
+    return { ok: false, msg: String(err.message || err) };
   }
+}
+
+function extractDriveId_(v) {
+  var m = /\/d\/([a-zA-Z0-9_-]{20,})/.exec(v) || /[?&]id=([a-zA-Z0-9_-]{20,})/.exec(v);
+  if (m) return m[1];
+  return /^[a-zA-Z0-9_-]{20,}$/.test(v) ? v : '';
+}
+
+/**
+ * Abre el FOD 02 por id. Si es un .xlsx subido a Drive lo convierte a Hoja de
+ * cálculo de Google (servicio avanzado Drive) y reutiliza la copia mientras el
+ * Excel no cambie; cuando lo reemplazan por una versión nueva, lo vuelve a convertir.
+ */
+function openFodBook_(id) {
+  var file;
+  try {
+    file = DriveApp.getFileById(id);
+  } catch (e) {
+    throw pieError_('No encuentro el archivo de ese enlace, o la cuenta ' + Session.getEffectiveUser().getEmail() +
+      ' (la dueña del script) no tiene acceso. Abrí el enlace con esa cuenta y verificá que lo puedas ver.', 'config');
+  }
+  var mime = file.getMimeType();
+  if (mime === MimeType.GOOGLE_SHEETS) return SpreadsheetApp.openById(id);
+  if (mime === MimeType.MICROSOFT_EXCEL || mime === MimeType.MICROSOFT_EXCEL_LEGACY) return convertedCopy_(file);
+  throw pieError_('El enlace es de "' + file.getName() + '" (' + mime + '), que no es una planilla.', 'config');
+}
+
+function convertedCopy_(file) {
+  if (typeof Drive === 'undefined') {
+    throw pieError_('"' + file.getName() + '" es un Excel (.xlsx) sin convertir. Opción 1: abrilo en Drive y usá Archivo › Guardar como Hojas de cálculo de Google, ' +
+      'y pegá el enlace del archivo nuevo. Opción 2: pegá de nuevo el appsscript.json actualizado (activa el servicio Drive) para que el script lo convierta solo.', 'config');
+  }
+  var props = PropertiesService.getScriptProperties();
+  var stamp = file.getId() + '@' + file.getLastUpdated().getTime();
+  var cached = (props.getProperty('FOD02_CONV') || '').split('|');
+  if (cached[0] === stamp && cached[1]) {
+    try { return SpreadsheetApp.openById(cached[1]); } catch (e) { /* la copia se borró: se vuelve a convertir */ }
+  } else if (cached[1]) {
+    try { DriveApp.getFileById(cached[1]).setTrashed(true); } catch (e) { /* ya no existe */ }
+  }
+  var conv = Drive.Files.create({ name: file.getName().replace(/\.xlsx?$/i, '') + ' (copia para app PIE)', mimeType: MimeType.GOOGLE_SHEETS }, file.getBlob());
+  props.setProperty('FOD02_CONV', stamp + '|' + conv.id);
+  return SpreadsheetApp.openById(conv.id);
 }
 
 function verEnlace() {
@@ -286,11 +351,13 @@ function fodSheet_(book) {
 }
 
 function readFodSafe_(ss) {
-  var id = PropertiesService.getScriptProperties().getProperty('FOD02_ID');
+  var props = PropertiesService.getScriptProperties();
+  var id = props.getProperty('FOD02_ID');
   try {
-    var book = id ? SpreadsheetApp.openById(id) : ss;
-    if (!id && !book.getSheetByName(PIE.FOD_SHEET)) return { docs: [], aviso: 'FOD 02 sin vincular (menú PIE › Vincular FOD 02)' };
-    return parseFod_(readValues_(fodSheet_(book)));
+    if (id) return parseFod_(readValues_(fodSheet_(openFodBook_(id))));
+    var own = ss.getSheetByName(props.getProperty('FOD02_SHEET') || PIE.FOD_SHEET);
+    if (!own) return { docs: [], aviso: 'FOD 02 sin vincular (en la planilla: menú PIE › Vincular FOD 02)' };
+    return parseFod_(readValues_(own));
   } catch (err) {
     return { docs: [], aviso: 'No se pudo leer el FOD 02: ' + err.message };
   }
