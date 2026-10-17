@@ -1,0 +1,118 @@
+// Prueba de punta a punta de la PWA en un celular emulado (requiere test/server.js corriendo).
+// Uso: node test/e2e.test.js <carpeta-capturas>
+const { chromium, devices } = require('playwright');
+const assert = require('assert');
+
+const APP = 'http://localhost:8080/';
+const API = 'http://localhost:8081/exec';
+const shots = process.argv[2] || '.';
+const sheetRows = (name, from, to) => fetch(`http://localhost:8081/__sheet?name=${encodeURIComponent(name)}&from=${from}&to=${to}`).then(r => r.json());
+
+(async () => {
+  const browser = await chromium.launch();
+  const ctx = await browser.newContext({ ...devices['Pixel 7'], serviceWorkers: 'allow' });
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on('pageerror', e => errors.push(e.message));
+  page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
+  const shot = (n) => page.screenshot({ path: `${shots}/${n}.png`, fullPage: false });
+
+  // 1. Configuración por enlace + descarga del catálogo
+  await page.goto(`${APP}?api=${encodeURIComponent(API)}`);
+  await page.waitForSelector('text=MARIA DEL PILAR LOPEZ', { timeout: 20000 });
+  await shot('01-quien');
+  await page.click('text=FEDERICO CALZON');
+  await page.waitForSelector('text=HORMIGON ARMADO');
+  await shot('02-inicio');
+
+  // 2. Categoría 6: registros y requisitos
+  await page.click('.row:has-text("HORMIGON ARMADO")');
+  await page.waitForSelector('text=Bajo recorrido');
+  await shot('03-registros');
+  await page.click('button[data-tab=req]');
+  await page.waitForSelector('text=Replanteo Preliminar');
+  await shot('04-requisitos');
+  await page.click('button[data-tab=reg]');
+
+  // esperar a que el service worker controle la página para poder abrir offline
+  await page.evaluate(() => navigator.serviceWorker.ready);
+  await page.reload();
+  await page.waitForFunction(() => !!navigator.serviceWorker.controller);
+  await page.waitForSelector('text=Bajo recorrido');
+
+  // 3. Sin señal: crear registro nuevo
+  await ctx.setOffline(true);
+  await page.click('.fab');
+  await page.fill('input[name=elemento]', 'Losa prueba offline L1');
+  await page.fill('input[name=piso]', '5P');
+  await page.fill('input[name=sector]', 'Núcleo A');
+  await page.fill('input[name=etapa]', '1');
+  await page.fill('input[name=documento]', 'KIR-COMR-EST-P05-R00');
+  await shot('05-nuevo');
+  await page.click('button[type=submit]');
+  await page.waitForSelector('text=Nuevo · se crea en la planilla al sincronizar');
+  await page.waitForSelector('.net:has-text("Offline")');
+
+  // 4. Cerrar y reabrir la app sin señal (sale del service worker + IndexedDB)
+  await page.reload();
+  await page.waitForSelector('text=Losa prueba offline L1');
+  const items = await page.$$('.item');
+  assert.ok(items.length > 20, 'checklist cargado offline: ' + items.length);
+  // marcar: primer ítem AP, segundo RZ con FUM y observación, tercero N/A
+  await page.click('.item >> nth=0 >> button[data-st=ap]');
+  await page.click('.item >> nth=1 >> button[data-st=rz]');
+  await page.fill('.item >> nth=1 >> [data-field=fum]', '45');
+  await page.fill('.item >> nth=1 >> [data-field=obs]', 'Recubrimiento insuficiente');
+  await page.locator('.item >> nth=1 >> [data-field=obs]').blur();
+  await page.click('.item >> nth=1 >> button:has-text("Listo")');
+  await page.click('.item >> nth=2 >> button[data-st=na]');
+  await shot('06-checklist-offline');
+  const pending = await page.textContent('.net');
+  assert.ok(/Offline · \d+ sin enviar/.test(pending), pending);
+
+  // 5. Vuelve la señal: sincroniza solo y redirige al registro real
+  await ctx.setOffline(false);
+  await page.evaluate(() => window.dispatchEvent(new Event('online')));
+  await page.waitForSelector('.net:has-text("Al día")', { timeout: 20000 });
+  await page.waitForSelector('text=/Planilla 6 · fila \\d+/');
+  await shot('07-sincronizado');
+  const T = Number(/fila (\d+)/.exec(await page.textContent('#hdr'))[1]);
+  const rows = await sheetRows('6', T - 5, T + 4);
+  assert.strictEqual(rows.rows[0][1], 'RESPONSABLE');
+  assert.strictEqual(rows.rows[1][3], '5P');
+  assert.strictEqual(rows.rows[1][6], 'Losa prueba offline L1');
+  assert.strictEqual(rows.rows[2][3], 'Núcleo A');
+  assert.strictEqual(rows.rows[5][1], 'TAREA');
+  assert.deepStrictEqual(rows.rows[6].slice(6, 10).map(String).slice(0, 1), ['KIR-COMR-EST-P05-R00']);
+  assert.strictEqual(rows.rows[6][8], 'FC');
+  assert.strictEqual(rows.rows[6][9], 'AP');
+  assert.strictEqual(rows.rows[7][9], 'RZ');
+  assert.strictEqual(String(rows.rows[7][10]), '45');
+  assert.strictEqual(rows.rows[7][11], 'Recubrimiento insuficiente');
+  assert.strictEqual(rows.rows[8][7], 'NA');
+
+  // 6. Editar un registro ya sincronizado (online)
+  await page.click('.item >> nth=3 >> button[data-st=ap]');
+  await page.waitForSelector('.net:has-text("Al día")', { timeout: 20000 });
+  await page.waitForFunction(() => document.querySelector('.net').textContent.includes('Al día') && !document.getElementById('hdr').textContent.includes('cambios sin enviar'), null, { timeout: 20000 });
+  const rows2 = await sheetRows('6', T + 4, T + 4);
+  assert.strictEqual(rows2.rows[0][9], 'AP');
+
+  // 7. Filtro de pendientes y vista de registro existente con datos
+  await page.click('button[data-f=rz]');
+  assert.strictEqual(await page.$$eval('.item', n => n.length), 1);
+  await shot('08-filtro-rz');
+
+  // 8. Ajustes
+  await page.click('[data-to="/ajustes"]');
+  await page.waitForSelector('text=Envíos pendientes · 0');
+  await shot('09-ajustes');
+
+  // 9. ancho de celular sin scroll horizontal
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
+  assert.ok(!overflow, 'sin scroll horizontal');
+
+  assert.deepStrictEqual(errors.filter(e => !/Failed to load resource|ERR_INTERNET_DISCONNECTED/.test(e)), []);
+  console.log('E2E OK');
+  await browser.close();
+})().catch(e => { console.error(e); process.exit(1); });
