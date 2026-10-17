@@ -233,6 +233,7 @@ function createGas(ss, props = {}, extra = {}) {
     DriveApp: {
       getRootFolder: () => root,
       getFileById: (id) => {
+        if (extra.noDriveScope) throw new Error('No tienes permiso para llamar a DriveApp.getFileById. Permisos necesarios: https://www.googleapis.com/auth/drive');
         const f = (extra.files || {})[id];
         if (!f) throw new Error('No se encontró el archivo');
         return { getMimeType: () => f.mime, getName: () => f.name, getId: () => id, getLastUpdated: () => new Date(f.updated || 0),
@@ -249,7 +250,8 @@ function createGas(ss, props = {}, extra = {}) {
       extra.conversions = (extra.conversions || 0) + 1;
       return { id };
     } } } : undefined,
-    Session: { getScriptTimeZone: () => 'UTC', getEffectiveUser: () => ({ getEmail: () => 'dueño@kir.com' }) },
+    Session: { getScriptTimeZone: () => 'UTC', getEffectiveUser: () => { throw new Error('No tienes permiso para llamar a Session.getEffectiveUser'); } },
+    Logger: { log() {} },
     Utilities: {
       formatDate(d) { const p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; },
       base64Decode: (s) => Array.from(Buffer.from(s, 'base64')),

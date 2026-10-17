@@ -134,12 +134,25 @@ function extractDriveId_(v) {
  * Excel no cambie; cuando lo reemplazan por una versión nueva, lo vuelve a convertir.
  */
 function openFodBook_(id) {
+  // Hoja de cálculo de Google: se abre directo (sólo usa el permiso de planillas).
+  var firstErr;
+  try {
+    return SpreadsheetApp.openById(id);
+  } catch (e) {
+    firstErr = e;
+  }
+  // Si no es una planilla de Google, ver si es un Excel en Drive.
   var file;
   try {
     file = DriveApp.getFileById(id);
   } catch (e) {
-    throw pieError_('No encuentro el archivo de ese enlace, o la cuenta ' + Session.getEffectiveUser().getEmail() +
-      ' (la dueña del script) no tiene acceso. Abrí el enlace con esa cuenta y verificá que lo puedas ver.', 'config');
+    var msg = String(e && e.message || e);
+    if (/permiso|permission|autoriz|authoriz/i.test(msg)) {
+      throw pieError_('Falta autorizar el acceso a Google Drive. En el editor de Apps Script elegí la función "autorizar" ' +
+        'en la barra de arriba, tocá Ejecutar y aceptá los permisos. Después volvé a vincular.\n\nDetalle: ' + msg, 'config');
+    }
+    throw pieError_('No pude abrir el archivo de ese enlace. Verificá que la cuenta dueña del script lo pueda abrir.\n\n' +
+      'Detalle: ' + String(firstErr && firstErr.message || firstErr) + ' / ' + msg, 'config');
   }
   var mime = file.getMimeType();
   if (mime === MimeType.GOOGLE_SHEETS) return SpreadsheetApp.openById(id);
@@ -163,6 +176,16 @@ function convertedCopy_(file) {
   var conv = Drive.Files.create({ name: file.getName().replace(/\.xlsx?$/i, '') + ' (copia para app PIE)', mimeType: MimeType.GOOGLE_SHEETS }, file.getBlob());
   props.setProperty('FOD02_CONV', stamp + '|' + conv.id);
   return SpreadsheetApp.openById(conv.id);
+}
+
+/**
+ * Ejecutar una vez desde el editor (Ejecutar ▶) para que Google pida todos los
+ * permisos del script: planillas, Drive (fotos y FOD 02 en Excel) y menús.
+ */
+function autorizar() {
+  SpreadsheetApp.getActiveSpreadsheet().getName();
+  DriveApp.getRootFolder().getName();
+  try { SpreadsheetApp.getUi().alert('Permisos OK. Ya podés usar el menú PIE.'); } catch (e) { Logger.log('Permisos OK'); }
 }
 
 function verEnlace() {

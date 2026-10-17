@@ -32,7 +32,7 @@ Apps Script sólo funciona sobre Google Sheets (el archivo hoy está en SharePoi
 2. Reemplazá el contenido de `Código.gs` por `apps-script/Code.gs`.
 3. **＋ › HTML**, nombre `Index` (sin `.html`), pegá `apps-script/Index.html`.
 4. **Configuración del proyecto › Mostrar el archivo de manifiesto "appsscript.json"** y pegá `apps-script/appsscript.json`.
-5. Guardá, volvé a la planilla y recargala: aparece el menú **PIE**. La primera vez pide autorización.
+5. Guardá. En la barra de arriba del editor elegí la función **autorizar** y tocá **▶ Ejecutar**: Google pide los permisos (planillas, Drive y menús); aceptalos (si dice "Google no verificó esta app": Configuración avanzada › Ir a …). Volvé a la planilla y recargala: aparece el menú **PIE**.
 6. **PIE › Configurar clave de acceso**: elegí una clave (la va a pedir la app del celular).
 
 7. **PIE › Vincular FOD 02**: pegá el enlace del FOD 02 que está en Google Drive (Hoja de cálculo de Google, o el .xlsx subido a Drive: el script lo convierte solo y lo vuelve a convertir cuando subís una versión nueva). No sirve un enlace de SharePoint. Alternativa: copiar la pestaña del FOD 02 dentro de la planilla del PIE y dejar el enlace vacío (la encuentra aunque se llame "Copia de FOD-02"). El cartel de respuesta dice qué archivo, qué pestaña y cuántos documentos encontró, o por qué no pudo.

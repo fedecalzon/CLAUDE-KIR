@@ -248,9 +248,17 @@ test('vincular FOD 02: enlaces de SharePoint, Excel sin convertir, Excel con con
   r = g.linkFod_('cualquier cosa');
   assert.ok(!r.ok && /No reconozco/.test(r.msg));
   r = g.linkFod_('https://drive.google.com/file/d/NOEXISTE0000000000000000/view');
-  assert.ok(!r.ok && /no tiene acceso/.test(r.msg), r.msg);
+  assert.ok(!r.ok && /No pude abrir/.test(r.msg), r.msg);
   r = g.linkFod_(`https://drive.google.com/file/d/${XL}/view?usp=sharing`);
   assert.ok(!r.ok && /sin convertir/.test(r.msg), r.msg);
+  // caso reportado: planilla de Google sin permiso de Drive todavía autorizado
+  extra.noDriveScope = true;
+  r = g.linkFod_(`https://docs.google.com/spreadsheets/d/${GS}/edit#gid=0`);
+  assert.ok(r.ok && /709/.test(r.msg), r.msg);
+  assert.strictEqual(g.api({ action: 'catalog' }).fod.docs.length, 709);
+  r = g.linkFod_(`https://drive.google.com/file/d/${XL}/view`);
+  assert.ok(!r.ok && /autorizar/.test(r.msg), r.msg);
+  extra.noDriveScope = false;
   r = g.linkFod_(`https://docs.google.com/spreadsheets/d/${GS}/edit#gid=0`);
   assert.ok(r.ok && /709/.test(r.msg), r.msg);
   assert.strictEqual(props.FOD02_ID, GS);
