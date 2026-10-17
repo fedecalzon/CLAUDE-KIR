@@ -17,6 +17,8 @@ function shiftFormula(f, dr) {
     dRow ? all : `${dc}${col}${Number(row) + dr}`);
 }
 
+const colName = (c) => { let s = ''; while (c > 0) { const m = (c - 1) % 26; s = String.fromCharCode(65 + m) + s; c = Math.floor((c - 1) / 26); } return s; };
+
 class FakeRange {
   constructor(sheet, r, c, nr, nc) { Object.assign(this, { sheet, r, c, nr, nc }); }
   _each(fn) { for (let i = 0; i < this.nr; i++) for (let j = 0; j < this.nc; j++) fn(this.r + i, this.c + j, i, j); }
@@ -40,6 +42,19 @@ class FakeRange {
     return this;
   }
   setValue(v) { this.sheet.put(this.r, this.c, v); return this; }
+  getDataValidations() {
+    const out = Array.from({ length: this.nr }, () => Array(this.nc).fill(null));
+    this._each((r, c, i, j) => { out[i][j] = this.sheet.dv.get(`${r},${c}`) || null; });
+    return out;
+  }
+  clearDataValidations() { this._each((r, c) => this.sheet.dv.delete(`${r},${c}`)); return this; }
+  setDataValidations(rules) {
+    this._each((r, c, i, j) => { if (rules[i][j]) this.sheet.dv.set(`${r},${c}`, rules[i][j]); else this.sheet.dv.delete(`${r},${c}`); });
+    return this;
+  }
+  getNote() { return this.sheet.notes.get(`${this.r},${this.c}`) || ''; }
+  setNote(n) { this.sheet.notes.set(`${this.r},${this.c}`, n); return this; }
+  clear() { this._each((r, c) => { this.sheet.cells.delete(`${r},${c}`); this.sheet.formats.delete(`${r},${c}`); }); return this; }
   setFormula(f) { this.sheet.put(this.r, this.c, f); return this; }
   clearContent() { this._each((r, c) => this.sheet.put(r, c, '')); return this; }
   setNumberFormat(f) { this._each((r, c) => this.sheet.fmt(r, c).nf = f); return this; }
@@ -50,9 +65,10 @@ class FakeRange {
   copyTo(dst) {
     const dr = dst.r - this.r;
     const snap = [];
-    this._each((r, c) => snap.push([r, c, this.sheet.cell(r, c), this.sheet.formats.get(`${r},${c}`)]));
-    for (const [r, c, cell, f] of snap) {
+    this._each((r, c) => snap.push([r, c, this.sheet.cell(r, c), this.sheet.formats.get(`${r},${c}`), this.sheet.dv.get(`${r},${c}`)]));
+    for (const [r, c, cell, f, dv] of snap) {
       const nr = r + dr;
+      if (dv) this.sheet.dv.set(`${nr},${c}`, dv); else this.sheet.dv.delete(`${nr},${c}`);
       if (!cell) this.sheet.cells.delete(`${nr},${c}`);
       else this.sheet.cells.set(`${nr},${c}`, { ...cell, f: cell.f ? shiftFormula(cell.f, dr) : undefined });
       if (f) this.sheet.formats.set(`${nr},${c}`, { ...f, copiedFrom: `${r},${c}` });
@@ -80,13 +96,19 @@ class FakeRange {
 class FakeSheet {
   constructor(name, opts = {}) {
     this.name = name; this.hidden = !!opts.hidden;
-    this.cells = new Map(); this.formats = new Map(); this.heights = {}; this.merges = []; this.copies = [];
+    this.cells = new Map(); this.formats = new Map(); this.dv = new Map(); this.notes = new Map(); this.heights = {}; this.merges = []; this.copies = [];
     this.maxRows = 1000; this.maxCols = 26;
   }
   cell(r, c) { return this.cells.get(`${r},${c}`); }
   fmt(r, c) { const k = `${r},${c}`; if (!this.formats.has(k)) this.formats.set(k, {}); return this.formats.get(k); }
   put(r, c, v) {
     const k = `${r},${c}`;
+    const rule = this.dv.get(k);
+    const isDate = Object.prototype.toString.call(v) === '[object Date]';
+    if (rule && rule.strict && !isDate && v !== '' && v != null && !(typeof v === 'string' && v.startsWith('=')) &&
+        !rule.allowed.includes(String(v))) {
+      throw new Error(`Los datos que ingresaste en la celda ${colName(c)}${r} infringen las reglas de validación de datos establecidas para esta celda.`);
+    }
     if (Object.prototype.toString.call(v) === '[object Date]') {
       const p = (n) => String(n).padStart(2, '0');
       this.cells.set(k, { d: `${v.getFullYear()}-${p(v.getMonth() + 1)}-${p(v.getDate())}`, v: '' });
@@ -118,10 +140,24 @@ class FakeSheet {
 }
 
 class FakeSpreadsheet {
-  constructor() { this.sheets = []; }
+  constructor() { this.sheets = []; this.name = 'PIE - CORE'; }
+  getName() { return this.name; }
   getSheets() { return this.sheets; }
   getSheetByName(n) { return this.sheets.find(s => s.name === n) || null; }
   insertSheet(n) { const s = new FakeSheet(n); this.sheets.push(s); return s; }
+}
+
+function resolveList(wb, s, f) {
+  const m = /^(?:'?([^'!]+)'?!)?\$?([A-Z]+)\$?(\d+):\$?([A-Z]+)\$?(\d+)$/.exec(f.trim());
+  if (!m) return f.replace(/"/g, '').split(',');
+  const src = m[1] ? wb.find(x => x.name === m[1]) : s;
+  const c1 = A1(m[2]).c, c2 = A1(m[4]).c;
+  const out = [];
+  for (let r = Number(m[3]); r <= Number(m[5]); r++) for (let c = c1; c <= c2; c++) {
+    const v = (src.values[r - 1] || [])[c - 1];
+    if (v != null && v !== '') out.push(String(typeof v === 'object' ? (v.v ?? '') : v));
+  }
+  return out;
 }
 
 function loadWorkbook(jsonPath) {
@@ -141,6 +177,14 @@ function loadWorkbook(jsonPath) {
       const [a, b] = m.split(':').map(A1);
       sh.merges.push({ r1: a.r, c1: a.c, r2: b.r, c2: b.c });
     }
+    for (const d of s.dv || []) {
+      const rule = { formula: d.formula, strict: d.strict, allowed: resolveList(wb, s, d.formula) };
+      for (const part of d.sqref.split(/\s+/)) {
+        const [a, b] = part.split(':').map(A1);
+        const e = b || a;
+        for (let r = a.r; r <= e.r; r++) for (let c = a.c; c <= e.c; c++) sh.dv.set(`${r},${c}`, rule);
+      }
+    }
     sh.maxRows = Math.max(1000, s.values.length + 50);
     sh.maxCols = Math.max(26, (s.values[0] || []).length);
     ss.sheets.push(sh);
@@ -148,7 +192,23 @@ function loadWorkbook(jsonPath) {
   return ss;
 }
 
-function createGas(ss, props = {}) {
+class FakeFolder {
+  constructor(name, drive) { this.name = name; this.drive = drive; this.id = 'fld' + (++drive.n); this.files = []; this.folders = []; drive.byId[this.id] = this; }
+  getId() { return this.id; }
+  getName() { return this.name; }
+  createFolder(n) { const f = new FakeFolder(n, this.drive); this.folders.push(f); return f; }
+  getFoldersByName(n) { const l = this.folders.filter(f => f.name === n); let i = 0; return { hasNext: () => i < l.length, next: () => l[i++] }; }
+  createFile(blob) {
+    const id = 'file' + (++this.drive.n);
+    const f = { id, name: blob.name, bytes: blob.bytes.length, getId: () => id, getUrl: () => `https://drive.google.com/file/d/${id}/view`, setDescription() { return this; } };
+    this.files.push(f);
+    return f;
+  }
+}
+
+function createGas(ss, props = {}, extra = {}) {
+  const drive = { n: 0, byId: {} };
+  const root = new FakeFolder('Mi unidad', drive);
   const src = fs.readFileSync(path.join(__dirname, '../apps-script/Code.gs'), 'utf8');
   const appDir = path.join(__dirname, '../app');
   class Html {
@@ -163,15 +223,23 @@ function createGas(ss, props = {}) {
     console,
     SpreadsheetApp: {
       getActiveSpreadsheet: () => ss,
+      openById: (id) => { if (!extra.books || !extra.books[id]) throw new Error('No se encontró la hoja ' + id); return extra.books[id]; },
       flush() {},
       CopyPasteType: { PASTE_NORMAL: 'PASTE_NORMAL' },
       getUi() { throw new Error('sin UI'); }
     },
     LockService: { getDocumentLock: () => ({ tryLock: () => true, releaseLock() {} }) },
-    PropertiesService: { getScriptProperties: () => ({ getProperty: k => props[k] || null }) },
+    PropertiesService: { getScriptProperties: () => ({ getProperty: k => props[k] || null, setProperty: (k, v) => { props[k] = v; }, deleteProperty: k => { delete props[k]; } }) },
+    DriveApp: {
+      getRootFolder: () => root,
+      getFolderById: (id) => { if (!drive.byId[id]) throw new Error('No existe la carpeta'); return drive.byId[id]; }
+    },
+    __drive: drive,
     Session: { getScriptTimeZone: () => 'UTC' },
     Utilities: {
-      formatDate(d) { const p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; }
+      formatDate(d) { const p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; },
+      base64Decode: (s) => Array.from(Buffer.from(s, 'base64')),
+      newBlob: (bytes, mime, name) => ({ bytes, mime, name })
     },
     ContentService: {
       MimeType: { JSON: 'json' },

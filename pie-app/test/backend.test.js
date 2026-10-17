@@ -170,11 +170,108 @@ test('update referenciando un create por id', () => {
   assert.strictEqual(cat('3', res).registros[1].items[0][5], 'AP');
 });
 
+test('marcar RZ / N/A en celdas con validación "solo AP" (error de celda reportado)', () => {
+  const sh = ss.getSheetByName('6');
+  assert.ok(sh.dv.get('14,10'), 'la hoja 6 trae validación en J14');
+  const c6b = cat('6', call({ action: 'catalog' }));
+  const r = c6b.registros[0]; // primer bloque: J13:J54 sólo admite "AP"
+  const it = r.items[1];
+  const res = call({ action: 'batch', ops: [{
+    id: 'op-dv1', op: 'update', sheet: '6', h: r.h, sig: r.sig,
+    header: { responsables: ['ROCIO CAPDEVILA', 'JULIETA HERRERA', 'N/A'] },
+    items: { [it[0]]: { criterio: c6b.crit[it[1]][3], estado: 'RZ', fecha: '2026-10-17', resp: 'RC', obs: 'Falla' } }
+  }] });
+  assert.ok(res.results[0].ok, JSON.stringify(res.results[0]));
+  const nr = cat('6', res).registros[0];
+  assert.strictEqual(nr.items[1][5], 'RZ');
+  assert.deepStrictEqual(nr.resp, ['ROCIO CAPDEVILA', 'JULIETA HERRERA', 'N/A']);
+  assert.ok(sh.dv.get(`${r.h + it[0]},10`), 'la validación se restauró');
+  assert.ok(sh.dv.get('8,2'), 'la validación de RESPONSABLE se restauró');
+});
+
+test('crear copiando un bloque con validaciones y marcar RZ en el nuevo', () => {
+  const c6b = cat('6', call({ action: 'catalog' }));
+  const first = c6b.registros[0];
+  const it = first.items[0];
+  const res = call({ action: 'batch', ops: [{
+    id: 'op-dv2', op: 'create', sheet: '6', base: { h: first.h, sig: first.sig },
+    header: { elemento: 'Copia con DV', responsables: ['JULIETA HERRERA', 'N/A'] },
+    items: { [it[0]]: { criterio: c6b.crit[it[1]][3], estado: 'RZ', fecha: '2026-10-17', resp: 'JH' } }
+  }] });
+  assert.ok(res.results[0].ok, JSON.stringify(res.results[0]));
+  const nr = cat('6', res).registros.slice(-1)[0];
+  assert.strictEqual(nr.elemento, 'Copia con DV');
+  assert.strictEqual(nr.items[0][5], 'RZ');
+  assert.ok(ss.getSheetByName('6').dv.get(`${nr.h + it[0]},10`), 'el bloque nuevo conserva la validación copiada');
+});
+
+test('si una escritura falla, el bloque nuevo no queda a medio crear', () => {
+  const sh = ss.getSheetByName('10');
+  const before = cat('10', call({ action: 'catalog' })).registros.length;
+  const orig = sh.put.bind(sh);
+  sh.put = (r, c, v) => { if (v === 'BOOM') throw new Error('falla simulada'); return orig(r, c, v); };
+  const res = call({ action: 'batch', ops: [{ id: 'op-rb', op: 'create', sheet: '10', header: { elemento: 'BOOM' }, items: {} }] });
+  sh.put = orig;
+  assert.ok(!res.results[0].ok);
+  assert.strictEqual(cat('10', call({ action: 'catalog' })).registros.length, before);
+});
+
+test('FOD 02: sólo la última revisión de cada código', () => {
+  const { loadWorkbook: lw } = require('./fake-gas');
+  const fodBook = lw(process.argv[3]);
+  gas = createGas(ss, { FOD02_ID: 'FODID' }, { books: { FODID: fodBook } });
+  const c = call({ action: 'catalog' });
+  const docs = c.fod.docs;
+  assert.strictEqual(docs.length, 709, 'códigos distintos (S12p y S12P son el mismo)');
+  const by = (code) => docs.find(d => d[0] === code);
+  assert.strictEqual(by('KIR-COMR-RELEVAMIENTO')[1], '4');
+  assert.strictEqual(by('KIR-COMR-IS-SAN-P03')[1], '11');
+  assert.strictEqual(by('KIR-COMR-REF-ESTR-S12P')[1], '7');
+  assert.strictEqual(by('KIR-COMR-REF-ESTR-S12P')[7], 'si');
+  assert.ok(docs[0][5] >= docs[docs.length - 1][5], 'ordenados por fecha descendente');
+  assert.ok(!c.categorias.some(x => x.sheet === 'FOD-02'));
+});
+
+test('fotos: se guardan en Drive, se anotan en la fila y no se duplican', () => {
+  const c10 = cat('10', call({ action: 'catalog' }));
+  const r = c10.registros[0];
+  const it = r.items[3];
+  const op = { id: 'op-foto1', op: 'photo', sheet: '10', h: r.h, sig: r.sig, off: it[0], criterio: c10.crit[it[1]][3], tarea: c10.crit[it[1]][1],
+    mime: 'image/jpeg', data: Buffer.from('jpegdata').toString('base64'), by: 'FC' };
+  const res = call({ action: 'batch', ops: [op] });
+  assert.ok(res.results[0].ok, JSON.stringify(res.results[0]));
+  assert.ok(/drive.google.com/.test(res.results[0].url));
+  const row = r.h + it[0];
+  assert.ok(ss.getSheetByName('10').notes.get(`${row},12`).includes(res.results[0].url), 'nota en OBSERVACIONES');
+  const nr = cat('10', res).registros[0];
+  assert.strictEqual(nr.fotos[it[0]].length, 1);
+  const again = call({ action: 'batch', ops: [op] });
+  assert.ok(again.results[0].dup);
+  assert.strictEqual(again.results[0].url, res.results[0].url);
+  assert.strictEqual(cat('10', again).registros[0].fotos[it[0]].length, 1);
+  const drive = gas.__drive;
+  assert.strictEqual(Object.values(drive.byId).reduce((a, f) => a + f.files.length, 0), 1);
+});
+
+test('foto de un registro creado offline (ref al alta)', () => {
+  const res = call({ action: 'batch', ops: [
+    { id: 'op-c9', op: 'create', sheet: '44', header: { elemento: 'Viguetas 3P' }, items: {} }
+  ] });
+  assert.ok(res.results[0].ok);
+  const c44 = cat('44', res);
+  const nr = c44.registros.slice(-1)[0];
+  const it = nr.items[0];
+  const res2 = call({ action: 'batch', ops: [{ id: 'op-f9', op: 'photo', sheet: '44', ref: 'op-c9', off: it[0], criterio: c44.crit[it[1]][3], data: 'AAAA' }] });
+  assert.ok(res2.results[0].ok, JSON.stringify(res2.results[0]));
+  assert.strictEqual(cat('44', res2).registros.slice(-1)[0].fotos[it[0]].length, 1);
+});
+
 test('errores: hoja inexistente y clave', () => {
   const res = call({ action: 'batch', ops: [{ id: 'op-8', op: 'create', sheet: 'DATOS', items: {} }] });
   assert.ok(!res.results[0].ok);
   assert.strictEqual(res.results[0].code, 'not_found');
   gas = createGas(ss, { PIE_TOKEN: 'secreto' });
+  assert.ok(call({ action: 'catalog', token: 'secreto' }).fod.aviso, 'sin FOD vinculado avisa');
   assert.strictEqual(call({ action: 'catalog' }).code, 'auth');
   assert.ok(call({ action: 'catalog', token: 'secreto' }).ok);
 });

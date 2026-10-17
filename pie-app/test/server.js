@@ -1,13 +1,14 @@
 // Servidor de prueba: sirve la PWA (app/) y simula la web app de Apps Script
 // en otro puerto, ejecutando Code.gs sobre el libro exportado a JSON.
-// Uso: node test/server.js <wb.json> [puertoApp]
+// Uso: node test/server.js <wb.json> [puertoApp] [fod.json]
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { loadWorkbook, createGas } = require('./fake-gas');
 
 const ss = loadWorkbook(process.argv[2]);
-const gas = createGas(ss, { PIE_TOKEN: process.env.PIE_TOKEN || '' });
+const books = process.argv[4] ? { FODID: loadWorkbook(process.argv[4]) } : {};
+const gas = createGas(ss, { PIE_TOKEN: process.env.PIE_TOKEN || '', FOD02_ID: process.argv[4] ? 'FODID' : '' }, { books });
 const PORT = Number(process.argv[3] || 8080);
 const appDir = path.join(__dirname, '../app');
 const types = { '.html': 'text/html', '.js': 'text/javascript', '.webmanifest': 'application/manifest+json', '.svg': 'image/svg+xml', '.png': 'image/png' };
@@ -30,7 +31,10 @@ const api = http.createServer((req, res) => {
     const rows = [];
     for (let r = from; r <= to; r++) { const row = []; for (let c = 1; c <= 15; c++) { const cell = sh.cell(r, c); row.push(cell ? (cell.d || cell.f || cell.v) : ''); } rows.push(row); }
     res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-    return res.end(JSON.stringify({ rows, hidden: sh.hidden, lastRow: sh.getLastRow() }));
+    const notes = {};
+    for (const [k, v] of sh.notes) { const r = Number(k.split(',')[0]); if (r >= from && r <= to) notes[k] = v; }
+    const files = Object.values(gas.__drive.byId).reduce((a, f) => a + f.files.length, 0);
+    return res.end(JSON.stringify({ rows, hidden: sh.hidden, lastRow: sh.getLastRow(), notes, files }));
   }
   if (req.method === 'GET') return send(gas.doGet({ parameter: Object.fromEntries(u.searchParams) }));
   let body = '';

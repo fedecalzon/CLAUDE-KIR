@@ -8,6 +8,10 @@
  *  - Crea un bloque nuevo copiando formato, combinaciones y validaciones del
  *    bloque modelo y lo ubica debajo del último bloque de la hoja.
  *  - Actualiza DOCUMENTO / FECHA / RESP. / ESTADO / FUM N° / OBSERVACIONES.
+ *  - Lista los documentos del FOD 02 (sólo la última revisión de cada código)
+ *    para elegir el DOCUMENTO contra el que se controla.
+ *  - Guarda fotos de control en Drive y las vincula a la fila (nota en la celda
+ *    de OBSERVACIONES + índice en la hoja oculta _PIE_FOTOS).
  *  - Expone una API JSON (doGet/doPost) y sirve la app (Index.html).
  *
  * Las operaciones llegan en lotes desde la cola offline del celular y son
@@ -16,9 +20,12 @@
  */
 
 var PIE = {
-  VERSION: '1.0.0',
+  VERSION: '1.1.0',
   DATOS_SHEET: 'DATOS',
   LOG_SHEET: '_PIE_LOG',
+  FOTOS_SHEET: '_PIE_FOTOS',
+  FOD_SHEET: 'FOD-02',   // pestaña del Registro de Control y Distribución de Documentos
+  FOTOS_FOLDER_NAME: 'PIE - Fotos de control',
   DATE_FORMAT: 'dd/mm/yy',
   MAX_COLS: 30,          // columnas a leer por hoja (los bloques usan A:O)
   HEADER_LOOKBACK: 7,    // filas por encima de TAREA donde buscar el encabezado
@@ -48,6 +55,7 @@ function onOpen() {
     .addItem('Abrir carga PIE (panel)', 'abrirPanel')
     .addSeparator()
     .addItem('Configurar clave de acceso', 'configurarClave')
+    .addItem('Vincular FOD 02 (registro de documentos)', 'vincularFod02')
     .addItem('Ver enlace de la app', 'verEnlace')
     .addToUi();
 }
@@ -68,6 +76,28 @@ function configurarClave() {
   var v = r.getResponseText().trim();
   if (v) props.setProperty('PIE_TOKEN', v); else props.deleteProperty('PIE_TOKEN');
   ui.alert(v ? 'Clave guardada.' : 'Clave eliminada: la API queda abierta a quien tenga el enlace.');
+}
+
+function vincularFod02() {
+  var ui = SpreadsheetApp.getUi();
+  var props = PropertiesService.getScriptProperties();
+  var actual = props.getProperty('FOD02_ID');
+  var r = ui.prompt('FOD 02',
+    'Pegá el enlace de la Hoja de cálculo de Google del FOD 02 (Registro de Control y Distribución de Documentos).\n' +
+    'Vacío = usar una pestaña "' + PIE.FOD_SHEET + '" dentro de esta misma planilla.' +
+    (actual ? '\nVinculado ahora: ' + actual : ''), ui.ButtonSet.OK_CANCEL);
+  if (r.getSelectedButton() !== ui.Button.OK) return;
+  var v = r.getResponseText().trim();
+  var m = /\/d\/([a-zA-Z0-9_-]{20,})/.exec(v);
+  var id = m ? m[1] : v;
+  if (!id) { props.deleteProperty('FOD02_ID'); ui.alert('Se usará la pestaña ' + PIE.FOD_SHEET + ' de esta planilla.'); return; }
+  try {
+    var fod = parseFod_(readValues_(fodSheet_(SpreadsheetApp.openById(id))));
+    props.setProperty('FOD02_ID', id);
+    ui.alert('FOD 02 vinculado: ' + fod.docs.length + ' documentos (última revisión de cada código).');
+  } catch (err) {
+    ui.alert('No se pudo abrir el FOD 02: ' + err.message);
+  }
 }
 
 function verEnlace() {
@@ -155,15 +185,18 @@ function handle_(req) {
 
 function catalog_(ss) {
   var cats = [];
+  var fotos = readFotosIndex_(ss);
   ss.getSheets().forEach(function (sh) {
     if (!isCategorySheet_(sh.getName())) return;
-    cats.push(readCategory_(sh));
+    var cat = readCategory_(sh, fotos);
+    if (cat.registros.length) cats.push(cat);
   });
   return {
     ok: true,
     version: PIE.VERSION,
     generado: new Date().toISOString(),
     datos: readDatos_(ss),
+    fod: readFodSafe_(ss),
     categorias: cats
   };
 }
@@ -180,17 +213,18 @@ function batch_(ss, ops) {
         if (!op || !op.id) throw pieError_('Operación sin id', 'bad_request');
         var prev = findLog_(log, op.id);
         if (prev) {
-          results.push({ id: op.id, ok: true, dup: true, sheet: prev.sheet, h: prev.h });
+          results.push({ id: op.id, ok: true, dup: true, sheet: prev.sheet, h: prev.h, url: prev.url });
           touched[prev.sheet] = true;
           return;
         }
         var res;
         if (op.op === 'create') res = opCreate_(ss, op);
         else if (op.op === 'update') res = opUpdate_(ss, log, op);
+        else if (op.op === 'photo') res = opPhoto_(ss, log, op);
         else throw pieError_('Operación desconocida: ' + op.op, 'bad_request');
-        log.appendRow([op.id, new Date(), op.op, op.sheet, res.h, op.by || '', res.warnings ? res.warnings.join(' | ') : '']);
+        log.appendRow([op.id, new Date(), op.op, op.sheet, res.h, op.by || '', res.warnings ? res.warnings.join(' | ') : '', res.url || '']);
         touched[op.sheet] = true;
-        results.push({ id: op.id, ok: true, sheet: op.sheet, h: res.h, warnings: res.warnings || [] });
+        results.push({ id: op.id, ok: true, sheet: op.sheet, h: res.h, url: res.url, warnings: res.warnings || [] });
       } catch (err) {
         results.push({ id: op && op.id, ok: false, error: String(err.message || err), code: err.code || 'error' });
       }
@@ -199,8 +233,9 @@ function batch_(ss, ops) {
   } finally {
     lock.releaseLock();
   }
+  var fotos = readFotosIndex_(ss);
   var cats = Object.keys(touched).map(function (name) {
-    return readCategory_(ss.getSheetByName(name));
+    return readCategory_(ss.getSheetByName(name), fotos);
   });
   return { ok: true, results: results, categorias: cats };
 }
@@ -210,7 +245,7 @@ function batch_(ss, ops) {
 /* ------------------------------------------------------------------ */
 
 function isCategorySheet_(name) {
-  return name !== PIE.DATOS_SHEET && name.charAt(0) !== '_';
+  return name !== PIE.DATOS_SHEET && name !== PIE.FOD_SHEET && name.charAt(0) !== '_';
 }
 
 function sheetOrThrow_(ss, name) {
@@ -231,9 +266,75 @@ function readValues_(sh) {
   });
 }
 
-function readCategory_(sh) {
+function readCategory_(sh, fotos) {
   var parsed = parseSheet_(readValues_(sh));
-  return toClientCategory_(sh.getName(), parsed, sh.isSheetHidden());
+  return toClientCategory_(sh.getName(), parsed, sh.isSheetHidden(), (fotos || {})[sh.getName()]);
+}
+
+/* ---------- FOD 02 ---------- */
+
+function fodSheet_(book) {
+  var sh = book.getSheetByName(PIE.FOD_SHEET);
+  if (sh) return sh;
+  // si la pestaña tiene otro nombre, la que tenga la columna "CÓDIGO DEL DOCUMENTO/PLANO"
+  var all = book.getSheets();
+  for (var i = 0; i < all.length; i++) {
+    var head = all[i].getRange(1, 1, Math.min(30, Math.max(1, all[i].getLastRow())), Math.min(20, Math.max(1, all[i].getLastColumn()))).getValues();
+    if (head.some(function (row) { return row.some(function (v) { return key_(v).indexOf('CODIGO DEL DOCUMENTO') === 0; }); })) return all[i];
+  }
+  throw pieError_('No se encontró la pestaña del FOD 02', 'config');
+}
+
+function readFodSafe_(ss) {
+  var id = PropertiesService.getScriptProperties().getProperty('FOD02_ID');
+  try {
+    var book = id ? SpreadsheetApp.openById(id) : ss;
+    if (!id && !book.getSheetByName(PIE.FOD_SHEET)) return { docs: [], aviso: 'FOD 02 sin vincular (menú PIE › Vincular FOD 02)' };
+    return parseFod_(readValues_(fodSheet_(book)));
+  } catch (err) {
+    return { docs: [], aviso: 'No se pudo leer el FOD 02: ' + err.message };
+  }
+}
+
+/* ---------- Fotos ---------- */
+
+function fotosSheet_(ss) {
+  var sh = ss.getSheetByName(PIE.FOTOS_SHEET);
+  if (!sh) {
+    sh = ss.insertSheet(PIE.FOTOS_SHEET);
+    sh.appendRow(['fecha', 'planilla', 'fila_tarea', 'offset', 'fila', 'criterio', 'elemento', 'inspector', 'archivo_id', 'enlace']);
+    sh.hideSheet();
+  }
+  return sh;
+}
+
+/** { planilla: { filaTarea: { offset: [[id, url], ...] } } } */
+function readFotosIndex_(ss) {
+  var sh = ss.getSheetByName(PIE.FOTOS_SHEET);
+  var out = {};
+  if (!sh || sh.getLastRow() < 2) return out;
+  sh.getRange(2, 1, sh.getLastRow() - 1, 10).getValues().forEach(function (r) {
+    var s = String(r[1]), h = Number(r[2]), off = Number(r[3]);
+    if (!s || !h) return;
+    out[s] = out[s] || {};
+    out[s][h] = out[s][h] || {};
+    (out[s][h][off] = out[s][h][off] || []).push([String(r[8]), String(r[9])]);
+  });
+  return out;
+}
+
+function photoFolder_(ss, sheetName, title) {
+  var props = PropertiesService.getScriptProperties();
+  var root = null;
+  var id = props.getProperty('PIE_FOTOS_FOLDER');
+  if (id) { try { root = DriveApp.getFolderById(id); } catch (e) { root = null; } }
+  if (!root) {
+    root = DriveApp.getRootFolder().createFolder(PIE.FOTOS_FOLDER_NAME + ' - ' + ss.getName());
+    props.setProperty('PIE_FOTOS_FOLDER', root.getId());
+  }
+  var name = sheetName + ' - ' + (title || '').slice(0, 60);
+  var it = root.getFoldersByName(name);
+  return it.hasNext() ? it.next() : root.createFolder(name);
 }
 
 function readDatos_(ss) {
@@ -266,14 +367,24 @@ function opCreate_(ss, op) {
   copyRowHeights_(sh, base.startRow, start, height);
 
   var nb = shiftBlock_(base, start - base.startRow);
-  writeHeader_(sh, nb, op.header || {}, true);
-  var warnings = writeItems_(sh, nb, op.items || {}, true);
+  var warnings;
+  try {
+    withoutValidation_(sh, nb.startRow, nb.endRow, function () {
+      writeHeader_(sh, nb, op.header || {}, true);
+      warnings = writeItems_(sh, nb, op.items || {}, true);
+    });
+  } catch (err) {
+    // no dejar un bloque a medio crear: el reintento lo volvería a agregar
+    dst.clear();
+    dst.clearDataValidations();
+    dst.breakApart();
+    throw err;
+  }
   if (sh.isSheetHidden()) sh.showSheet();
   return { h: nb.tareaRow, warnings: warnings };
 }
 
-function opUpdate_(ss, log, op) {
-  var sh = sheetOrThrow_(ss, op.sheet);
+function resolveBlock_(sh, log, op) {
   var parsed = parseSheet_(readValues_(sh));
   var h = op.h;
   if (!h && op.ref) {
@@ -283,9 +394,64 @@ function opUpdate_(ss, log, op) {
   }
   var blk = locateBlock_(parsed.blocks, h, op.sig, op.elemento);
   if (!blk) throw pieError_('No se encontró el registro (¿se movieron filas en la planilla?)', 'conflict');
-  if (op.header) writeHeader_(sh, blk, op.header, false);
-  var warnings = op.items ? writeItems_(sh, blk, op.items, false) : [];
+  return { blk: blk, title: parsed.title };
+}
+
+function opUpdate_(ss, log, op) {
+  var sh = sheetOrThrow_(ss, op.sheet);
+  var blk = resolveBlock_(sh, log, op).blk;
+  var warnings = [];
+  withoutValidation_(sh, blk.startRow, blk.endRow, function () {
+    if (op.header) writeHeader_(sh, blk, op.header, false);
+    if (op.items) warnings = writeItems_(sh, blk, op.items, false);
+  });
   return { h: blk.tareaRow, warnings: warnings };
+}
+
+function opPhoto_(ss, log, op) {
+  if (!op.data) throw pieError_('La foto llegó vacía', 'bad_request');
+  var sh = sheetOrThrow_(ss, op.sheet);
+  var found = resolveBlock_(sh, log, op);
+  var blk = found.blk;
+  var warnings = [];
+  var req = {};
+  req[op.off] = { criterio: op.criterio, tarea: op.tarea };
+  var offs = Object.keys(resolveItemOffsets_(blk, req, warnings));
+  if (!offs.length) throw pieError_('No se encontró el control de la foto en la planilla', 'conflict');
+  var off = Number(offs[0]);
+  var row = blk.tareaRow + off;
+  var item = blk.items.filter(function (it) { return it.off === off; })[0] || {};
+  var tz = Session.getScriptTimeZone();
+  var stamp = Utilities.formatDate(new Date(), tz, 'yyyyMMdd-HHmmss');
+  var name = [op.sheet, 'F' + row, (blk.header.elemento || '').replace(/[\\/:*?"<>|]/g, ' ').slice(0, 40), stamp].join('_') + '.jpg';
+  var blob = Utilities.newBlob(Utilities.base64Decode(op.data), op.mime || 'image/jpeg', name);
+  var file = photoFolder_(ss, op.sheet, found.title).createFile(blob);
+  file.setDescription('PIE planilla ' + op.sheet + ' fila ' + row + ' · ' + (item.criterio || '') + ' · ' + (op.by || ''));
+  var url = file.getUrl();
+  var cell = sh.getRange(row, blk.cols.obs || blk.cols.estado || blk.cols.criterio);
+  var note = cell.getNote();
+  cell.setNote((note ? note + '\n' : '') + 'Foto ' + Utilities.formatDate(new Date(), tz, 'dd/MM/yy') + ': ' + url);
+  fotosSheet_(ss).appendRow([new Date(), op.sheet, blk.tareaRow, off, row, item.criterio || '', blk.header.elemento || '', op.by || '', file.getId(), url]);
+  return { h: blk.tareaRow, url: url, warnings: warnings };
+}
+
+/**
+ * Las planillas traen validaciones en modo "rechazar" con listas cortas
+ * (ESTADO sólo admite DATOS!J15 = "AP"; RESPONSABLE sólo 3 nombres), lo que
+ * hacía fallar la carga con "los datos de la celda X infringen las reglas de
+ * validación". Se quitan mientras escribe el script y se restauran tal cual.
+ */
+function withoutValidation_(sh, r0, r1, fn) {
+  var rng = sh.getRange(r0, 1, r1 - r0 + 1, Math.min(sh.getMaxColumns(), PIE.MAX_COLS));
+  var rules = rng.getDataValidations();
+  var any = rules.some(function (row) { return row.some(function (x) { return !!x; }); });
+  if (!any) return fn();
+  rng.clearDataValidations();
+  try {
+    return fn();
+  } finally {
+    rng.setDataValidations(rules);
+  }
 }
 
 function writeHeader_(sh, blk, header, clearMissing) {
@@ -371,7 +537,7 @@ function logSheet_(ss) {
   var sh = ss.getSheetByName(PIE.LOG_SHEET);
   if (!sh) {
     sh = ss.insertSheet(PIE.LOG_SHEET);
-    sh.appendRow(['op_id', 'fecha', 'accion', 'planilla', 'fila_tarea', 'inspector', 'avisos']);
+    sh.appendRow(['op_id', 'fecha', 'accion', 'planilla', 'fila_tarea', 'inspector', 'avisos', 'enlace']);
     sh.hideSheet();
   }
   return sh;
@@ -380,8 +546,8 @@ function logSheet_(ss) {
 function findLog_(log, id) {
   var hit = log.getRange('A:A').createTextFinder(String(id)).matchEntireCell(true).findNext();
   if (!hit) return null;
-  var row = log.getRange(hit.getRow(), 1, 1, 5).getValues()[0];
-  return { sheet: String(row[3]), h: Number(row[4]) };
+  var row = log.getRange(hit.getRow(), 1, 1, 8).getValues()[0];
+  return { sheet: String(row[3]), h: Number(row[4]), url: String(row[7] || '') };
 }
 
 function columnLetter_(c) {
@@ -684,7 +850,7 @@ function rubroOf_(sheetName) {
  * por planilla (crit) y cada ítem de registro los referencia por índice.
  * Ítem: [offset, idxCriterio, documento, fecha, resp, estado, fum, obs]
  */
-function toClientCategory_(name, parsed, hidden) {
+function toClientCategory_(name, parsed, hidden, fotos) {
   var dict = {};
   var crit = [];
   var critIndex = function (it) {
@@ -707,6 +873,7 @@ function toClientCategory_(name, parsed, hidden) {
       etapa: b.header.etapa,
       elemento: b.header.elemento,
       cols: FILL_FIELDS.filter(function (f) { return !!b.cols[f]; }),
+      fotos: (fotos || {})[b.tareaRow] || {},
       items: b.items.map(function (it) {
         return [it.off, critIndex(it), it.documento, it.fecha, it.resp, it.estado, it.fum, it.obs];
       })
@@ -749,6 +916,68 @@ function parseDatos_(values) {
   return out;
 }
 
+/** Orden de revisiones: numéricas por valor; letras (A, B…) antes que los números. */
+function revRank_(v) {
+  var t = txt_(v).toUpperCase().replace(/^REV\.?\s*|^R/, '');
+  if (t === '') return [-1, 0];
+  if (/^\d+(\.\d+)?$/.test(t)) return [1, Number(t)];
+  return [0, t];
+}
+
+function revCompare_(a, b) {
+  var x = revRank_(a), y = revRank_(b);
+  if (x[0] !== y[0]) return x[0] - y[0];
+  return x[1] < y[1] ? -1 : x[1] > y[1] ? 1 : 0;
+}
+
+/**
+ * FOD 02: devuelve sólo la última revisión de cada código de documento.
+ * Doc: [codigo, rev, detalle, categoria, piso, fecha, estado, vigente, emitido, fila]
+ */
+function parseFod_(values) {
+  var hdr = -1, cols = {};
+  for (var i = 0; i < Math.min(values.length, 40) && hdr < 0; i++) {
+    values[i].forEach(function (v, j) {
+      var k = key_(v);
+      if (k.indexOf('CODIGO DEL DOCUMENTO') === 0) { hdr = i; cols.codigo = j; }
+    });
+  }
+  if (hdr < 0) return { docs: [], aviso: 'El FOD 02 no tiene la columna "CÓDIGO DEL DOCUMENTO/PLANO"' };
+  values[hdr].forEach(function (v, j) {
+    var k = key_(v);
+    var set = function (f) { if (cols[f] == null) cols[f] = j; };
+    if (k.indexOf('REV') >= 0 && k.indexOf('NO') === 0) set('rev');
+    else if (k.indexOf('DETALLE') === 0) set('detalle');
+    else if (k.indexOf('SUB') === 0) set('sub');
+    else if (k.indexOf('CATERGORIA') === 0 || k.indexOf('CATEGORIA') === 0) set('categoria');
+    else if (k.indexOf('NIVEL') === 0 || k === 'PISO') set('piso');
+    else if (k === 'FECHA') set('fecha');
+    else if (k === 'ESTADO') set('estado');
+    else if (k === 'VIGENTE') set('vigente');
+    else if (k.indexOf('EMITIDO') === 0) set('emitido');
+  });
+  var g = function (row, f) { return cols[f] == null ? '' : txt_(row[cols[f]]); };
+  var best = {};
+  var order = [];
+  for (var r = hdr + 1; r < values.length; r++) {
+    var row = values[r];
+    var code = g(row, 'codigo');
+    if (!code) continue;
+    var k = key_(code);
+    var rev = cols.rev == null ? '' : row[cols.rev];
+    var cur = best[k];
+    if (!cur) order.push(k);
+    if (!cur || revCompare_(rev, cur.rev) >= 0) best[k] = { rev: rev, row: row, r: r + 1 };
+  }
+  var docs = order.map(function (k) {
+    var b = best[k];
+    return [g(b.row, 'codigo'), txt_(b.rev), g(b.row, 'detalle'), g(b.row, 'categoria') || g(b.row, 'sub'), g(b.row, 'piso'),
+      g(b.row, 'fecha'), g(b.row, 'estado'), g(b.row, 'vigente'), g(b.row, 'emitido'), b.r];
+  });
+  docs.sort(function (a, b) { return a[5] < b[5] ? 1 : a[5] > b[5] ? -1 : b[9] - a[9]; });
+  return { docs: docs };
+}
+
 if (typeof module !== 'undefined') {
-  module.exports = { parseSheet_: parseSheet_, parseDatos_: parseDatos_, toClientCategory_: toClientCategory_ };
+  module.exports = { parseSheet_: parseSheet_, parseDatos_: parseDatos_, toClientCategory_: toClientCategory_, parseFod_: parseFod_ };
 }

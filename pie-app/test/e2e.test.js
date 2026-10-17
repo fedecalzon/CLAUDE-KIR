@@ -47,6 +47,15 @@ const sheetRows = (name, from, to) => fetch(`http://localhost:8081/__sheet?name=
   await page.fill('input[name=piso]', '5P');
   await page.fill('input[name=sector]', 'Núcleo A');
   await page.fill('input[name=etapa]', '1');
+  // documento desde el FOD 02 (sólo última revisión)
+  await page.click('button[data-act=docpick][data-target=new]');
+  await page.waitForSelector('#modal .doc');
+  await page.fill('#modal input[data-input=docq]', 'REF-ESTR-S12');
+  await page.waitForSelector('#modal .doc:has-text("Rev 7")');
+  assert.strictEqual(await page.$$eval('#modal [data-act=pickdoc]', n => n.length), 1, 'un solo resultado por código');
+  await shot('05a-fod02');
+  await page.click('#modal [data-act=pickdoc]');
+  assert.strictEqual(await page.inputValue('input[name=documento]'), 'KIR-COMR-REF-ESTR-S12P-R07');
   await page.fill('input[name=documento]', 'KIR-COMR-EST-P05-R00');
   await shot('05-nuevo');
   await page.click('button[type=submit]');
@@ -66,6 +75,11 @@ const sheetRows = (name, from, to) => fetch(`http://localhost:8081/__sheet?name=
   await page.locator('.item >> nth=1 >> [data-field=obs]').blur();
   await page.click('.item >> nth=1 >> button:has-text("Listo")');
   await page.click('.item >> nth=2 >> button[data-st=na]');
+  // foto de control sin señal (queda en el celular)
+  await page.click('.item >> nth=2 >> button[data-act=more]');
+  await page.setInputFiles('.item >> nth=2 >> input[data-photo][multiple]', { name: 'control.png', mimeType: 'image/png', buffer: require('fs').readFileSync(__dirname + '/../app/icon-192.png') });
+  await page.waitForSelector('.item >> nth=2 >> .thumbs .t img');
+  await page.click('.item >> nth=2 >> button:has-text("Listo")');
   await shot('06-checklist-offline');
   const pending = await page.textContent('.net');
   assert.ok(/Offline · \d+ sin enviar/.test(pending), pending);
@@ -90,6 +104,10 @@ const sheetRows = (name, from, to) => fetch(`http://localhost:8081/__sheet?name=
   assert.strictEqual(String(rows.rows[7][10]), '45');
   assert.strictEqual(rows.rows[7][11], 'Recubrimiento insuficiente');
   assert.strictEqual(rows.rows[8][7], 'NA');
+  await page.waitForFunction(() => !document.querySelector('.thumbs .t i'), null, { timeout: 20000 }).catch(() => {});
+  const withNote = await sheetRows('6', T + 3, T + 3);
+  assert.ok(Object.values(withNote.notes).some(n => /Foto .*drive\.google\.com/.test(n)), 'foto subida y anotada: ' + JSON.stringify(withNote.notes));
+  assert.strictEqual(withNote.files, 1);
 
   // 6. Editar un registro ya sincronizado (online)
   await page.click('.item >> nth=3 >> button[data-st=ap]');
