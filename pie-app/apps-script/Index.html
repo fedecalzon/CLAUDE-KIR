@@ -1511,7 +1511,16 @@
     }
     if (f.id === 'cfgForm') {
       ev.preventDefault();
-      if (f.apiUrl) S.settings.apiUrl = f.apiUrl.value.trim();
+      if (f.apiUrl) {
+        var u = f.apiUrl.value.trim();
+        if (u && !/^https:\/\/script\.google\.com\/.*\/exec(\?.*)?$/.test(u)) {
+          toast(/docs\.google\.com\/spreadsheets/.test(u)
+            ? 'Ese es el enlace de la planilla. Va el de la web app: Apps Script › Implementar › Administrar implementaciones (termina en /exec)'
+            : 'La URL tiene que ser la de la web app de Apps Script y terminar en /exec', 7000);
+          return;
+        }
+        S.settings.apiUrl = u;
+      }
       S.settings.token = f.token.value.trim();
       saveSettings();
       toast('Probando conexión…');
