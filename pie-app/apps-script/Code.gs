@@ -22,12 +22,13 @@
  */
 
 var PIE = {
-  VERSION: '1.2.0',
+  VERSION: '1.3.0',
   DATOS_SHEET: 'DATOS',
   LOG_SHEET: '_PIE_LOG',
   FOTOS_SHEET: '_PIE_FOTOS',
   FOD_SHEET: 'FOD-02',   // pestaña del Registro de Control y Distribución de Documentos
-  FUM_SHEET: 'FUM - Rechazos',
+  FUM_SHEET: '_PIE_FUM',          // índice interno (oculto) de las FUM abiertas desde la app
+  FUM_SHEET_OLD: 'FUM - Rechazos', // nombre de la v1.2, se migra solo
   FOTOS_FOLDER_NAME: 'PIE - Fotos de control',
   DATE_FORMAT: 'dd/mm/yy',
   MAX_COLS: 30,          // columnas a leer por hoja (los bloques usan A:O)
@@ -53,7 +54,11 @@ var WRITE_FIELDS = FILL_FIELDS.concat(['instrumento']);
 
 var FUM_HEAD = ['N° FUM', 'Fecha apertura', 'Planilla', 'Categoría', 'Fila PIE', 'Elemento', 'Piso', 'Sector', 'Tarea',
   'Criterio', 'Observación', 'Acción correctiva', 'Reinspección prevista', 'Detectado por', 'Estado', 'Fecha cierre',
-  'Cerrado por', 'Resultado / nota', 'fila_tarea', 'offset'];
+  'Cerrado por', 'Resultado / nota', 'fila_tarea', 'offset', 'Acción inmediata', 'Fila FOG 01'];
+
+// valores de las listas del FOG 01
+var FOG_ORIGEN = 'Inspección Interna';
+var FOG_ACCIONES = ['Reparar', 'Recambio', 'Recalificar', 'Dejar como esta'];
 
 /* ------------------------------------------------------------------ */
 /*  Menú, panel lateral y web app                                       */
@@ -66,6 +71,7 @@ function onOpen() {
     .addSeparator()
     .addItem('Configurar clave de acceso', 'configurarClave')
     .addItem('Vincular FOD 02 (registro de documentos)', 'vincularFod02')
+    .addItem('Vincular FOG 01 (FUM - formulario de mejoras)', 'vincularFog01')
     .addItem('Ver enlace de la app', 'verEnlace')
     .addToUi();
 }
@@ -194,8 +200,46 @@ function convertedCopy_(file) {
  */
 function autorizar() {
   SpreadsheetApp.getActiveSpreadsheet().getName();
-  DriveApp.getRootFolder().getName();
-  try { SpreadsheetApp.getUi().alert('Permisos OK. Ya podés usar el menú PIE.'); } catch (e) { Logger.log('Permisos OK'); }
+  // prueba de escritura: es lo que necesitan las fotos
+  var tmp = DriveApp.getRootFolder().createFolder('PIE - prueba de permisos');
+  tmp.setTrashed(true);
+  try { SpreadsheetApp.getUi().alert('Permisos OK (planillas y Google Drive). Ahora publicá una nueva versión: Implementar › Administrar implementaciones › ✏️ › Nueva versión.'); } catch (e) { Logger.log('Permisos OK'); }
+}
+
+function vincularFog01() {
+  var ui = SpreadsheetApp.getUi();
+  var actual = PropertiesService.getScriptProperties().getProperty('FOG01_ID');
+  var r = ui.prompt('Vincular FOG 01',
+    'Pegá el enlace del FOG 01 (Formulario Único de Mejoras) convertido a Hoja de cálculo de Google.\n' +
+    'Las FUM de los controles rechazados se van a registrar ahí, con su número correlativo.\n' +
+    'Escribí "quitar" para dejar de usarlo.' +
+    (actual ? '\n\nVinculado ahora: https://docs.google.com/spreadsheets/d/' + actual : ''), ui.ButtonSet.OK_CANCEL);
+  if (r.getSelectedButton() !== ui.Button.OK) return;
+  var res = linkFog_(r.getResponseText());
+  ui.alert(res.ok ? 'FOG 01 vinculado' : 'No se pudo vincular el FOG 01', res.msg, ui.ButtonSet.OK);
+}
+
+function linkFog_(text) {
+  var props = PropertiesService.getScriptProperties();
+  var v = String(text || '').trim();
+  if (/^quitar$/i.test(v)) { props.deleteProperty('FOG01_ID'); return { ok: true, msg: 'Se dejó de usar el FOG 01.' }; }
+  if (/sharepoint\.com|onedrive|1drv\.ms|office\.com|live\.com/i.test(v)) {
+    return { ok: false, msg: 'Ese enlace es de SharePoint/OneDrive. Subí el FOG 01 a Google Drive, convertilo (Archivo › Guardar como Hojas de cálculo de Google) y pegá ese enlace.' };
+  }
+  var id = extractDriveId_(v);
+  if (!id) return { ok: false, msg: 'No reconozco ese enlace. Tiene que ser https://docs.google.com/spreadsheets/d/…/edit' };
+  try {
+    var book;
+    try { book = SpreadsheetApp.openById(id); } catch (e) {
+      throw pieError_('No pude abrirlo como Hoja de cálculo de Google. Si es el .xlsx, convertilo primero (Archivo › Guardar como Hojas de cálculo de Google). Detalle: ' + e.message, 'config');
+    }
+    var fog = fogInfo_(book);
+    props.setProperty('FOG01_ID', id);
+    return { ok: true, msg: 'Archivo: ' + book.getName() + '\nPestaña: ' + fog.sh.getName() + '\nÚltima FUM cargada: N° ' + fog.maxNum +
+      '\nLa próxima que se abra desde la app será la N° ' + (fog.maxNum + 1) + '.' };
+  } catch (err) {
+    return { ok: false, msg: String(err.message || err) };
+  }
 }
 
 function verEnlace() {
@@ -348,7 +392,8 @@ function batch_(ss, ops) {
 /* ------------------------------------------------------------------ */
 
 function isCategorySheet_(name) {
-  return name !== PIE.DATOS_SHEET && name !== PIE.FOD_SHEET && name !== PIE.FUM_SHEET && name.charAt(0) !== '_';
+  return name !== PIE.DATOS_SHEET && name !== PIE.FOD_SHEET && name !== PIE.FUM_SHEET_OLD && name.charAt(0) !== '_' &&
+    !/^F\.?U\.?M\b/i.test(name);
 }
 
 function sheetOrThrow_(ss, name) {
@@ -530,7 +575,16 @@ function opPhoto_(ss, log, op) {
   var stamp = Utilities.formatDate(new Date(), tz, 'yyyyMMdd-HHmmss');
   var name = [op.sheet, 'F' + row, (blk.header.elemento || '').replace(/[\\/:*?"<>|]/g, ' ').slice(0, 40), stamp].join('_') + '.jpg';
   var blob = Utilities.newBlob(Utilities.base64Decode(op.data), op.mime || 'image/jpeg', name);
-  var file = photoFolder_(ss, op.sheet, found.title).createFile(blob);
+  var file;
+  try {
+    file = photoFolder_(ss, op.sheet, found.title).createFile(blob);
+  } catch (err) {
+    if (/permiso|permission|autoriz|authoriz/i.test(String(err.message))) {
+      throw pieError_('Falta el permiso de Google Drive para guardar fotos. En Apps Script elegí la función "autorizar", tocá Ejecutar y aceptá; ' +
+        'después Implementar › Administrar implementaciones › ✏️ › Nueva versión. Luego tocá Reintentar.', 'auth_drive');
+    }
+    throw err;
+  }
   file.setDescription('PIE planilla ' + op.sheet + ' fila ' + row + ' · ' + (item.criterio || '') + ' · ' + (op.by || ''));
   var url = file.getUrl();
   var cell = sh.getRange(row, blk.cols.obs || blk.cols.estado || blk.cols.criterio);
@@ -541,26 +595,155 @@ function opPhoto_(ss, log, op) {
 }
 
 /* ---------- FUM: no conformidades de controles rechazados ---------- */
+/*
+ * Cada FUM queda en dos lugares:
+ *  - el FOG 01 (Formulario Único de Mejoras), si está vinculado: una fila nueva
+ *    con el formato de las anteriores, numeración correlativa del FOG;
+ *  - el índice oculto _PIE_FUM de esta planilla, que guarda a qué control del
+ *    PIE corresponde cada número (el FOG no tiene dónde anotarlo).
+ */
 
 function fumSheet_(ss) {
   var sh = ss.getSheetByName(PIE.FUM_SHEET);
   if (!sh) {
-    sh = ss.insertSheet(PIE.FUM_SHEET);
-    sh.appendRow(FUM_HEAD);
-    sh.getRange(1, 1, 1, FUM_HEAD.length).setFontWeight('bold').setBackground('#1d3557').setFontColor('#ffffff');
-    sh.setFrozenRows(1);
-    sh.hideColumns(FUM_HEAD.length - 1, 2);
+    sh = ss.getSheetByName(PIE.FUM_SHEET_OLD);   // migración de la v1.2
+    if (sh) sh.setName(PIE.FUM_SHEET);
+    else { sh = ss.insertSheet(PIE.FUM_SHEET); sh.appendRow(FUM_HEAD); }
+    sh.getRange(1, 1, 1, FUM_HEAD.length).setValues([FUM_HEAD]);
+    sh.hideSheet();
   }
   return sh;
 }
 
-/** [num, planilla, filaTarea, offset, apertura, estado, plazo, accion, elemento, criterio, obs, cierre, resultado, detectado, piso] */
+/** Datos del FOG 01 vinculado: hoja, columnas por rótulo, fila de encabezado, leyenda y último N°. */
+function fogInfo_(book) {
+  var sheets = book.getSheets();
+  for (var i = 0; i < sheets.length; i++) {
+    var sh = sheets[i];
+    var lr = Math.max(1, sh.getLastRow()), lc = Math.max(1, sh.getLastColumn());
+    var head = sh.getRange(1, 1, Math.min(lr, 30), Math.min(lc, 60)).getValues();
+    var hr = -1;
+    head.forEach(function (row, r) { row.forEach(function (v) { if (hr < 0 && key_(v).indexOf('DESCRIPCION DEL DESVIO') === 0) hr = r; }); });
+    if (hr < 0) continue;
+    var cols = {};
+    var set = function (f, c) { if (!cols[f]) cols[f] = c + 1; };
+    // rótulos de la fila de encabezado y la anterior (N°, Cliente, Obra, N C, A C)
+    [hr - 1, hr, hr + 1].forEach(function (r) {
+      if (r < 0 || r >= head.length) return;
+      head[r].forEach(function (v, c) {
+        var k = key_(v);
+        if (k === 'N°' || k === 'NO' || k === 'N') set('num', c);
+        else if (k.indexOf('CLIENTE') === 0) set('cliente', c);
+        else if (k === 'OBRA') set('obra', c);
+        else if (k === 'N C') set('nc', c);
+        else if (k === 'A C') set('ac', c);
+        else if (k.indexOf('ORIGEN DEL DESVIO') === 0) set('origen', c);
+        else if (k.indexOf('PROCESOS INVOLUCRADOS') === 0 || k === 'INTERNOS') set('procesos', c);
+        else if (k === 'PROVEEDOR') set('proveedor', c);
+        else if (k.indexOf('DESCRIPCION DEL DESVIO') === 0) set('desc', c);
+        else if (k.indexOf('QUIEN REGISTRO') === 0) set('quien', c);
+        else if (k === 'ACCION INMEDIATA') set('accionInm', c);
+        else if (k.indexOf('DESCRIPCION DE LA ACCION INMEDIATA') === 0) set('descAccion', c);
+        else if (k.indexOf('CIERRE DE LA ACCION INMEDIATA') === 0) set('cierre', c);
+      });
+    });
+    // columnas que se repiten: la primera después de su referencia
+    var after = function (label, ref) {
+      for (var c = (cols[ref] || 1); c < head[hr].length; c++) if (key_(head[hr][c]).indexOf(label) === 0) return c + 1;
+      return null;
+    };
+    cols.fecha = after('FECHA', 'origen');
+    cols.plazo = after('PLAZO', 'descAccion');
+    cols.resp = after('RESPONSABLE', 'descAccion');
+    cols.fechaCierre = after('FECHA', 'cierre');
+    if (!cols.num || !cols.desc) throw pieError_('El FOG 01 no tiene las columnas N° y Descripción del Desvío', 'config');
+    var values = sh.getRange(1, 1, lr, Math.min(lc, 60)).getValues();
+    var legend = 0, last = hr + 1, maxNum = 0;
+    for (var r = hr + 1; r < values.length; r++) {
+      var row = values[r];
+      if (cols.origen && key_(row[cols.origen - 1]) === 'ORIGEN') { legend = r + 1; break; }
+      var n = Number(row[cols.num - 1]);
+      if (row[cols.num - 1] !== '' && !isNaN(n) && n > maxNum) maxNum = n;
+      if (txt_(row[cols.num - 1]) !== '' || txt_(row[cols.desc - 1]) !== '') last = r + 1;
+    }
+    return { book: book, sh: sh, cols: cols, headerEnd: hr + 2, legend: legend, last: last, maxNum: maxNum, values: values };
+  }
+  throw pieError_('No encontré en ese archivo la planilla del FOG 01 (columna "Descripción del Desvío")', 'config');
+}
+
+function fogLinked_() {
+  var id = PropertiesService.getScriptProperties().getProperty('FOG01_ID');
+  return id ? fogInfo_(SpreadsheetApp.openById(id)) : null;
+}
+
+/** Agrega la FUM al FOG 01 con el formato de la fila anterior. Devuelve el N° de fila. */
+function fogAppend_(fog, d) {
+  var sh = fog.sh, c = fog.cols;
+  var width = sh.getLastColumn();
+  var target = fog.last + 1;
+  // dejar al menos una fila libre antes de la leyenda (ORIGEN / ACCION INMEDIATA)
+  if (fog.legend && target > fog.legend - 2) {
+    sh.insertRowAfter(fog.last);
+  }
+  if (fog.last >= fog.headerEnd) {
+    var src = sh.getRange(fog.last, 1, 1, width);
+    var dst = sh.getRange(target, 1, 1, width);
+    src.copyTo(dst, SpreadsheetApp.CopyPasteType.PASTE_FORMAT, false);
+    src.copyTo(dst, SpreadsheetApp.CopyPasteType.PASTE_DATA_VALIDATION, false);
+    sh.setRowHeight(target, sh.getRowHeight(fog.last));
+  }
+  var prev = fog.last >= fog.headerEnd ? fog.values[fog.last - 1] : [];
+  var put = function (key, v) { if (c[key]) sh.getRange(target, c[key]).setValue(v); };
+  withoutValidation_(sh, target, target, function () {
+    put('num', d.num);
+    put('cliente', prev[c.cliente - 1] || '');
+    put('obra', prev[c.obra - 1] || d.obra || '');
+    put('nc', 1);
+    put('ac', 1);
+    put('origen', FOG_ORIGEN);
+    put('procesos', 'Producción');
+    put('proveedor', 'NA');
+    put('fecha', d.fecha);
+    put('desc', d.desc);
+    put('quien', d.quien);
+    put('accionInm', d.accionInm);
+    put('descAccion', d.descAccion);
+    put('plazo', d.plazoDias === '' ? '' : d.plazoDias);
+    put('resp', d.quien);
+  }, width);
+  return target;
+}
+
+/** Busca la fila del FOG con ese N° (primero en la fila guardada, si no por número). */
+function fogRowOf_(fog, num, hint) {
+  var c = fog.cols.num;
+  if (hint && Number(fog.values[hint - 1] && fog.values[hint - 1][c - 1]) === Number(num)) return hint;
+  for (var r = fog.values.length; r > fog.headerEnd - 1; r--) {
+    if (Number(fog.values[r - 1][c - 1]) === Number(num)) return r;
+  }
+  return 0;
+}
+
+/** [num, planilla, filaTarea, offset, apertura, estado, plazo, accion, elemento, criterio, obs, cierre, resultado, detectado, piso, accionInmediata] */
 function readFums_(ss) {
-  var sh = ss.getSheetByName(PIE.FUM_SHEET);
+  var sh = ss.getSheetByName(PIE.FUM_SHEET) || ss.getSheetByName(PIE.FUM_SHEET_OLD);
   if (!sh || sh.getLastRow() < 2) return [];
+  var fog = null;
+  try { fog = fogLinked_(); } catch (e) { fog = null; }
   return readValues_(sh).slice(1).filter(function (r) { return r[0] !== '' && r[0] != null; }).map(function (r) {
-    return [Number(r[0]), String(r[2]), Number(r[18]), Number(r[19]), txt_(r[1]), txt_(r[14]), txt_(r[12]), txt_(r[11]),
-      txt_(r[5]), txt_(r[9]), txt_(r[10]), txt_(r[15]), txt_(r[17]), txt_(r[13]), txt_(r[6])];
+    var f = [Number(r[0]), String(r[2]), Number(r[18]), Number(r[19]), txt_(r[1]), txt_(r[14]), txt_(r[12]), txt_(r[11]),
+      txt_(r[5]), txt_(r[9]), txt_(r[10]), txt_(r[15]), txt_(r[17]), txt_(r[13]), txt_(r[6]), txt_(r[20])];
+    // si la acción inmediata se cerró a mano en el FOG 01, se refleja en la app
+    if (fog && f[5] === 'Abierta' && fog.cols.fechaCierre) {
+      var fr = fogRowOf_(fog, f[0], Number(r[21]) || 0);
+      var cierre = fr ? fog.values[fr - 1][fog.cols.fechaCierre - 1] : '';
+      if (cierre) {
+        f[5] = 'Cerrada';
+        f[11] = Object.prototype.toString.call(cierre) === '[object Date]' ? Utilities.formatDate(cierre, Session.getScriptTimeZone(), 'yyyy-MM-dd') : txt_(cierre);
+        f[12] = txt_(fog.values[fr - 1][(fog.cols.cierre || 1) - 1]) || 'Cerrada en el FOG 01';
+      }
+    }
+    return f;
   });
 }
 
@@ -570,8 +753,8 @@ function fumRow_(sh, num) {
   return hit ? hit.getRow() : 0;
 }
 
-function nextFumNumber_(sh) {
-  var max = 0;
+function nextFumNumber_(sh, fog) {
+  var max = fog ? fog.maxNum : 0;
   if (sh.getLastRow() >= 2) {
     sh.getRange(2, 1, sh.getLastRow() - 1, 1).getValues().forEach(function (r) {
       var n = Number(r[0]);
@@ -582,16 +765,25 @@ function nextFumNumber_(sh) {
   return Math.max(max + 1, inicio);
 }
 
+function daysBetween_(a, b) {
+  var m1 = /^(\d{4})-(\d{2})-(\d{2})$/.exec(a || ''), m2 = /^(\d{4})-(\d{2})-(\d{2})$/.exec(b || '');
+  if (!m1 || !m2) return '';
+  return Math.round((Date.UTC(+m2[1], m2[2] - 1, +m2[3]) - Date.UTC(+m1[1], m1[2] - 1, +m1[3])) / 86400000);
+}
+
 function opFum_(ss, log, op) {
   var fsh = fumSheet_(ss);
   var tz = Session.getScriptTimeZone();
+  var hoy = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+  var fog = fogLinked_();   // si está vinculado y no abre, que falle y se reintente
+  var warnings = [];
+  var accionInm = FOG_ACCIONES.indexOf(op.accionInmediata) >= 0 ? op.accionInmediata : 'Reparar';
   if (op.accion === 'abrir') {
     var sh = sheetOrThrow_(ss, op.sheet);
     var found = resolveBlock_(sh, log, op);
     var blk = found.blk;
     var req = {};
     req[op.off] = { criterio: op.criterio, tarea: op.tarea };
-    var warnings = [];
     var offs = Object.keys(resolveItemOffsets_(blk, req, warnings));
     if (!offs.length) throw pieError_('No se encontró el control rechazado en la planilla', 'conflict');
     var off = Number(offs[0]);
@@ -601,10 +793,22 @@ function opFum_(ss, log, op) {
       return f[1] === String(op.sheet) && f[2] === blk.tareaRow && f[3] === off && f[5] === 'Abierta';
     })[0];
     if (open) return { h: blk.tareaRow, fum: open[0], warnings: ['Ya existía la FUM ' + open[0]] };
-    var num = nextFumNumber_(fsh);
-    fsh.appendRow([num, new Date(), String(op.sheet), found.title, blk.tareaRow + off, blk.header.elemento || '',
-      blk.header.piso || '', blk.header.sector || '', item.tarea || '', item.criterio || '', op.obs || item.obs || '',
-      op.accionCorrectiva || '', toCellValue_('fecha', op.plazo || ''), op.by || '', 'Abierta', '', '', '', blk.tareaRow, off]);
+    var num = nextFumNumber_(fsh, fog);
+    var hd = blk.header;
+    var obs = op.obs || item.obs || '';
+    var desc = 'Control PIE (FOP 01) rechazado – Planilla ' + op.sheet + ' ' + found.title + ' – ' + (hd.elemento || 'sin elemento') +
+      (hd.piso ? ' – Piso ' + hd.piso : '') + (hd.sector ? ' – ' + hd.sector : '') + ' – ' + (item.tarea ? item.tarea + ': ' : '') +
+      '"' + (item.criterio || '') + '"' + (obs ? '. Obs.: ' + obs : '') + ' (fila ' + (blk.tareaRow + off) + ' del PIE).';
+    var fogRow = '';
+    if (fog) {
+      fogRow = fogAppend_(fog, {
+        num: num, fecha: toCellValue_('fecha', hoy), desc: desc, quien: op.by || '', accionInm: accionInm,
+        descAccion: op.accionCorrectiva || '', plazoDias: daysBetween_(hoy, op.plazo), obra: ''
+      });
+    }
+    fsh.appendRow([num, new Date(), String(op.sheet), found.title, blk.tareaRow + off, hd.elemento || '',
+      hd.piso || '', hd.sector || '', item.tarea || '', item.criterio || '', obs,
+      op.accionCorrectiva || '', toCellValue_('fecha', op.plazo || ''), op.by || '', 'Abierta', '', '', '', blk.tareaRow, off, accionInm, fogRow]);
     var w = {};
     w[off] = { criterio: item.criterio, fum: String(num) };
     withoutValidation_(sh, blk.startRow, blk.endRow, function () { writeItems_(sh, blk, w, false); });
@@ -617,22 +821,38 @@ function opFum_(ss, log, op) {
     n = Number(created.url);
   }
   var row = fumRow_(fsh, n);
-  if (!row) throw pieError_('No se encontró la FUM ' + n + ' en la hoja ' + PIE.FUM_SHEET, 'conflict');
+  if (!row) throw pieError_('No se encontró la FUM ' + n, 'conflict');
   var col = function (name) { return FUM_HEAD.indexOf(name) + 1; };
+  var idx = fsh.getRange(row, 1, 1, FUM_HEAD.length).getValues()[0];
+  var fr = fog ? fogRowOf_(fog, n, Number(idx[col('Fila FOG 01') - 1]) || 0) : 0;
+  var fput = function (key, v) { if (fr && fog.cols[key]) fog.sh.getRange(fr, fog.cols[key]).setValue(v); };
   if (op.accion === 'cerrar') {
-    fsh.getRange(row, col('Estado')).setValue(op.resultado === 'Anulada' ? 'Anulada' : 'Cerrada');
-    fsh.getRange(row, col('Fecha cierre')).setValue(toCellValue_('fecha', op.fecha || Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd')));
+    var fecha = op.fecha || hoy;
+    var anulada = op.resultado === 'Anulada';
+    fsh.getRange(row, col('Estado')).setValue(anulada ? 'Anulada' : 'Cerrada');
+    fsh.getRange(row, col('Fecha cierre')).setValue(toCellValue_('fecha', fecha));
     fsh.getRange(row, col('Cerrado por')).setValue(op.by || '');
     fsh.getRange(row, col('Resultado / nota')).setValue(op.resultado || '');
+    if (fr) withoutValidation_(fog.sh, fr, fr, function () {
+      fput('cierre', anulada ? 'Anulada desde la app PIE (' + (op.by || '') + ')' :
+        'Reinspección aprobada en el PIE (' + (op.resultado || 'AP') + ', ' + (op.by || '') + ')');
+      fput('fechaCierre', toCellValue_('fecha', fecha));
+    }, fog.sh.getLastColumn());
   } else if (op.accion === 'editar') {
+    var apertura = Object.prototype.toString.call(idx[1]) === '[object Date]' ? Utilities.formatDate(idx[1], tz, 'yyyy-MM-dd') : txt_(idx[1]);
     if (op.hasOwnProperty('accionCorrectiva')) fsh.getRange(row, col('Acción correctiva')).setValue(op.accionCorrectiva || '');
     if (op.hasOwnProperty('plazo')) fsh.getRange(row, col('Reinspección prevista')).setValue(toCellValue_('fecha', op.plazo || ''));
     if (op.hasOwnProperty('obs')) fsh.getRange(row, col('Observación')).setValue(op.obs || '');
+    if (op.hasOwnProperty('accionInmediata')) fsh.getRange(row, col('Acción inmediata')).setValue(accionInm);
+    if (fr) withoutValidation_(fog.sh, fr, fr, function () {
+      if (op.hasOwnProperty('accionCorrectiva')) fput('descAccion', op.accionCorrectiva || '');
+      if (op.hasOwnProperty('plazo')) fput('plazo', daysBetween_(apertura, op.plazo));
+      if (op.hasOwnProperty('accionInmediata')) fput('accionInm', accionInm);
+    }, fog.sh.getLastColumn());
   } else {
     throw pieError_('Acción de FUM desconocida: ' + op.accion, 'bad_request');
   }
-  var h = Number(fsh.getRange(row, col('fila_tarea')).getValue());
-  return { h: h, fum: n, sheet: String(fsh.getRange(row, col('Planilla')).getValue()) };
+  return { h: Number(idx[col('fila_tarea') - 1]), fum: n, sheet: String(idx[col('Planilla') - 1]) };
 }
 
 /**
@@ -641,8 +861,8 @@ function opFum_(ss, log, op) {
  * hacía fallar la carga con "los datos de la celda X infringen las reglas de
  * validación". Se quitan mientras escribe el script y se restauran tal cual.
  */
-function withoutValidation_(sh, r0, r1, fn) {
-  var rng = sh.getRange(r0, 1, r1 - r0 + 1, Math.min(sh.getMaxColumns(), PIE.MAX_COLS));
+function withoutValidation_(sh, r0, r1, fn, ncols) {
+  var rng = sh.getRange(r0, 1, r1 - r0 + 1, Math.min(sh.getMaxColumns(), ncols || PIE.MAX_COLS));
   var rules = rng.getDataValidations();
   var any = rules.some(function (row) { return row.some(function (x) { return !!x; }); });
   if (!any) return fn();

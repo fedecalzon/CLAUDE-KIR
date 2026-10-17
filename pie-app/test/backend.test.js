@@ -377,7 +377,7 @@ test('FUM: abrir al rechazar, número correlativo, editar y cerrar', () => {
   const g1 = res2.fums.find(f => f[0] === 1), g2 = res2.fums.find(f => f[0] === 2);
   assert.deepStrictEqual([g1[5], g1[11], g1[12]], ['Cerrada', '2026-10-20', 'Reinspección AP']);
   assert.deepStrictEqual([g2[5], g2[6], g2[7]], ['Abierta', '2026-10-30', 'Repicar']);
-  assert.ok(!call({ action: 'catalog' }).categorias.some(c => c.sheet === 'FUM - Rechazos'));
+  assert.ok(!call({ action: 'catalog' }).categorias.some(c => /FUM/.test(c.sheet)));
 });
 
 test('FUM de un registro creado offline (ref al alta en el mismo lote)', () => {
@@ -387,6 +387,79 @@ test('FUM de un registro creado offline (ref al alta en el mismo lote)', () => {
   ] });
   assert.ok(res.results.every(x => x.ok), JSON.stringify(res.results));
   assert.strictEqual(res.results[1].fum, 3);
+});
+
+test('FOG 01: la FUM se registra en el formulario de mejoras con su numeración', () => {
+  if (!process.argv[4]) { console.log('   (sin fog.json, se omite)'); return; }
+  const { loadWorkbook: lw } = require('./fake-gas');
+  const GID = 'FOGID000000000000000000001';
+  const fogBook = lw(process.argv[4]);
+  const props = {};
+  const g = createGas(ss, props, { books: { [GID]: fogBook }, files: {} });
+  const link = g.linkFog_(`https://docs.google.com/spreadsheets/d/${GID}/edit`);
+  assert.ok(link.ok, link.msg);
+  assert.ok(/Última FUM cargada: N° 3/.test(link.msg) && /N° 4/.test(link.msg), link.msg);
+  const fsh = fogBook.sheets[0];
+  const cell = (r, c) => { const x = fsh.cell(r, c); return x ? (x.d || x.v) : ''; };
+  fsh.fmt(17, 11).wrap = true; // formato de la última fila cargada
+  const c6 = cat('6', JSON.parse(JSON.stringify(g.api({ action: 'catalog' }))));
+  const r = c6.registros[1];
+  const it = r.items[2];
+  const res = JSON.parse(JSON.stringify(g.api({ action: 'batch', ops: [
+    { id: 'op-fog1', op: 'fum', accion: 'abrir', sheet: '6', h: r.h, sig: r.sig, off: it[0], criterio: c6.crit[it[1]][3],
+      obs: 'Faltan 5 cm', accionCorrectiva: 'Corregir encofrado', accionInmediata: 'Reparar', plazo: '2099-01-10', by: 'FC' }
+  ] })));
+  assert.ok(res.results[0].ok, JSON.stringify(res.results[0]));
+  const num = res.results[0].fum;
+  assert.ok(num >= 4, 'numeración a continuación del FOG: ' + num);
+  // fila 18: primera libre debajo de la última FUM (17), con el formato de la anterior
+  assert.strictEqual(cell(18, 1), num);
+  assert.strictEqual(cell(18, 2), 'Comafi');
+  assert.strictEqual(cell(18, 3), 'Comafi Reconquista');
+  assert.strictEqual(cell(18, 6), 'Inspección Interna');
+  assert.strictEqual(cell(18, 7), 'Producción');
+  assert.ok(/Control PIE \(FOP 01\) rechazado – Planilla 6/.test(cell(18, 11)) && /Faltan 5 cm/.test(cell(18, 11)), cell(18, 11));
+  assert.strictEqual(cell(18, 12), 'FC');
+  assert.strictEqual(cell(18, 13), 'Reparar');
+  assert.strictEqual(cell(18, 14), 'Corregir encofrado');
+  assert.ok(Number(cell(18, 15)) > 1000, 'plazo en días');
+  assert.ok(fsh.formats.get('18,11') && fsh.formats.get('18,11').copiedFrom === '17,11', 'formato copiado de la fila anterior');
+  assert.strictEqual(cell(30, 6), 'Auditoría', 'la leyenda no se tocó');
+  // cierre por reinspección: columnas "Cierre de la Acción Inmediata" y "Fecha"
+  const res2 = JSON.parse(JSON.stringify(g.api({ action: 'batch', ops: [
+    { id: 'op-fog2', op: 'fum', accion: 'cerrar', num, fecha: '2026-10-20', resultado: 'Reinspección AP', by: 'MP' }
+  ] })));
+  assert.ok(res2.results[0].ok, JSON.stringify(res2.results[0]));
+  assert.ok(/Reinspección aprobada en el PIE/.test(cell(18, 17)), cell(18, 17));
+  assert.strictEqual(cell(18, 18), '2026-10-20');
+  assert.strictEqual(res2.fums.find(f => f[0] === num)[5], 'Cerrada');
+  // cuando la tabla llega a la leyenda, inserta una fila en vez de pisarla
+  for (let k = 0; k < 12; k++) {
+    const rr = g.api({ action: 'batch', ops: [{ id: 'op-fogx' + k, op: 'fum', accion: 'abrir', sheet: '6', h: r.h, sig: r.sig,
+      off: r.items[3 + k][0], criterio: c6.crit[r.items[3 + k][1]][3], by: 'FC' }] });
+    assert.ok(rr.results[0].ok, JSON.stringify(rr.results[0]));
+  }
+  assert.ok(fsh.inserted >= 1, 'se insertaron filas antes de la leyenda');
+  const leg = [...fsh.cells.entries()].find(([k, v]) => v.v === 'Auditoría');
+  assert.ok(Number(leg[0].split(',')[0]) > 30, 'la leyenda se corrió hacia abajo');
+  // cierre manual en el FOG 01 se refleja en la app
+  const lastNum = num + 12;
+  const lastRow = [...fsh.cells.entries()].filter(([k, v]) => k.endsWith(',1') && v.v === lastNum)[0][0].split(',')[0];
+  fsh.put(Number(lastRow), 18, new Date('2026-10-21T00:00:00'));
+  const f = JSON.parse(JSON.stringify(g.api({ action: 'catalog' }))).fums.find(x => x[0] === lastNum);
+  assert.strictEqual(f[5], 'Cerrada');
+  assert.ok(!JSON.parse(JSON.stringify(g.api({ action: 'catalog' }))).categorias.some(c => /F\.U\.M/.test(c.sheet)));
+});
+
+test('foto sin permiso de Drive: mensaje con los pasos para autorizar (error reportado)', () => {
+  const g = createGas(ss, {});
+  const c10 = cat('10', JSON.parse(JSON.stringify(g.api({ action: 'catalog' }))));
+  const r = c10.registros[1];
+  const it = r.items[0];
+  g.DriveApp.getRootFolder().createFolder = () => { throw new Error('No tienes permiso para llamar a DriveApp.Folder.createFolder. Permisos necesarios: https://www.googleapis.com/auth/drive'); };
+  const res = JSON.parse(JSON.stringify(g.api({ action: 'batch', ops: [{ id: 'op-noauth', op: 'photo', sheet: '10', h: r.h, sig: r.sig, off: it[0], criterio: c10.crit[it[1]][3], data: 'AAAA' }] })));
+  assert.strictEqual(res.results[0].code, 'auth_drive');
+  assert.ok(/autorizar/.test(res.results[0].error) && /Nueva versión/.test(res.results[0].error), res.results[0].error);
 });
 
 test('errores: hoja inexistente y clave', () => {

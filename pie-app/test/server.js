@@ -1,6 +1,6 @@
 // Servidor de prueba: sirve la PWA (app/) y simula la web app de Apps Script
 // en otro puerto, ejecutando Code.gs sobre el libro exportado a JSON.
-// Uso: node test/server.js <wb.json> [puertoApp] [fod.json]
+// Uso: node test/server.js <wb.json> [puertoApp] [fod.json] [fog.json]
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -11,7 +11,9 @@ const books = process.argv[4] ? { FODID: loadWorkbook(process.argv[4]) } : {};
 const FODID = 'FODID0000000000000000000';
 if (process.argv[4]) { books[FODID] = books.FODID; delete books.FODID; }
 const files = { [FODID]: { mime: 'application/vnd.google-apps.spreadsheet', name: 'FOD-02 Rev. 3' } };
-const gas = createGas(ss, { PIE_TOKEN: process.env.PIE_TOKEN || '', FOD02_ID: process.argv[4] ? FODID : '' }, { books, files });
+const FOGID = 'FOGID000000000000000000001';
+if (process.argv[5]) books[FOGID] = loadWorkbook(process.argv[5]);
+const gas = createGas(ss, { PIE_TOKEN: process.env.PIE_TOKEN || '', FOD02_ID: process.argv[4] ? FODID : '', FOG01_ID: process.argv[5] ? FOGID : '' }, { books, files });
 const PORT = Number(process.argv[3] || 8080);
 const appDir = path.join(__dirname, '../app');
 const types = { '.html': 'text/html', '.js': 'text/javascript', '.webmanifest': 'application/manifest+json', '.svg': 'image/svg+xml', '.png': 'image/png' };
@@ -29,7 +31,7 @@ const api = http.createServer((req, res) => {
   const send = (out) => { res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }); res.end(out.getContent()); };
   if (req.method === 'OPTIONS') { res.writeHead(405); return res.end(); } // Apps Script no responde preflight
   if (u.pathname === '/__sheet') { // inspección para los tests
-    const sh = ss.getSheetByName(u.searchParams.get('name'));
+    const sh = u.searchParams.get('book') === 'fog' ? books[FOGID].sheets[0] : ss.getSheetByName(u.searchParams.get('name'));
     const from = Number(u.searchParams.get('from')), to = Number(u.searchParams.get('to'));
     const rows = [];
     for (let r = from; r <= to; r++) { const row = []; for (let c = 1; c <= 20; c++) { const cell = sh.cell(r, c); row.push(cell ? (cell.d || cell.f || cell.v) : ''); } rows.push(row); }

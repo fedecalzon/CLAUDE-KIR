@@ -6,7 +6,7 @@ const assert = require('assert');
 const APP = 'http://localhost:8080/';
 const API = 'http://localhost:8081/exec';
 const shots = process.argv[2] || '.';
-const sheetRows = (name, from, to) => fetch(`http://localhost:8081/__sheet?name=${encodeURIComponent(name)}&from=${from}&to=${to}`).then(r => r.json());
+const sheetRows = (name, from, to, book) => fetch(`http://localhost:8081/__sheet?name=${encodeURIComponent(name)}&from=${from}&to=${to}&book=${book || ''}`).then(r => r.json());
 
 (async () => {
   const browser = await chromium.launch();
@@ -107,11 +107,14 @@ const sheetRows = (name, from, to) => fetch(`http://localhost:8081/__sheet?name=
   assert.strictEqual(rows.rows[6][8], 'FC');
   assert.strictEqual(rows.rows[6][9], 'AP');
   assert.strictEqual(rows.rows[7][9], 'RZ');
-  assert.strictEqual(String(rows.rows[7][10]), '1', 'N° de FUM automático en la columna FUM N°');
-  const fumRows = await sheetRows('FUM - Rechazos', 1, 2);
+  assert.strictEqual(String(rows.rows[7][10]), '4', 'N° de FUM (sigue la numeración del FOG 01) en la columna FUM N°');
+  const fumRows = await sheetRows('_PIE_FUM', 1, 2);
   assert.deepStrictEqual([fumRows.rows[1][0], fumRows.rows[1][2], fumRows.rows[1][11], fumRows.rows[1][12], fumRows.rows[1][14]],
-    [1, '6', 'Rehacer recubrimiento', '2026-10-24', 'Abierta']);
-  await page.waitForSelector('.item >> nth=1 >> text=FUM 1 abierta');
+    [4, '6', 'Rehacer recubrimiento', '2026-10-24', 'Abierta']);
+  const fog = await sheetRows('', 18, 18, 'fog');
+  assert.deepStrictEqual([fog.rows[0][0], fog.rows[0][5], fog.rows[0][12], fog.rows[0][13]], [4, 'Inspección Interna', 'Reparar', 'Rehacer recubrimiento']);
+  assert.ok(/Recubrimiento insuficiente/.test(fog.rows[0][10]), fog.rows[0][10]);
+  await page.waitForSelector('.item >> nth=1 >> text=FUM 4 abierta');
   assert.strictEqual(rows.rows[7][11], 'Recubrimiento insuficiente');
   assert.strictEqual(rows.rows[8][7], 'NA');
   await page.waitForFunction(() => !document.querySelector('.thumbs .t i'), null, { timeout: 20000 }).catch(() => {});
@@ -147,8 +150,10 @@ const sheetRows = (name, from, to) => fetch(`http://localhost:8081/__sheet?name=
   // 6c. Reinspección: AP sobre el control rechazado cierra la FUM
   await page.click('.item >> nth=1 >> button[data-st=ap]');
   await page.waitForFunction(() => document.querySelector('.net').textContent.includes('Al día') && !document.getElementById('hdr').textContent.includes('cambios sin enviar'), null, { timeout: 20000 });
-  const fumRows2 = await sheetRows('FUM - Rechazos', 2, 2);
+  const fumRows2 = await sheetRows('_PIE_FUM', 2, 2);
   assert.deepStrictEqual([fumRows2.rows[0][14], fumRows2.rows[0][17]], ['Cerrada', 'Reinspección AP']);
+  const fog2 = await sheetRows('', 18, 18, 'fog');
+  assert.ok(/Reinspección aprobada en el PIE/.test(fog2.rows[0][16]) && /^\d{4}-\d{2}-\d{2}$/.test(fog2.rows[0][17]), JSON.stringify(fog2.rows[0].slice(15, 18)));
   const rows3 = await sheetRows('6', T + 6, T + 6);
   assert.strictEqual(rows3.rows[0][6], 'KIR-COMR-REF-ESTR-S12P-R07');
 

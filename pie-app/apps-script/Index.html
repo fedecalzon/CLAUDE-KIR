@@ -225,7 +225,7 @@
   var BOOT = window.PIE_BOOT || {};
   var IN_GAS = !!(window.google && google.script && google.script.run);
   var MODE = IN_GAS ? (BOOT.mode || 'webapp') : 'pwa';
-  var APP_VERSION = '1.2.0';
+  var APP_VERSION = '1.3.0';
   var ETAPAS = ['PRE', 'DURANTE', 'POST', 'DOC'];
   var FIELDS = ['documento', 'fecha', 'resp', 'estado', 'fum', 'obs', 'instrumento'];
 
@@ -790,13 +790,18 @@
     var estado = f.closing ? (f.closing.resultado === 'Anulada' ? 'Anulándose (sin enviar)' : 'Cerrándose (sin enviar)') : (s ? s[5] : 'Abierta');
     var src = f.pend || {};
     var accion = src.accionCorrectiva != null ? src.accionCorrectiva : (s ? s[7] : '');
+    var inm = src.accionInmediata != null ? src.accionInmediata : (s && s[15] ? s[15] : 'Reparar');
     var plazo = src.plazo != null ? src.plazo : (s ? s[6] : '');
     var ok = !f.open;
     var h = '<div class="fumbox' + (ok ? ' ok' : '') + '"><div class="flex"><b class="grow">' +
       (num ? 'FUM N° ' + num : 'FUM (se numera al sincronizar)') + '</b><span class="chip">' + esc(estado) + '</span></div>' +
       (s && s[4] ? '<div class="tiny muted">Abierta el ' + esc(fmtDate(s[4])) + (s[11] ? ' · cerrada el ' + esc(fmtDate(s[11])) : '') + (s[12] ? ' · ' + esc(s[12]) : '') + '</div>' : '');
     if (f.open) {
-      h += '<label class="f" style="margin-top:8px"><span>Acción correctiva</span><input class="in" data-fum="accionCorrectiva" value="' + esc(accion) + '"></label>' +
+      h += '<label class="f" style="margin-top:8px"><span>Acción inmediata</span><select class="in" data-fum="accionInmediata">' +
+        ['Reparar', 'Recambio', 'Recalificar', 'Dejar como esta'].map(function (x) {
+          return '<option' + (x === inm ? ' selected' : '') + '>' + esc(x) + '</option>';
+        }).join('') + '</select></label>' +
+        '<label class="f"><span>Descripción de la acción</span><input class="in" data-fum="accionCorrectiva" value="' + esc(accion) + '" placeholder="Qué se hace para corregirlo"></label>' +
         '<label class="f"><span>Reinspección prevista</span><input class="in" type="date" data-fum="plazo" value="' + esc(/^\d{4}-\d{2}-\d{2}$/.test(plazo) ? plazo : '') + '"></label>' +
         '<div class="tiny muted">Al marcar AP en la reinspección se cierra la FUM.</div>';
     }
@@ -853,7 +858,7 @@
             esc(f[9]) + '</div><div class="tiny muted">' + esc(f[5]) + (f[11] ? ' el ' + esc(fmtDate(f[11])) : '') + (f[12] ? ' · ' + esc(f[12]) : '') + '</div></div></div>';
         }).join('') + '</div></details>';
     }
-    html += '<p class="tiny muted" style="margin:16px 4px">Las FUM se guardan en la hoja “FUM - Rechazos” de la planilla. Se abren solas al marcar RZ y se cierran al marcar AP en la reinspección.</p>';
+    html += '<p class="tiny muted" style="margin:16px 4px">Las FUM se registran en el FOG 01 (Formulario Único de Mejoras) con su número correlativo. Se abren solas al marcar RZ y la acción inmediata se cierra al marcar AP en la reinspección. El análisis de causa y la verificación de eficacia se completan en el FOG 01.</p>';
     view.innerHTML = html;
   }
 
@@ -1579,7 +1584,7 @@
       patch = { estado: '', fecha: '', resp: '' };
     } else {
       if (st === 'rz') {
-        if (!f.open && !it.fum) queueFum(reg, it, { accion: 'abrir', obs: it.obs || '' });
+        if (!f.open && !it.fum) queueFum(reg, it, { accion: 'abrir', obs: it.obs || '', accionInmediata: 'Reparar' });
         S.ui.open[reg.key + ':' + off] = true;
       } else if (f.open) {
         // reinspección: AP / N/A sobre un control con FUM abierta la cierra

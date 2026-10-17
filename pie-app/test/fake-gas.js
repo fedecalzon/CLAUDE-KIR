@@ -66,8 +66,16 @@ class FakeRange {
     this.sheet.merges = this.sheet.merges.filter(m => !(m.r1 <= this.r + this.nr - 1 && m.r2 >= this.r && m.c1 <= this.c + this.nc - 1 && m.c2 >= this.c));
     return this;
   }
-  copyTo(dst) {
+  copyTo(dst, type) {
     const dr = dst.r - this.r;
+    if (type === 'PASTE_FORMAT' || type === 'PASTE_DATA_VALIDATION') {
+      this._each((r, c) => {
+        const k = `${r},${c}`, nk = `${r + dr},${c}`;
+        if (type === 'PASTE_FORMAT') { const f = this.sheet.formats.get(k); if (f) this.sheet.formats.set(nk, { ...f, copiedFrom: k }); }
+        else { const v = this.sheet.dv.get(k); if (v) this.sheet.dv.set(nk, v); else this.sheet.dv.delete(nk); }
+      });
+      return;
+    }
     const snap = [];
     this._each((r, c) => snap.push([r, c, this.sheet.cell(r, c), this.sheet.formats.get(`${r},${c}`), this.sheet.dv.get(`${r},${c}`)]));
     for (const [r, c, cell, f, dv] of snap) {
@@ -132,6 +140,14 @@ class FakeSheet {
   getMaxRows() { return this.maxRows; }
   getMaxColumns() { return this.maxCols; }
   insertRowsAfter(after, n) { if (after !== this.maxRows) throw new Error('solo se simula insertar al final'); this.maxRows += n; }
+  insertRowAfter(row) {
+    for (const m of [this.cells, this.formats, this.dv, this.notes]) {
+      const moved = [...m.entries()].filter(([k]) => Number(k.split(',')[0]) > row).sort((a, b) => Number(b[0].split(',')[0]) - Number(a[0].split(',')[0]));
+      for (const [k, v] of moved) { const [r, c] = k.split(',').map(Number); m.delete(k); m.set(`${r + 1},${c}`, v); }
+    }
+    this.maxRows += 1;
+    this.inserted = (this.inserted || 0) + 1;
+  }
   setRowHeight(r, h) { this.heights[r] = h; }
   getRowHeight(r) { return this.heights[r] || 21; }
   appendRow(arr) { const r = this.lastRow() + 1; arr.forEach((v, i) => this.put(r, i + 1, v)); }
@@ -202,6 +218,7 @@ class FakeFolder {
   constructor(name, drive) { this.name = name; this.drive = drive; this.id = 'fld' + (++drive.n); this.files = []; this.folders = []; drive.byId[this.id] = this; }
   getId() { return this.id; }
   getName() { return this.name; }
+  setTrashed(t) { this.trashed = t; }
   createFolder(n) { const f = new FakeFolder(n, this.drive); this.folders.push(f); return f; }
   getFoldersByName(n) { const l = this.folders.filter(f => f.name === n); let i = 0; return { hasNext: () => i < l.length, next: () => l[i++] }; }
   createFile(blob) {
@@ -231,7 +248,7 @@ function createGas(ss, props = {}, extra = {}) {
       getActiveSpreadsheet: () => ss,
       openById: (id) => { if (!extra.books || !extra.books[id]) throw new Error('No se encontró la hoja ' + id); return extra.books[id]; },
       flush() {},
-      CopyPasteType: { PASTE_NORMAL: 'PASTE_NORMAL' },
+      CopyPasteType: { PASTE_NORMAL: 'PASTE_NORMAL', PASTE_FORMAT: 'PASTE_FORMAT', PASTE_DATA_VALIDATION: 'PASTE_DATA_VALIDATION' },
       getUi() { throw new Error('sin UI'); }
     },
     LockService: { getDocumentLock: () => ({ tryLock: () => true, releaseLock() {} }) },
