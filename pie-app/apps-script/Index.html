@@ -199,6 +199,13 @@
   .thumbs .t i { position: absolute; right: 3px; bottom: 3px; font-style: normal; font-size: 11px; background: rgba(0,0,0,.6); color: #fff; border-radius: 6px; padding: 0 4px; }
   .file-btn { position: relative; overflow: hidden; text-align: center; }
   .file-btn input { position: absolute; inset: 0; opacity: 0; width: 100%; cursor: pointer; }
+  .warn { margin-top: 6px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .warn .chip { white-space: normal; }
+  .fumbox { margin: 4px 0 10px; padding: 10px; border-radius: 10px; background: var(--rz-bg); border: 1px solid transparent; }
+  .fumbox b { color: var(--rz); }
+  .fumbox.ok { background: var(--ap-bg); }
+  .fumbox.ok b { color: var(--ap); }
+  .fumrow .late { color: var(--rz); font-weight: 700; }
   .hl { animation: hl 1.4s ease-out; }
   @keyframes hl { from { background: #fff4c2; } }
 </style>
@@ -218,9 +225,9 @@
   var BOOT = window.PIE_BOOT || {};
   var IN_GAS = !!(window.google && google.script && google.script.run);
   var MODE = IN_GAS ? (BOOT.mode || 'webapp') : 'pwa';
-  var APP_VERSION = '1.1.0';
+  var APP_VERSION = '1.2.0';
   var ETAPAS = ['PRE', 'DURANTE', 'POST', 'DOC'];
-  var FIELDS = ['documento', 'fecha', 'resp', 'estado', 'fum', 'obs'];
+  var FIELDS = ['documento', 'fecha', 'resp', 'estado', 'fum', 'obs', 'instrumento'];
 
   /* ================================================================
    *  Almacenamiento local (IndexedDB con respaldo en localStorage)
@@ -606,6 +613,251 @@
   }
 
   /* ================================================================
+   *  Documento superado (cruce de la columna DOCUMENTO con el FOD 02)
+   * ================================================================ */
+  function normDoc(s) { return norm(s).toUpperCase().replace(/[^A-Z0-9°º]+/g, '-').replace(/^-+|-+$/g, ''); }
+  function revKey(v) {
+    var t = String(v == null ? '' : v).trim().toUpperCase();
+    if (t === '') return [-1, 0];
+    if (/^\d+(\.\d+)?$/.test(t)) return [1, Number(t)];
+    return [0, t];
+  }
+  function revCmp(a, b) {
+    var x = revKey(a), y = revKey(b);
+    if (x[0] !== y[0]) return x[0] - y[0];
+    return x[1] < y[1] ? -1 : x[1] > y[1] ? 1 : 0;
+  }
+  var docIdx = null;
+  function docIndex() {
+    var docs = fodDocs();
+    if (docIdx && docIdx.src === docs) return docIdx;
+    docIdx = {
+      src: docs, cache: {},
+      list: docs.map(function (d) { return { k: normDoc(d[0]), d: d }; })
+        .filter(function (x) { return x.k.length >= 4; })
+        .sort(function (a, b) { return b.k.length - a.k.length; })
+    };
+    return docIdx;
+  }
+  /** Documentos del FOD 02 citados en un texto de la columna DOCUMENTO, con la revisión usada. */
+  function docRefs(text) {
+    if (!text) return [];
+    var idx = docIndex();
+    if (idx.cache.hasOwnProperty(text)) return idx.cache[text];
+    var out = [];
+    String(text).split(/\/\/|;/).forEach(function (part) {
+      var n = normDoc(part);
+      if (!n) return;
+      for (var i = 0; i < idx.list.length; i++) {
+        var c = idx.list[i];
+        var p = n.indexOf(c.k);
+        if (p < 0 || (p > 0 && n.charAt(p - 1) !== '-')) continue;
+        var rest = n.slice(p + c.k.length);
+        if (rest && rest.charAt(0) !== '-') continue;
+        var m = /^-(?:REV-?|R)?([0-9]{1,3}|[A-Z])(?=-|$)/.exec(rest);
+        out.push({ doc: c.d, part: part, used: m ? (/^\d+$/.test(m[1]) ? String(Number(m[1])) : m[1]) : null });
+        break;
+      }
+    });
+    idx.cache[text] = out;
+    return out;
+  }
+  /**
+   * null | {level, ...}: 'bad' = se controló cuando ya regía una revisión más nueva;
+   * 'old' = control pendiente con documento superado; 'later' = la revisión nueva llegó después del control.
+   */
+  function docStatus(it) {
+    if (!it || !it.documento) return null;
+    var st = itemState(it);
+    if (st === 'na') return null;
+    var rank = { later: 0, old: 1, bad: 2 };
+    var worst = null;
+    docRefs(it.documento).forEach(function (r) {
+      if (r.used == null || revCmp(r.used, r.doc[1]) >= 0) return;
+      var level = 'old';
+      if (st === 'ap' || st === 'rz') {
+        var f = /^\d{4}-\d{2}-\d{2}$/.test(it.fecha) ? it.fecha : '';
+        var since = '';
+        (r.doc[10] || []).forEach(function (h) { if (revCmp(h[0], r.used) > 0 && h[1] && (!since || h[1] < since)) since = h[1]; });
+        level = f && since && since <= f ? 'bad' : 'later';
+      }
+      var x = { level: level, code: r.doc[0], used: r.used, latest: r.doc[1], ref: docRef(r.doc), fecha: r.doc[5] };
+      if (!worst || rank[level] > rank[worst.level]) worst = x;
+    });
+    return worst;
+  }
+  /** Reemplaza en el texto sólo la parte que cita ese código por la revisión vigente. */
+  function docUpgrade(text) {
+    var parts = String(text).split(/\/\//);
+    return parts.map(function (part) {
+      var r = docRefs(part)[0];
+      return r && r.used != null && revCmp(r.used, r.doc[1]) < 0 ? docRef(r.doc) : part.trim();
+    }).join(' // ');
+  }
+  function docWarnHtml(reg, it) {
+    var d = docStatus(it);
+    if (!d) return '';
+    if (d.level === 'bad') return '<div class="warn"><span class="chip rz">⚠ Controlado con R' + esc(d.used) + ' cuando ya regía la R' + esc(d.latest) + '</span></div>';
+    if (d.level === 'old') {
+      return '<div class="warn"><span class="chip pend">Documento superado · vigente R' + esc(d.latest) + (d.fecha ? ' (' + esc(fmtDate(d.fecha)) + ')' : '') + '</span>' +
+        '<button class="btn tiny" data-act="docupd" data-key="' + reg.key + '" data-off="' + it.off + '">Usar R' + esc(d.latest) + '</button></div>';
+    }
+    return '<div class="warn tiny muted">Hay una revisión posterior al control: R' + esc(d.latest) + '</div>';
+  }
+  function regDocAlerts(items) {
+    var n = { bad: 0, old: 0 };
+    items.forEach(function (it) { var d = docStatus(it); if (d && n.hasOwnProperty(d.level)) n[d.level]++; });
+    return n;
+  }
+  function rawItem(x) { return { documento: x[2], fecha: x[3], resp: x[4], estado: x[5] }; }
+
+  /* ================================================================
+   *  Instrumento con N° de serie (lista de DATOS)
+   * ================================================================ */
+  function needsSerial(s) { return /INDIQUE/i.test(s || ''); }
+  function instrBase(s) { return String(s || '').toUpperCase().split(/[(/]/)[0].trim(); }
+  function instrMemo(template) { return LS.get('instr.' + normDoc(template), ''); }
+  function instrSelect(reg, it) {
+    if (!it.instrumento || it.instrumento === 'NA') return '';
+    var all = (datos().instrumentos || []).filter(function (x) { return x && x !== 'NA'; });
+    var base = instrBase(it.instrumento);
+    var same = all.filter(function (x) { return instrBase(x) === base; });
+    var rest = all.filter(function (x) { return same.indexOf(x) < 0; });
+    var opt = function (x) { return '<option' + (x === it.instrumento ? ' selected' : '') + '>' + esc(x) + '</option>'; };
+    var cur = all.indexOf(it.instrumento) < 0 ? '<option selected>' + esc(it.instrumento) + '</option>' : '';
+    return '<label class="f"><span>Instrumento' + (needsSerial(it.instrumento) ? ' · elegí el N° de serie' : '') + '</span>' +
+      '<select class="in" data-field="instrumento">' + cur +
+      (same.length ? '<optgroup label="Mismo tipo">' + same.map(opt).join('') + '</optgroup>' : '') +
+      '<optgroup label="Otros">' + rest.map(opt).join('') + '</optgroup></select></label>';
+  }
+
+  /* ================================================================
+   *  FUM: no conformidades de los controles rechazados
+   * ================================================================ */
+  // f = [num, planilla, filaTarea, offset, apertura, estado, plazo, accion, elemento, criterio, obs, cierre, resultado, detectado, piso]
+  function fumsAll() { return (S.catalog && S.catalog.fums) || []; }
+  function itemFum(reg, it) {
+    var pend = S.queue.filter(function (o) { return o.op === 'fum' && o.accion === 'abrir' && o.off === it.off && opTargets(o, reg); })[0] || null;
+    var server = null;
+    if (!reg.pending) {
+      var list = fumsAll().filter(function (f) { return f[1] === reg.sheet && f[2] === reg.h && f[3] === it.off; });
+      server = list.filter(function (f) { return f[5] === 'Abierta'; })[0] || list[list.length - 1] || null;
+    }
+    var closing = S.queue.filter(function (o) {
+      return o.op === 'fum' && o.accion === 'cerrar' && ((server && o.num === server[0]) || (pend && o.ref === pend.id));
+    })[0] || null;
+    return { pend: pend, server: server, closing: closing, open: !!((pend || (server && server[5] === 'Abierta')) && !closing) };
+  }
+  function queueFum(reg, it, fields) {
+    var op = { id: uid(), op: 'fum', sheet: reg.sheet, off: it.off, criterio: it.criterio, tarea: it.tarea,
+      status: 'pending', createdAt: Date.now(), by: S.settings.inspector };
+    Object.keys(fields).forEach(function (k) { op[k] = fields[k]; });
+    if (op.accion === 'abrir') {
+      if (reg.pending) op.ref = reg.opId; else { op.h = reg.h; op.sig = reg.sig; op.elemento = reg.elemento; }
+    }
+    S.queue.push(op);
+    return op;
+  }
+  function dropOp(op) {
+    S.queue = S.queue.filter(function (o) { return o !== op && o.ref !== op.id; });
+  }
+  /** Cambios de acción correctiva / plazo / observación de la FUM del control. */
+  function editFum(reg, it, fields) {
+    var f = itemFum(reg, it);
+    if (f.pend && f.pend.status === 'pending') {
+      Object.keys(fields).forEach(function (k) { f.pend[k] = fields[k]; });
+    } else if (f.server || f.pend) {
+      var key = f.server ? { num: f.server[0] } : { ref: f.pend.id };
+      var op = S.queue.filter(function (o) {
+        return o.op === 'fum' && o.accion === 'editar' && o.status === 'pending' && (key.num ? o.num === key.num : o.ref === key.ref);
+      })[0];
+      if (!op) {
+        op = { id: uid(), op: 'fum', accion: 'editar', sheet: reg.sheet, status: 'pending', createdAt: Date.now(), by: S.settings.inspector };
+        if (key.num) op.num = key.num; else op.ref = key.ref;
+        S.queue.push(op);
+      }
+      Object.keys(fields).forEach(function (k) { op[k] = fields[k]; });
+    } else {
+      return;
+    }
+    queueChanged();
+  }
+  function fumBox(reg, it) {
+    var f = itemFum(reg, it);
+    if (!f.pend && !f.server) return '';
+    var s = f.server;
+    var num = s ? s[0] : null;
+    var estado = f.closing ? (f.closing.resultado === 'Anulada' ? 'Anulándose (sin enviar)' : 'Cerrándose (sin enviar)') : (s ? s[5] : 'Abierta');
+    var src = f.pend || {};
+    var accion = src.accionCorrectiva != null ? src.accionCorrectiva : (s ? s[7] : '');
+    var plazo = src.plazo != null ? src.plazo : (s ? s[6] : '');
+    var ok = !f.open;
+    var h = '<div class="fumbox' + (ok ? ' ok' : '') + '"><div class="flex"><b class="grow">' +
+      (num ? 'FUM N° ' + num : 'FUM (se numera al sincronizar)') + '</b><span class="chip">' + esc(estado) + '</span></div>' +
+      (s && s[4] ? '<div class="tiny muted">Abierta el ' + esc(fmtDate(s[4])) + (s[11] ? ' · cerrada el ' + esc(fmtDate(s[11])) : '') + (s[12] ? ' · ' + esc(s[12]) : '') + '</div>' : '');
+    if (f.open) {
+      h += '<label class="f" style="margin-top:8px"><span>Acción correctiva</span><input class="in" data-fum="accionCorrectiva" value="' + esc(accion) + '"></label>' +
+        '<label class="f"><span>Reinspección prevista</span><input class="in" type="date" data-fum="plazo" value="' + esc(/^\d{4}-\d{2}-\d{2}$/.test(plazo) ? plazo : '') + '"></label>' +
+        '<div class="tiny muted">Al marcar AP en la reinspección se cierra la FUM.</div>';
+    }
+    return h + '</div>';
+  }
+  /** FUM abiertas (servidor + pendientes de enviar) para el seguimiento. */
+  function openFums() {
+    var out = [];
+    fumsAll().forEach(function (f) {
+      if (f[5] !== 'Abierta') return;
+      if (S.queue.some(function (o) { return o.op === 'fum' && o.accion === 'cerrar' && o.num === f[0]; })) return;
+      out.push({ num: f[0], sheet: f[1], key: 'h' + f[2], off: f[3], apertura: f[4], plazo: f[6], accion: f[7], elemento: f[8], criterio: f[9], obs: f[10], por: f[13], piso: f[14] });
+    });
+    S.queue.forEach(function (o) {
+      if (o.op !== 'fum' || o.accion !== 'abrir') return;
+      if (S.queue.some(function (c) { return c.op === 'fum' && c.accion === 'cerrar' && c.ref === o.id; })) return;
+      var key = o.ref ? 'p' + o.ref : 'h' + o.h;
+      if (o.ref && S.resolved[o.ref]) key = 'h' + S.resolved[o.ref].h;
+      var c = pendingCreate(o.ref);
+      out.push({ num: null, sheet: o.sheet, key: key, off: o.off, apertura: '', plazo: o.plazo || '', accion: o.accionCorrectiva || '',
+        elemento: o.elemento || (c ? c.header.elemento : ''), criterio: o.criterio, obs: o.obs || '', por: o.by, pendiente: true });
+    });
+    return out;
+  }
+  function daysSince(d) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d || '')) return null;
+    return Math.round((new Date(today() + 'T00:00:00') - new Date(d + 'T00:00:00')) / 86400000);
+  }
+  function renderFum() {
+    renderTop('Rechazos · FUM', 'No conformidades de los controles');
+    var open = openFums().sort(function (a, b) { return String(a.apertura || '9').localeCompare(String(b.apertura || '9')); });
+    var t = today();
+    var row = function (f) {
+      var cat = category(f.sheet);
+      var late = f.plazo && f.plazo < t;
+      var d = daysSince(f.apertura);
+      return '<button class="row fumrow" data-act="gofum" data-sheet="' + esc(f.sheet) + '" data-key="' + esc(f.key) + '" data-off="' + f.off + '">' +
+        '<span class="num" style="background:var(--rz-bg);color:var(--rz)">' + (f.num != null ? esc(f.num) : '…') + '</span><span class="grow">' +
+        '<b>' + esc(f.elemento || 'Sin elemento') + '</b><span class="small">' + esc(f.criterio) + '</span>' +
+        '<span class="chips"><span class="chip">' + esc(f.sheet + ' · ' + (cat ? cat.titulo : '')) + '</span>' +
+        (d != null ? '<span class="chip">' + (d === 0 ? 'hoy' : 'hace ' + d + ' día' + (d === 1 ? '' : 's')) + '</span>' : '') +
+        (f.plazo ? '<span class="chip' + (late ? ' rz' : '') + '">' + (late ? 'Vencida · ' : 'Reinspección ') + esc(fmtDate(f.plazo)) + '</span>' : '') +
+        (f.pendiente ? '<span class="chip sync">Sin enviar</span>' : '') + '</span>' +
+        (f.accion ? '<span class="tiny muted">Acción: ' + esc(f.accion) + '</span>' : '') +
+        '</span><span class="chev">›</span></button>';
+    };
+    var closed = fumsAll().filter(function (f) { return f[5] !== 'Abierta'; }).slice(-40).reverse();
+    var html = '<h2 class="sec">Abiertas · ' + open.length + '</h2>' +
+      (open.length ? '<div class="list">' + open.map(row).join('') + '</div>' : '<div class="card pad small muted">No hay FUM abiertas.</div>');
+    if (closed.length) {
+      html += '<details class="hid"><summary><h2 class="sec">Cerradas / anuladas · ' + closed.length + ' ▾</h2></summary><div class="card">' +
+        closed.map(function (f) {
+          return '<div class="op"><div class="grow"><b class="small">FUM ' + esc(f[0]) + ' · ' + esc(f[8] || '') + '</b><div class="tiny muted">' +
+            esc(f[9]) + '</div><div class="tiny muted">' + esc(f[5]) + (f[11] ? ' el ' + esc(fmtDate(f[11])) : '') + (f[12] ? ' · ' + esc(f[12]) : '') + '</div></div></div>';
+        }).join('') + '</div></details>';
+    }
+    html += '<p class="tiny muted" style="margin:16px 4px">Las FUM se guardan en la hoja “FUM - Rechazos” de la planilla. Se abren solas al marcar RZ y se cierran al marcar AP en la reinspección.</p>';
+    view.innerHTML = html;
+  }
+
+  /* ================================================================
    *  Fotos de control
    * ================================================================ */
   function compressImage(file) {
@@ -754,11 +1006,14 @@
       }
     });
     LS.set('resolved', S.resolved);
+    if (res.fums && S.catalog) S.catalog.fums = res.fums;
+    var nuevas = res.results.filter(function (r) { return r.ok && !r.dup && r.fum != null; }).length;
     mergeCategories(res.categorias);
     saveQueue();
     if (errors.length) toast('No se pudo guardar: ' + errors[0], 6000);
     else if (created.length) toast(created.length === 1 ? 'Registro creado en la planilla' : created.length + ' registros creados');
     else if (photos) toast(photos === 1 ? 'Foto subida' : photos + ' fotos subidas');
+    else if (nuevas) toast('FUM actualizada en la planilla');
   }
   /** Sube las fotos pendientes de a una (cada una es una request chica). */
   function sendPhotos() {
@@ -911,6 +1166,7 @@
     if (r === '/') renderHome();
     else if (r === '/ajustes') renderSettings();
     else if (r === '/quien') renderWho();
+    else if (r === '/fum') renderFum();
     else if ((m = /^\/c\/([^/]+)$/.exec(r))) renderCategory(m[1]);
     else if ((m = /^\/c\/([^/]+)\/nuevo$/.exec(r))) renderNew(m[1]);
     else if ((m = /^\/c\/([^/]+)\/r\/([ph].+)$/.exec(r))) renderReg(m[1], m[2]);
@@ -933,6 +1189,12 @@
       groups[c.rubro].push(c);
     });
     var html = '<input class="search" type="search" placeholder="Buscar planilla (ej. hormigón, 28)" value="' + esc(S.ui.search) + '" data-input="search">';
+    var of = openFums();
+    var late = of.filter(function (f) { return f.plazo && f.plazo < today(); }).length;
+    html += '<div class="spacer"></div><button class="row" data-act="go" data-to="/fum"><span class="num" style="background:' + (of.length ? 'var(--rz-bg);color:var(--rz)' : 'var(--ap-bg);color:var(--ap)') + '">' + of.length + '</span>' +
+      '<span class="grow"><b>Rechazos · FUM abiertas</b><span class="chips">' +
+      (late ? '<span class="chip rz">' + late + ' con reinspección vencida</span>' : '<span class="chip">' + (of.length ? 'seguimiento de no conformidades' : 'sin rechazos pendientes') + '</span>') +
+      '</span></span><span class="chev">›</span></button>';
     if (!S.settings.inspector) {
       html += '<div class="spacer"></div><div class="note info">Elegí quién sos para completar automáticamente el responsable. <button class="btn" data-act="go" data-to="/quien">Elegir</button></div>';
     }
@@ -956,10 +1218,14 @@
     var inProgress = usedRegs.filter(function (r) {
       return r.items.some(function (x) { return !String(x[5]).trim() && String(x[3]).toUpperCase() !== 'NA'; });
     }).length;
+    var supers = usedRegs.filter(function (r) { var n = regDocAlerts(r.items.map(rawItem)); return n.bad || n.old; }).length;
+    var fumN = fumsAll().filter(function (f) { return f[1] === c.sheet && f[5] === 'Abierta'; }).length;
     return '<button class="row" data-act="go" data-to="/c/' + esc(c.sheet) + '">' +
       '<span class="num">' + esc(c.sheet) + '</span><span class="grow"><b>' + esc(c.titulo) + '</b>' +
       '<span class="chips"><span class="chip">' + used + ' registro' + (used === 1 ? '' : 's') + '</span>' +
       (inProgress && used ? '<span class="chip pend">' + inProgress + ' con pendientes</span>' : '') +
+      (fumN ? '<span class="chip rz">' + fumN + ' FUM abierta' + (fumN > 1 ? 's' : '') + '</span>' : '') +
+      (supers ? '<span class="chip rz">⚠ ' + supers + ' con doc. superado</span>' : '') +
       (local ? '<span class="chip sync">' + local + ' nuevo' + (local > 1 ? 's' : '') + ' sin enviar</span>' : '') +
       (c.oculta ? '<span class="chip">oculta</span>' : '') +
       '</span></span><span class="chev">›</span></button>';
@@ -999,6 +1265,7 @@
         (s.ap ? '<span class="chip ap">' + s.ap + ' AP</span>' : '') +
         (s.na ? '<span class="chip">' + s.na + ' N/A</span>' : '') +
         (r.pending ? '<span class="chip sync">Nuevo · sin enviar</span>' : (r.dirty ? '<span class="chip sync">Cambios sin enviar</span>' : '')) +
+        (function () { var n = regDocAlerts(r.items); return n.bad || n.old ? '<span class="chip rz">⚠ Doc. superado</span>' : ''; })() +
         '</span><span class="bar"><span class="ap" style="width:' + w(s.ap) + '"></span><span class="na" style="width:' + w(s.na) + '"></span><span class="rz" style="width:' + w(s.rz) + '"></span></span>' +
         '</span><span class="chev">›</span></button>';
     }).join('') + '</div>';
@@ -1163,6 +1430,18 @@
     html += '</div>';
     html += '<label class="f" style="margin:12px 0 0"><span>Documento al aprobar</span><span class="pick"><input class="in" data-input="docDefault" data-key="' + reg.key + '" value="' + esc(docDefault(reg)) + '" placeholder="Plano / documento de referencia">' +
       '<button type="button" class="btn" data-act="docpick" data-target="default" data-key="' + reg.key + '">FOD 02</button></span></label>';
+    var dd = docStatus({ documento: docDefault(reg), estado: '', fecha: '' });
+    if (dd && dd.level === 'old') {
+      html += '<div class="warn"><span class="chip pend">Documento superado · vigente R' + esc(dd.latest) + '</span>' +
+        '<button class="btn tiny" data-act="docdefupd" data-key="' + reg.key + '">Usar ' + esc(dd.ref) + '</button></div>';
+    }
+    var na = regDocAlerts(reg.items);
+    if (na.bad || na.old) {
+      html += '<div class="note err" style="margin-top:12px"><b>Documento superado (FOD 02).</b> ' +
+        (na.bad ? na.bad + ' control' + (na.bad > 1 ? 'es se controlaron' : ' se controló') + ' con una revisión que ya estaba reemplazada. ' : '') +
+        (na.old ? na.old + ' pendiente' + (na.old > 1 ? 's tienen' : ' tiene') + ' un documento superado.' : '') +
+        (na.old ? '<div class="flex" style="margin-top:8px"><button class="btn tiny" data-act="docupdall" data-key="' + reg.key + '">Actualizar pendientes a la revisión vigente</button></div>' : '') + '</div>';
+    }
     var errs = S.queue.filter(function (o) { return o.status === 'error' && (o.op === 'create' ? o.id === reg.opId : opTargets(o, reg)); });
     if (errs.length) {
       html += '<div class="note err" style="margin-top:12px"><b>No se pudo guardar en la planilla:</b> ' + esc(errs[0].error || 'error') +
@@ -1188,6 +1467,11 @@
       html += '</div>';
     });
     view.innerHTML = html;
+    if (S.ui.focus != null) {
+      var fe = document.getElementById('it-' + S.ui.focus);
+      S.ui.focus = null;
+      if (fe) { fe.scrollIntoView({ block: 'center' }); fe.classList.add('hl'); }
+    }
   }
   function headerForm(reg) {
     var names = datos().responsables.map(function (x) { return x.nombre; }).concat(['N/A']);
@@ -1227,7 +1511,10 @@
     if (it.fecha) filled.push(fmtDate(it.fecha));
     if (it.resp) filled.push(it.resp);
     if (it.documento) filled.push(it.documento);
-    if (it.fum) filled.push('FUM ' + it.fum);
+    var fz = itemFum(reg, it);
+    if (it.fum && !fz.server) filled.push('FUM ' + it.fum);
+    if (fz.server) filled.push('FUM ' + fz.server[0] + (fz.open ? ' abierta' : ' ' + fz.server[5].toLowerCase()));
+    else if (fz.pend) filled.push('FUM (sin enviar)');
     var nFotos = ((reg.fotos && reg.fotos[it.off]) || []).length + ((reg.localFotos && reg.localFotos[it.off]) || []).length;
     if (nFotos) filled.push('📷 ' + nFotos);
     var b = function (cls, label) {
@@ -1236,6 +1523,8 @@
     var h = '<div class="item ' + st + '" id="it-' + it.off + '">' +
       '<div class="crit">' + esc(it.criterio) + '</div>' +
       '<div class="meta">' + esc([it.metodo, it.instrumento && it.instrumento !== 'NA' ? it.instrumento : ''].filter(Boolean).join(' · ')) + '</div>' +
+      ((st === 'ap' || st === 'rz') && needsSerial(it.instrumento) ? '<div class="warn"><span class="chip pend">Indicar N° de serie del instrumento</span></div>' : '') +
+      docWarnHtml(reg, it) +
       '<div class="acts">' + b('ap', 'AP') + b('rz', 'RZ') + b('na', 'N/A') +
       '<button class="more" data-act="more" data-key="' + reg.key + '" data-off="' + it.off + '" aria-label="Detalle">' + (open ? '▴' : '⋯') + '</button></div>';
     if (filled.length && !open) h += '<div class="filled">' + esc(filled.join(' · ')) + (it.obs ? ' · “' + esc(it.obs) + '”' : '') + '</div>';
@@ -1246,7 +1535,9 @@
         abrevs.map(function (a) { return '<option' + (a === it.resp ? ' selected' : '') + '>' + esc(a) + '</option>'; }).join('') + '</select></label></div>' +
         '<label class="f"><span>Documento</span><span class="pick"><input class="in" data-field="documento" value="' + esc(it.documento) + '">' +
         '<button type="button" class="btn" data-act="docpick" data-target="item" data-key="' + reg.key + '" data-off="' + it.off + '">FOD 02</button></span></label>' +
-        '<label class="f"><span>FUM N°</span><input class="in" data-field="fum" inputmode="numeric" value="' + esc(it.fum) + '"></label>' +
+        instrSelect(reg, it) +
+        fumBox(reg, it) +
+        (fz.pend || fz.server ? '' : '<label class="f"><span>FUM N°</span><input class="in" data-field="fum" inputmode="numeric" value="' + esc(it.fum) + '" placeholder="Se genera sola al marcar RZ"></label>') +
         '<label class="f"><span>Observaciones / informes</span><textarea class="in" data-field="obs">' + esc(it.obs) + '</textarea></label>' +
         '<span class="tiny muted" style="text-transform:uppercase;font-weight:600;letter-spacing:.03em">Fotos de control</span>' +
         '<div class="thumbs">' + photoThumbs(reg, it) + '</div>' +
@@ -1267,25 +1558,58 @@
     el.replaceWith(tmp.firstChild);
   }
 
-  function markItem(reg, off, st) {
+  /** Devuelve false si el usuario canceló. */
+  function markItem(reg, off, st, opts) {
+    opts = opts || {};
     var it = reg.items.filter(function (x) { return x.off === off; })[0];
     var cur = itemState(it);
     var me = S.settings.inspector;
+    var f = itemFum(reg, it);
+    var fumNum = f.server ? f.server[0] : null;
     var patch;
     if (cur === st) {
-      patch = { estado: '', fecha: '', resp: '' };
-    } else if (st === 'na') {
-      patch = { estado: '', fecha: 'NA', resp: it.resp || me };
-    } else {
-      patch = { estado: st.toUpperCase(), resp: it.resp || me };
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(it.fecha)) patch.fecha = today();
-      if (!it.documento) {
-        var d = docDefault(reg);
-        if (d) patch.documento = d;
+      // desmarcar un RZ: la FUM sin enviar se descarta; la ya creada se anula
+      if (cur === 'rz' && f.open) {
+        if (f.pend && f.pend.status === 'pending') dropOp(f.pend);
+        else {
+          if (!opts.silent && !confirm('¿Anular la ' + (fumNum ? 'FUM N° ' + fumNum : 'FUM') + ' de este control?')) return false;
+          queueFum(reg, it, fumNum ? { accion: 'cerrar', num: fumNum, resultado: 'Anulada', fecha: today() } : { accion: 'cerrar', ref: f.pend.id, resultado: 'Anulada', fecha: today() });
+        }
       }
-      if (st === 'rz') S.ui.open[reg.key + ':' + off] = true;
+      patch = { estado: '', fecha: '', resp: '' };
+    } else {
+      if (st === 'rz') {
+        if (!f.open && !it.fum) queueFum(reg, it, { accion: 'abrir', obs: it.obs || '' });
+        S.ui.open[reg.key + ':' + off] = true;
+      } else if (f.open) {
+        // reinspección: AP / N/A sobre un control con FUM abierta la cierra
+        if (f.pend && f.pend.status === 'pending' && !fumNum) dropOp(f.pend);
+        else {
+          if (!opts.silent && !confirm('¿El control pasó la reinspección? Se cierra la ' + (fumNum ? 'FUM N° ' + fumNum : 'FUM') + '.')) return false;
+          var res = st === 'ap' ? 'Reinspección AP' : 'No aplica';
+          queueFum(reg, it, fumNum ? { accion: 'cerrar', num: fumNum, resultado: res, fecha: today() } : { accion: 'cerrar', ref: f.pend.id, resultado: res, fecha: today() });
+        }
+      }
+      if (st === 'na') {
+        patch = { estado: '', fecha: 'NA', resp: it.resp || me };
+      } else {
+        patch = { estado: st.toUpperCase(), resp: it.resp || me };
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(it.fecha)) patch.fecha = today();
+        var doc = it.documento || docDefault(reg);
+        if (doc) {
+          var ds = docStatus({ documento: doc, estado: '', fecha: '' });
+          if (ds && ds.level === 'old' && !opts.silent &&
+              confirm('El documento ' + ds.code + ' R' + ds.used + ' está superado: rige la R' + ds.latest +
+                (ds.fecha ? ' (recibida el ' + fmtDate(ds.fecha) + ')' : '') + '.\n\n¿Usar la revisión vigente para este control?')) {
+            doc = docUpgrade(doc);
+          }
+          if (doc !== it.documento) patch.documento = doc;
+        }
+        if (needsSerial(it.instrumento) && instrMemo(it.instrumento)) patch.instrumento = instrMemo(it.instrumento);
+      }
     }
     editItem(reg, off, patch);
+    return true;
   }
 
   /* ---------- Ajustes ---------- */
@@ -1313,6 +1637,7 @@
         var cat = category(o.sheet);
         var what = o.op === 'create' ? 'Nuevo registro: ' + (o.header.elemento || 'sin elemento')
           : o.op === 'photo' ? 'Foto: ' + String(o.criterio || '').slice(0, 60)
+          : o.op === 'fum' ? 'FUM ' + (o.num || '') + ' · ' + ({ abrir: 'abrir', cerrar: o.resultado === 'Anulada' ? 'anular' : 'cerrar', editar: 'editar' }[o.accion] || o.accion) + (o.criterio ? ': ' + String(o.criterio).slice(0, 50) : '')
           : 'Cambios en ' + (o.elemento || (o.ref ? 'registro nuevo' : 'fila ' + o.h));
         var n = Object.keys(o.items || {}).length;
         return '<div class="op"><div class="grow"><b class="small">' + esc(what) + '</b><div class="tiny muted">' + esc(o.sheet + ' · ' + (cat ? cat.titulo : '')) + ' · ' + n + ' control' + (n === 1 ? '' : 'es') + ' · ' + esc(ago(o.createdAt)) + '</div>' +
@@ -1417,6 +1742,11 @@
         toast('Documento: ' + val);
       });
     }
+    if (a === 'gofum') {
+      S.ui.open[el.dataset.key + ':' + el.dataset.off] = true;
+      S.ui.focus = Number(el.dataset.off);
+      return nav('/c/' + el.dataset.sheet + '/r/' + el.dataset.key);
+    }
     if (a === 'goto') {
       google.script.run.irA(el.dataset.sheet, Number(el.dataset.row));
       return;
@@ -1430,22 +1760,38 @@
     var off = Number(el.dataset.off);
     if (a === 'mark') {
       if (!S.settings.inspector) { toast('Primero elegí quién sos'); return nav('/quien'); }
-      markItem(reg, off, el.dataset.st);
+      if (markItem(reg, off, el.dataset.st) === false) return;
       if (S.ui.filter[reg.key] && S.ui.filter[reg.key] !== 'all') return render({ keepScroll: true });
       refreshItem(reg, off);
       updateStageChips(reg);
       return;
     }
     if (a === 'more') { var k = reg.key + ':' + off; S.ui.open[k] = !S.ui.open[k]; return refreshItem(reg, off); }
+    if (a === 'docupd') {
+      var di = reg.items.filter(function (x) { return x.off === off; })[0];
+      editItem(reg, off, { documento: docUpgrade(di.documento) });
+      toast('Documento actualizado a la revisión vigente');
+      return render({ keepScroll: true });
+    }
     if (a === 'clear') {
       editItem(reg, off, { estado: '', fecha: '', resp: '', fum: '', obs: '' });
       return refreshItem(reg, off);
+    }
+    if (a === 'docdefupd') {
+      LS.set('doc.' + reg.sheet + '.' + reg.key, docUpgrade(docDefault(reg)));
+      return render({ keepScroll: true });
+    }
+    if (a === 'docupdall') {
+      var n = 0;
+      reg.items.forEach(function (x) { var d = docStatus(x); if (d && d.level === 'old') { editItem(reg, x.off, { documento: docUpgrade(x.documento) }); n++; } });
+      toast(n + ' control' + (n === 1 ? '' : 'es') + ' actualizado' + (n === 1 ? '' : 's') + ' a la revisión vigente');
+      return render({ keepScroll: true });
     }
     if (a === 'bulk') {
       var pend = reg.items.filter(function (it) { return it.etapa === el.dataset.stage && itemState(it) === 'pend'; });
       if (!S.settings.inspector) { toast('Primero elegí quién sos'); return nav('/quien'); }
       if (!confirm('¿Marcar ' + pend.length + ' controles pendientes de ' + el.dataset.stage + ' como AP con fecha de hoy?')) return;
-      pend.forEach(function (it) { markItem(reg, it.off, 'ap'); });
+      pend.forEach(function (it) { markItem(getReg(reg.sheet, reg.key), it.off, 'ap', { silent: true }); });
       return render({ keepScroll: true });
     }
   });
@@ -1486,13 +1832,25 @@
       return;
     }
     var det = el.closest('.det');
-    if (!det || !el.dataset.field) return;
+    if (!det || !(el.dataset.field || el.dataset.fum)) return;
     var m = /^\/c\/([^/]+)\//.exec(S.route);
     var reg = getReg(m[1], det.dataset.key);
     if (!reg) return;
+    var doff = Number(det.dataset.off);
+    var dit = reg.items.filter(function (x) { return x.off === doff; })[0];
+    if (el.dataset.fum) {
+      var ff = {};
+      ff[el.dataset.fum] = el.value.trim();
+      return editFum(reg, dit, ff);
+    }
+    if (el.dataset.field === 'instrumento' && needsSerial(dit.instrumento) && !needsSerial(el.value)) {
+      LS.set('instr.' + normDoc(dit.instrumento), el.value);   // se recuerda para los próximos controles
+    }
+    if (el.dataset.field === 'obs') editFum(reg, dit, { obs: el.value.trim() });
     var patch = {};
     patch[el.dataset.field] = el.value.trim();
-    editItem(reg, Number(det.dataset.off), patch);
+    editItem(reg, doff, patch);
+    if (el.dataset.field === 'instrumento' || el.dataset.field === 'documento') refreshItem(getReg(m[1], det.dataset.key), doff);
   });
 
   document.addEventListener('submit', function (ev) {

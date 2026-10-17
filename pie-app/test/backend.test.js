@@ -316,6 +316,79 @@ test('foto de un registro creado offline (ref al alta)', () => {
   assert.strictEqual(cat('44', res2).registros.slice(-1)[0].fotos[it[0]].length, 1);
 });
 
+test('instrumento: se escribe el N° de serie y no se borra al crear un bloque', () => {
+  const c10 = cat('10', call({ action: 'catalog' }));
+  const r = c10.registros[0];
+  const it = r.items.find(x => c10.crit[x[1]][5] === 'CINTA METRICA');
+  const res = call({ action: 'batch', ops: [{ id: 'op-ins1', op: 'update', sheet: '10', h: r.h, sig: r.sig,
+    items: { [it[0]]: { criterio: c10.crit[it[1]][3], instrumento: 'CINTA METRICA/MEDIDOR LASER', estado: 'AP' } } }] });
+  assert.ok(res.results[0].ok, JSON.stringify(res.results[0]));
+  const c10b = cat('10', res);
+  const nr = c10b.registros[0];
+  const ni = nr.items.find(x => x[0] === it[0]);
+  assert.strictEqual(c10b.crit[ni[1]][5], 'CINTA METRICA/MEDIDOR LASER');
+  // un bloque nuevo copiado conserva los instrumentos del modelo
+  const res2 = call({ action: 'batch', ops: [{ id: 'op-ins2', op: 'create', sheet: '10', base: { h: r.h, sig: r.sig }, header: { elemento: 'Muro X' }, items: {} }] });
+  const c10c = cat('10', res2);
+  const created = c10c.registros.slice(-1)[0];
+  assert.ok(created.items.every(x => c10c.crit[x[1]][5] !== ''), 'instrumentos copiados del modelo');
+});
+
+test('FOD 02: historial de revisiones con la fecha en que llegó cada una', () => {
+  const { loadWorkbook: lw } = require('./fake-gas');
+  const FID = 'FODID0000000000000000000';
+  const g = createGas(ss, { FOD02_ID: FID }, { books: { [FID]: lw(process.argv[3]) }, files: { [FID]: { mime: 'application/vnd.google-apps.spreadsheet', name: 'FOD' } } });
+  const docs = JSON.parse(JSON.stringify(g.api({ action: 'catalog' }).fod.docs));
+  const d = docs.find(x => x[0] === 'KIR-COMR-REF-ESTR-S12P');
+  assert.deepStrictEqual(d[10].map(h => h[0]), ['0', '1', '4', '5', '6', '7']); // la R6 figura como S12p
+  assert.strictEqual(d[10].find(h => h[0] === '7')[1], '2026-10-02');
+  assert.strictEqual(d[10].find(h => h[0] === '1')[1], '2026-07-14', 'la primera vez que llegó la R1');
+});
+
+test('FUM: abrir al rechazar, número correlativo, editar y cerrar', () => {
+  const c13 = cat('13', call({ action: 'catalog' }));
+  const r = c13.registros[2];
+  const a = r.items[0], b = r.items[1];
+  const res = call({ action: 'batch', ops: [
+    { id: 'op-rz1', op: 'update', sheet: '13', h: r.h, sig: r.sig, items: { [a[0]]: { criterio: c13.crit[a[1]][3], estado: 'RZ', obs: 'Fisuras' } } },
+    { id: 'op-fum1', op: 'fum', accion: 'abrir', sheet: '13', h: r.h, sig: r.sig, off: a[0], criterio: c13.crit[a[1]][3], obs: 'Fisuras', accionCorrectiva: 'Rehacer carpeta', plazo: '2026-10-24', by: 'FC' },
+    { id: 'op-fum2', op: 'fum', accion: 'abrir', sheet: '13', h: r.h, sig: r.sig, off: b[0], criterio: c13.crit[b[1]][3], by: 'MP' }
+  ] });
+  assert.ok(res.results.every(x => x.ok), JSON.stringify(res.results));
+  assert.strictEqual(res.results[1].fum, 1);
+  assert.strictEqual(res.results[2].fum, 2);
+  const f1 = res.fums.find(f => f[0] === 1);
+  assert.deepStrictEqual([f1[1], f1[2], f1[3], f1[5], f1[6], f1[7], f1[10], f1[13]], ['13', r.h, a[0], 'Abierta', '2026-10-24', 'Rehacer carpeta', 'Fisuras', 'FC']);
+  assert.strictEqual(cat('13', res).registros[2].items[0][6], '1', 'N° de FUM escrito en la columna FUM N° del PIE');
+  // reintento: no duplica; abrir de nuevo el mismo control reutiliza la FUM abierta
+  const again = call({ action: 'batch', ops: [{ id: 'op-fum1', op: 'fum', accion: 'abrir', sheet: '13', h: r.h, off: a[0] }] });
+  assert.ok(again.results[0].dup && again.results[0].fum === 1);
+  const reuse = call({ action: 'batch', ops: [{ id: 'op-fum1b', op: 'fum', accion: 'abrir', sheet: '13', h: r.h, sig: r.sig, off: a[0], criterio: c13.crit[a[1]][3] }] });
+  assert.strictEqual(reuse.results[0].fum, 1);
+  // editar y cerrar (cerrar por ref al alta)
+  const res2 = call({ action: 'batch', ops: [
+    { id: 'op-fum3', op: 'fum', accion: 'editar', num: 2, plazo: '2026-10-30', accionCorrectiva: 'Repicar' },
+    { id: 'op-fum4', op: 'fum', accion: 'cerrar', ref: 'op-fum1', fecha: '2026-10-20', resultado: 'Reinspección AP', by: 'FC' },
+    { id: 'op-fum5', op: 'fum', accion: 'cerrar', num: 99 }
+  ] });
+  assert.ok(res2.ok, JSON.stringify(res2).slice(0, 300));
+  assert.ok(res2.results[0].ok && res2.results[1].ok, JSON.stringify(res2.results));
+  assert.strictEqual(res2.results[2].code, 'conflict');
+  const g1 = res2.fums.find(f => f[0] === 1), g2 = res2.fums.find(f => f[0] === 2);
+  assert.deepStrictEqual([g1[5], g1[11], g1[12]], ['Cerrada', '2026-10-20', 'Reinspección AP']);
+  assert.deepStrictEqual([g2[5], g2[6], g2[7]], ['Abierta', '2026-10-30', 'Repicar']);
+  assert.ok(!call({ action: 'catalog' }).categorias.some(c => c.sheet === 'FUM - Rechazos'));
+});
+
+test('FUM de un registro creado offline (ref al alta en el mismo lote)', () => {
+  const res = call({ action: 'batch', ops: [
+    { id: 'op-c20', op: 'create', sheet: '43', header: { elemento: 'Planchuela P5' }, items: {} },
+    { id: 'op-f20', op: 'fum', accion: 'abrir', sheet: '43', ref: 'op-c20', off: 1, by: 'FC' }
+  ] });
+  assert.ok(res.results.every(x => x.ok), JSON.stringify(res.results));
+  assert.strictEqual(res.results[1].fum, 3);
+});
+
 test('errores: hoja inexistente y clave', () => {
   const res = call({ action: 'batch', ops: [{ id: 'op-8', op: 'create', sheet: 'DATOS', items: {} }] });
   assert.ok(!res.results[0].ok);

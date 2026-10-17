@@ -32,7 +32,7 @@ const api = http.createServer((req, res) => {
     const sh = ss.getSheetByName(u.searchParams.get('name'));
     const from = Number(u.searchParams.get('from')), to = Number(u.searchParams.get('to'));
     const rows = [];
-    for (let r = from; r <= to; r++) { const row = []; for (let c = 1; c <= 15; c++) { const cell = sh.cell(r, c); row.push(cell ? (cell.d || cell.f || cell.v) : ''); } rows.push(row); }
+    for (let r = from; r <= to; r++) { const row = []; for (let c = 1; c <= 20; c++) { const cell = sh.cell(r, c); row.push(cell ? (cell.d || cell.f || cell.v) : ''); } rows.push(row); }
     res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
     const notes = {};
     for (const [k, v] of sh.notes) { const r = Number(k.split(',')[0]); if (r >= from && r <= to) notes[k] = v; }

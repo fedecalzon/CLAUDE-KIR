@@ -12,6 +12,8 @@
  *    para elegir el DOCUMENTO contra el que se controla.
  *  - Guarda fotos de control en Drive y las vincula a la fila (nota en la celda
  *    de OBSERVACIONES + índice en la hoja oculta _PIE_FOTOS).
+ *  - Lleva el registro de FUM (no conformidades) de los controles rechazados
+ *    en la hoja "FUM - Rechazos": número correlativo, reinspección y cierre.
  *  - Expone una API JSON (doGet/doPost) y sirve la app (Index.html).
  *
  * Las operaciones llegan en lotes desde la cola offline del celular y son
@@ -20,11 +22,12 @@
  */
 
 var PIE = {
-  VERSION: '1.1.0',
+  VERSION: '1.2.0',
   DATOS_SHEET: 'DATOS',
   LOG_SHEET: '_PIE_LOG',
   FOTOS_SHEET: '_PIE_FOTOS',
   FOD_SHEET: 'FOD-02',   // pestaña del Registro de Control y Distribución de Documentos
+  FUM_SHEET: 'FUM - Rechazos',
   FOTOS_FOLDER_NAME: 'PIE - Fotos de control',
   DATE_FORMAT: 'dd/mm/yy',
   MAX_COLS: 30,          // columnas a leer por hoja (los bloques usan A:O)
@@ -44,6 +47,13 @@ var PIE = {
 };
 
 var FILL_FIELDS = ['documento', 'fecha', 'resp', 'estado', 'fum', 'obs'];
+// columnas que la app puede escribir (el instrumento se completa con el N° de serie,
+// pero no se borra al crear un bloque porque es parte del requisito)
+var WRITE_FIELDS = FILL_FIELDS.concat(['instrumento']);
+
+var FUM_HEAD = ['N° FUM', 'Fecha apertura', 'Planilla', 'Categoría', 'Fila PIE', 'Elemento', 'Piso', 'Sector', 'Tarea',
+  'Criterio', 'Observación', 'Acción correctiva', 'Reinspección prevista', 'Detectado por', 'Estado', 'Fecha cierre',
+  'Cerrado por', 'Resultado / nota', 'fila_tarea', 'offset'];
 
 /* ------------------------------------------------------------------ */
 /*  Menú, panel lateral y web app                                       */
@@ -285,6 +295,7 @@ function catalog_(ss) {
     generado: new Date().toISOString(),
     datos: readDatos_(ss),
     fod: readFodSafe_(ss),
+    fums: readFums_(ss),
     categorias: cats
   };
 }
@@ -301,18 +312,22 @@ function batch_(ss, ops) {
         if (!op || !op.id) throw pieError_('Operación sin id', 'bad_request');
         var prev = findLog_(log, op.id);
         if (prev) {
-          results.push({ id: op.id, ok: true, dup: true, sheet: prev.sheet, h: prev.h, url: prev.url });
-          touched[prev.sheet] = true;
+          results.push({ id: op.id, ok: true, dup: true, sheet: prev.sheet, h: prev.h, url: prev.url,
+            fum: op.op === 'fum' && prev.url ? Number(prev.url) : undefined });
+          if (prev.sheet && ss.getSheetByName(prev.sheet)) touched[prev.sheet] = true;
           return;
         }
         var res;
         if (op.op === 'create') res = opCreate_(ss, op);
         else if (op.op === 'update') res = opUpdate_(ss, log, op);
         else if (op.op === 'photo') res = opPhoto_(ss, log, op);
+        else if (op.op === 'fum') res = opFum_(ss, log, op);
         else throw pieError_('Operación desconocida: ' + op.op, 'bad_request');
-        log.appendRow([op.id, new Date(), op.op, op.sheet, res.h, op.by || '', res.warnings ? res.warnings.join(' | ') : '', res.url || '']);
-        touched[op.sheet] = true;
-        results.push({ id: op.id, ok: true, sheet: op.sheet, h: res.h, url: res.url, warnings: res.warnings || [] });
+        var extra = res.url || (res.fum != null ? String(res.fum) : '');
+        var sheetName = res.sheet || op.sheet;
+        log.appendRow([op.id, new Date(), op.op, sheetName, res.h, op.by || '', res.warnings ? res.warnings.join(' | ') : '', extra]);
+        if (sheetName && ss.getSheetByName(sheetName)) touched[sheetName] = true;
+        results.push({ id: op.id, ok: true, sheet: sheetName, h: res.h, url: res.url, fum: res.fum, warnings: res.warnings || [] });
       } catch (err) {
         results.push({ id: op && op.id, ok: false, error: String(err.message || err), code: err.code || 'error' });
       }
@@ -325,7 +340,7 @@ function batch_(ss, ops) {
   var cats = Object.keys(touched).map(function (name) {
     return readCategory_(ss.getSheetByName(name), fotos);
   });
-  return { ok: true, results: results, categorias: cats };
+  return { ok: true, results: results, categorias: cats, fums: readFums_(ss) };
 }
 
 /* ------------------------------------------------------------------ */
@@ -333,7 +348,7 @@ function batch_(ss, ops) {
 /* ------------------------------------------------------------------ */
 
 function isCategorySheet_(name) {
-  return name !== PIE.DATOS_SHEET && name !== PIE.FOD_SHEET && name.charAt(0) !== '_';
+  return name !== PIE.DATOS_SHEET && name !== PIE.FOD_SHEET && name !== PIE.FUM_SHEET && name.charAt(0) !== '_';
 }
 
 function sheetOrThrow_(ss, name) {
@@ -525,6 +540,101 @@ function opPhoto_(ss, log, op) {
   return { h: blk.tareaRow, url: url, warnings: warnings };
 }
 
+/* ---------- FUM: no conformidades de controles rechazados ---------- */
+
+function fumSheet_(ss) {
+  var sh = ss.getSheetByName(PIE.FUM_SHEET);
+  if (!sh) {
+    sh = ss.insertSheet(PIE.FUM_SHEET);
+    sh.appendRow(FUM_HEAD);
+    sh.getRange(1, 1, 1, FUM_HEAD.length).setFontWeight('bold').setBackground('#1d3557').setFontColor('#ffffff');
+    sh.setFrozenRows(1);
+    sh.hideColumns(FUM_HEAD.length - 1, 2);
+  }
+  return sh;
+}
+
+/** [num, planilla, filaTarea, offset, apertura, estado, plazo, accion, elemento, criterio, obs, cierre, resultado, detectado, piso] */
+function readFums_(ss) {
+  var sh = ss.getSheetByName(PIE.FUM_SHEET);
+  if (!sh || sh.getLastRow() < 2) return [];
+  return readValues_(sh).slice(1).filter(function (r) { return r[0] !== '' && r[0] != null; }).map(function (r) {
+    return [Number(r[0]), String(r[2]), Number(r[18]), Number(r[19]), txt_(r[1]), txt_(r[14]), txt_(r[12]), txt_(r[11]),
+      txt_(r[5]), txt_(r[9]), txt_(r[10]), txt_(r[15]), txt_(r[17]), txt_(r[13]), txt_(r[6])];
+  });
+}
+
+function fumRow_(sh, num) {
+  if (sh.getLastRow() < 2) return 0;
+  var hit = sh.getRange(2, 1, sh.getLastRow() - 1, 1).createTextFinder(String(num)).matchEntireCell(true).findNext();
+  return hit ? hit.getRow() : 0;
+}
+
+function nextFumNumber_(sh) {
+  var max = 0;
+  if (sh.getLastRow() >= 2) {
+    sh.getRange(2, 1, sh.getLastRow() - 1, 1).getValues().forEach(function (r) {
+      var n = Number(r[0]);
+      if (n > max) max = n;
+    });
+  }
+  var inicio = Number(PropertiesService.getScriptProperties().getProperty('FUM_INICIO') || 1);
+  return Math.max(max + 1, inicio);
+}
+
+function opFum_(ss, log, op) {
+  var fsh = fumSheet_(ss);
+  var tz = Session.getScriptTimeZone();
+  if (op.accion === 'abrir') {
+    var sh = sheetOrThrow_(ss, op.sheet);
+    var found = resolveBlock_(sh, log, op);
+    var blk = found.blk;
+    var req = {};
+    req[op.off] = { criterio: op.criterio, tarea: op.tarea };
+    var warnings = [];
+    var offs = Object.keys(resolveItemOffsets_(blk, req, warnings));
+    if (!offs.length) throw pieError_('No se encontró el control rechazado en la planilla', 'conflict');
+    var off = Number(offs[0]);
+    var item = blk.items.filter(function (it) { return it.off === off; })[0] || {};
+    // si ya hay una FUM abierta para ese control, se reutiliza
+    var open = readFums_(ss).filter(function (f) {
+      return f[1] === String(op.sheet) && f[2] === blk.tareaRow && f[3] === off && f[5] === 'Abierta';
+    })[0];
+    if (open) return { h: blk.tareaRow, fum: open[0], warnings: ['Ya existía la FUM ' + open[0]] };
+    var num = nextFumNumber_(fsh);
+    fsh.appendRow([num, new Date(), String(op.sheet), found.title, blk.tareaRow + off, blk.header.elemento || '',
+      blk.header.piso || '', blk.header.sector || '', item.tarea || '', item.criterio || '', op.obs || item.obs || '',
+      op.accionCorrectiva || '', toCellValue_('fecha', op.plazo || ''), op.by || '', 'Abierta', '', '', '', blk.tareaRow, off]);
+    var w = {};
+    w[off] = { criterio: item.criterio, fum: String(num) };
+    withoutValidation_(sh, blk.startRow, blk.endRow, function () { writeItems_(sh, blk, w, false); });
+    return { h: blk.tareaRow, fum: num, warnings: warnings };
+  }
+  var n = op.num;
+  if (!n && op.ref) {
+    var created = findLog_(log, op.ref);
+    if (!created || !created.url) throw pieError_('La FUM todavía no fue creada', 'retry');
+    n = Number(created.url);
+  }
+  var row = fumRow_(fsh, n);
+  if (!row) throw pieError_('No se encontró la FUM ' + n + ' en la hoja ' + PIE.FUM_SHEET, 'conflict');
+  var col = function (name) { return FUM_HEAD.indexOf(name) + 1; };
+  if (op.accion === 'cerrar') {
+    fsh.getRange(row, col('Estado')).setValue(op.resultado === 'Anulada' ? 'Anulada' : 'Cerrada');
+    fsh.getRange(row, col('Fecha cierre')).setValue(toCellValue_('fecha', op.fecha || Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd')));
+    fsh.getRange(row, col('Cerrado por')).setValue(op.by || '');
+    fsh.getRange(row, col('Resultado / nota')).setValue(op.resultado || '');
+  } else if (op.accion === 'editar') {
+    if (op.hasOwnProperty('accionCorrectiva')) fsh.getRange(row, col('Acción correctiva')).setValue(op.accionCorrectiva || '');
+    if (op.hasOwnProperty('plazo')) fsh.getRange(row, col('Reinspección prevista')).setValue(toCellValue_('fecha', op.plazo || ''));
+    if (op.hasOwnProperty('obs')) fsh.getRange(row, col('Observación')).setValue(op.obs || '');
+  } else {
+    throw pieError_('Acción de FUM desconocida: ' + op.accion, 'bad_request');
+  }
+  var h = Number(fsh.getRange(row, col('fila_tarea')).getValue());
+  return { h: h, fum: n, sheet: String(fsh.getRange(row, col('Planilla')).getValue()) };
+}
+
 /**
  * Las planillas traen validaciones en modo "rechazar" con listas cortas
  * (ESTADO sólo admite DATOS!J15 = "AP"; RESPONSABLE sólo 3 nombres), lo que
@@ -572,7 +682,7 @@ function writeHeader_(sh, blk, header, clearMissing) {
  * offset = fila - fila TAREA. Sólo se tocan los campos presentes.
  */
 function writeItems_(sh, blk, items, clearAll) {
-  var cols = FILL_FIELDS.map(function (f) { return blk.cols[f]; }).filter(function (c) { return c; });
+  var cols = WRITE_FIELDS.map(function (f) { return blk.cols[f]; }).filter(function (c) { return c; });
   var warnings = [];
   if (!cols.length) return warnings;
   var c0 = Math.min.apply(null, cols);
@@ -596,7 +706,7 @@ function writeItems_(sh, blk, items, clearAll) {
   Object.keys(resolved).forEach(function (off) {
     var it = resolved[off];
     var row = out[off - 1];
-    FILL_FIELDS.forEach(function (f) {
+    WRITE_FIELDS.forEach(function (f) {
       if (!blk.cols[f] || !it.hasOwnProperty(f)) return;
       row[blk.cols[f] - c0] = toCellValue_(f, it[f]);
     });
@@ -1022,7 +1132,7 @@ function revCompare_(a, b) {
 
 /**
  * FOD 02: devuelve sólo la última revisión de cada código de documento.
- * Doc: [codigo, rev, detalle, categoria, piso, fecha, estado, vigente, emitido, fila]
+ * Doc: [codigo, rev, detalle, categoria, piso, fecha, estado, vigente, emitido, fila, historial[[rev, fecha]]]
  */
 function parseFod_(values) {
   var hdr = -1, cols = {};
@@ -1048,6 +1158,7 @@ function parseFod_(values) {
   });
   var g = function (row, f) { return cols[f] == null ? '' : txt_(row[cols[f]]); };
   var best = {};
+  var hist = {};
   var order = [];
   for (var r = hdr + 1; r < values.length; r++) {
     var row = values[r];
@@ -1056,13 +1167,18 @@ function parseFod_(values) {
     var k = key_(code);
     var rev = cols.rev == null ? '' : row[cols.rev];
     var cur = best[k];
-    if (!cur) order.push(k);
+    if (!cur) { order.push(k); hist[k] = {}; }
     if (!cur || revCompare_(rev, cur.rev) >= 0) best[k] = { rev: rev, row: row, r: r + 1 };
+    // fecha en que se recibió cada revisión (la primera vez que aparece)
+    var rk = txt_(rev);
+    var f = g(row, 'fecha');
+    if (!hist[k].hasOwnProperty(rk) || (f && (!hist[k][rk] || f < hist[k][rk]))) hist[k][rk] = f;
   }
   var docs = order.map(function (k) {
     var b = best[k];
     return [g(b.row, 'codigo'), txt_(b.rev), g(b.row, 'detalle'), g(b.row, 'categoria') || g(b.row, 'sub'), g(b.row, 'piso'),
-      g(b.row, 'fecha'), g(b.row, 'estado'), g(b.row, 'vigente'), g(b.row, 'emitido'), b.r];
+      g(b.row, 'fecha'), g(b.row, 'estado'), g(b.row, 'vigente'), g(b.row, 'emitido'), b.r,
+      Object.keys(hist[k]).sort(revCompare_).map(function (rv) { return [rv, hist[k][rv]]; })];
   });
   docs.sort(function (a, b) { return a[5] < b[5] ? 1 : a[5] > b[5] ? -1 : b[9] - a[9]; });
   return { docs: docs };

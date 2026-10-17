@@ -13,6 +13,7 @@ const sheetRows = (name, from, to) => fetch(`http://localhost:8081/__sheet?name=
   const ctx = await browser.newContext({ ...devices['Pixel 7'], serviceWorkers: 'allow' });
   const page = await ctx.newPage();
   const errors = [];
+  page.on('dialog', d => d.accept());
   page.on('pageerror', e => errors.push(e.message));
   page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
   const shot = (n) => page.screenshot({ path: `${shots}/${n}.png`, fullPage: false });
@@ -70,7 +71,12 @@ const sheetRows = (name, from, to) => fetch(`http://localhost:8081/__sheet?name=
   // marcar: primer ítem AP, segundo RZ con FUM y observación, tercero N/A
   await page.click('.item >> nth=0 >> button[data-st=ap]');
   await page.click('.item >> nth=1 >> button[data-st=rz]');
-  await page.fill('.item >> nth=1 >> [data-field=fum]', '45');
+  // RZ abre una FUM (se numera al sincronizar)
+  await page.waitForSelector('.item >> nth=1 >> .fumbox:has-text("se numera al sincronizar")');
+  await page.fill('.item >> nth=1 >> [data-fum=accionCorrectiva]', 'Rehacer recubrimiento');
+  await page.locator('.item >> nth=1 >> [data-fum=accionCorrectiva]').blur();
+  await page.fill('.item >> nth=1 >> [data-fum=plazo]', '2026-10-24');
+  await page.locator('.item >> nth=1 >> [data-fum=plazo]').blur();
   await page.fill('.item >> nth=1 >> [data-field=obs]', 'Recubrimiento insuficiente');
   await page.locator('.item >> nth=1 >> [data-field=obs]').blur();
   await page.click('.item >> nth=1 >> button:has-text("Listo")');
@@ -101,7 +107,11 @@ const sheetRows = (name, from, to) => fetch(`http://localhost:8081/__sheet?name=
   assert.strictEqual(rows.rows[6][8], 'FC');
   assert.strictEqual(rows.rows[6][9], 'AP');
   assert.strictEqual(rows.rows[7][9], 'RZ');
-  assert.strictEqual(String(rows.rows[7][10]), '45');
+  assert.strictEqual(String(rows.rows[7][10]), '1', 'N° de FUM automático en la columna FUM N°');
+  const fumRows = await sheetRows('FUM - Rechazos', 1, 2);
+  assert.deepStrictEqual([fumRows.rows[1][0], fumRows.rows[1][2], fumRows.rows[1][11], fumRows.rows[1][12], fumRows.rows[1][14]],
+    [1, '6', 'Rehacer recubrimiento', '2026-10-24', 'Abierta']);
+  await page.waitForSelector('.item >> nth=1 >> text=FUM 1 abierta');
   assert.strictEqual(rows.rows[7][11], 'Recubrimiento insuficiente');
   assert.strictEqual(rows.rows[8][7], 'NA');
   await page.waitForFunction(() => !document.querySelector('.thumbs .t i'), null, { timeout: 20000 }).catch(() => {});
@@ -109,17 +119,47 @@ const sheetRows = (name, from, to) => fetch(`http://localhost:8081/__sheet?name=
   assert.ok(Object.values(withNote.notes).some(n => /Foto .*drive\.google\.com/.test(n)), 'foto subida y anotada: ' + JSON.stringify(withNote.notes));
   assert.strictEqual(withNote.files, 1);
 
-  // 6. Editar un registro ya sincronizado (online)
+  // 6. Editar un registro ya sincronizado (online): instrumento con N° de serie que se recuerda
+  await page.click('.item >> nth=3 >> button[data-act=more]');
+  await page.selectOption('.item >> nth=3 >> select[data-field=instrumento]', 'NIVEL LASER (1167)/CINTA METRICA');
+  await page.click('.item >> nth=3 >> button:has-text("Listo")');
   await page.click('.item >> nth=3 >> button[data-st=ap]');
+  await page.click('.item >> nth=4 >> button[data-st=ap]');
+  await page.waitForSelector('.item >> nth=4 >> text=NIVEL LASER (1167)/CINTA METRICA');
   await page.waitForSelector('.net:has-text("Al día")', { timeout: 20000 });
   await page.waitForFunction(() => document.querySelector('.net').textContent.includes('Al día') && !document.getElementById('hdr').textContent.includes('cambios sin enviar'), null, { timeout: 20000 });
-  const rows2 = await sheetRows('6', T + 4, T + 4);
+  const rows2 = await sheetRows('6', T + 4, T + 5);
   assert.strictEqual(rows2.rows[0][9], 'AP');
+  assert.strictEqual(rows2.rows[0][5], 'NIVEL LASER (1167)/CINTA METRICA');
+  assert.strictEqual(rows2.rows[1][5], 'NIVEL LASER (1167)/CINTA METRICA', 'instrumento recordado');
+
+  // 6b. Documento superado: se detecta contra el FOD 02 y se actualiza con un toque
+  await page.click('.item >> nth=5 >> button[data-act=more]');
+  await page.fill('.item >> nth=5 >> [data-field=documento]', '_KIR-COMR-REF-ESTR-S12P-R06');
+  await page.locator('.item >> nth=5 >> [data-field=documento]').blur();
+  await page.waitForSelector('.item >> nth=5 >> text=Documento superado · vigente R7');
+  await shot('10-doc-superado');
+  await page.click('.item >> nth=5 >> button[data-act=docupd]');
+  await page.waitForFunction(() => document.querySelectorAll('.item')[5].querySelector('[data-field=documento]').value === 'KIR-COMR-REF-ESTR-S12P-R07');
+  assert.ok(!(await page.textContent('.item >> nth=5')).includes('Documento superado'), 'la alerta desaparece');
+  await page.click('.item >> nth=5 >> button:has-text("Listo")');
+
+  // 6c. Reinspección: AP sobre el control rechazado cierra la FUM
+  await page.click('.item >> nth=1 >> button[data-st=ap]');
+  await page.waitForFunction(() => document.querySelector('.net').textContent.includes('Al día') && !document.getElementById('hdr').textContent.includes('cambios sin enviar'), null, { timeout: 20000 });
+  const fumRows2 = await sheetRows('FUM - Rechazos', 2, 2);
+  assert.deepStrictEqual([fumRows2.rows[0][14], fumRows2.rows[0][17]], ['Cerrada', 'Reinspección AP']);
+  const rows3 = await sheetRows('6', T + 6, T + 6);
+  assert.strictEqual(rows3.rows[0][6], 'KIR-COMR-REF-ESTR-S12P-R07');
 
   // 7. Filtro de pendientes y vista de registro existente con datos
-  await page.click('button[data-f=rz]');
-  assert.strictEqual(await page.$$eval('.item', n => n.length), 1);
-  await shot('08-filtro-rz');
+  await page.click('button[data-f=ap]');
+  assert.strictEqual(await page.$$eval('.item', n => n.length), 4);
+  await shot('08-filtro-ap');
+  await page.evaluate(() => { location.hash = '#/fum'; });
+  await page.waitForSelector('text=Abiertas · 0');
+  await page.waitForSelector('text=Cerradas / anuladas · 1');
+  await shot('11-fum');
 
   // 8. Ajustes
   await page.click('[data-to="/ajustes"]');

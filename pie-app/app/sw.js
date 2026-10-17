@@ -1,6 +1,6 @@
 // Service worker: guarda la app en el celular para abrirla sin señal.
 // Los datos de las planillas y la cola de envíos viven en IndexedDB (index.html).
-var CACHE = 'pie-carga-v1.1.0';
+var CACHE = 'pie-carga-v1.2.0';
 var ASSETS = ['./', './index.html', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', function (e) {

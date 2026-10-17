@@ -52,6 +52,10 @@ class FakeRange {
     this._each((r, c, i, j) => { if (rules[i][j]) this.sheet.dv.set(`${r},${c}`, rules[i][j]); else this.sheet.dv.delete(`${r},${c}`); });
     return this;
   }
+  setFontWeight() { return this; }
+  setBackground() { return this; }
+  setFontColor() { return this; }
+  getValue() { return this.getValues()[0][0]; }
   getNote() { return this.sheet.notes.get(`${this.r},${this.c}`) || ''; }
   setNote(n) { this.sheet.notes.set(`${this.r},${this.c}`, n); return this; }
   clear() { this._each((r, c) => { this.sheet.cells.delete(`${r},${c}`); this.sheet.formats.delete(`${r},${c}`); }); return this; }
@@ -118,6 +122,8 @@ class FakeSheet {
   }
   lastRow() { let m = 0; for (const [k, cell] of this.cells) if (cell.v !== '' || cell.d || cell.f) m = Math.max(m, Number(k.split(',')[0])); return m; }
   getName() { return this.name; }
+  setFrozenRows() { return this; }
+  hideColumns(c, n) { this.hiddenCols = [c, n]; return this; }
   isSheetHidden() { return this.hidden; }
   showSheet() { this.hidden = false; }
   hideSheet() { this.hidden = true; }
