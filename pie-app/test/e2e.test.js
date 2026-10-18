@@ -136,16 +136,15 @@ const sheetRows = (name, from, to, book) => fetch(`http://localhost:8081/__sheet
   assert.strictEqual(rows2.rows[0][5], 'NIVEL LASER (1167)/CINTA METRICA');
   assert.strictEqual(rows2.rows[1][5], 'NIVEL LASER (1167)/CINTA METRICA', 'instrumento recordado');
 
-  // 6b. Documento superado: se detecta contra el FOD 02 y se actualiza con un toque
-  await page.click('.item >> nth=5 >> button[data-act=more]');
-  await page.fill('.item >> nth=5 >> [data-field=documento]', '_KIR-COMR-REF-ESTR-S12P-R06');
-  await page.locator('.item >> nth=5 >> [data-field=documento]').blur();
-  await page.waitForSelector('.item >> nth=5 >> text=Documento superado · vigente R7');
+  // 6b. Plano único del registro: se cambia una vez y se aplica a los pendientes; se detecta si está superado
+  assert.strictEqual(await page.$$eval('.det [data-field=documento], .item [data-field=documento]', n => n.length), 0, 'sin campo de documento por control');
+  await page.fill('[data-regdoc]', '_KIR-COMR-REF-ESTR-S12P-R06');
+  await page.locator('[data-regdoc]').blur();
+  await page.waitForSelector('text=Plano superado (FOD 02).');
   await shot('10-doc-superado');
-  await page.click('.item >> nth=5 >> button[data-act=docupd]');
-  await page.waitForFunction(() => document.querySelectorAll('.item')[5].querySelector('[data-field=documento]').value === 'KIR-COMR-REF-ESTR-S12P-R07');
-  assert.ok(!(await page.textContent('.item >> nth=5')).includes('Documento superado'), 'la alerta desaparece');
-  await page.click('.item >> nth=5 >> button:has-text("Listo")');
+  await page.click('button[data-act=docupdall]');
+  await page.waitForFunction(() => document.querySelector('[data-regdoc]').value === 'KIR-COMR-REF-ESTR-S12P-R07');
+  assert.ok(!(await page.textContent('main')).includes('Plano superado'), 'la alerta desaparece');
 
   // 6c. Reinspección: AP sobre el control rechazado cierra la FUM
   await page.click('.item >> nth=1 >> button[data-st=ap]');
@@ -154,8 +153,10 @@ const sheetRows = (name, from, to, book) => fetch(`http://localhost:8081/__sheet
   assert.deepStrictEqual([fumRows2.rows[0][14], fumRows2.rows[0][17]], ['Cerrada', 'Reinspección AP']);
   const fog2 = await sheetRows('', 18, 18, 'fog');
   assert.ok(/Reinspección aprobada en el PIE/.test(fog2.rows[0][16]) && /^\d{4}-\d{2}-\d{2}$/.test(fog2.rows[0][17]), JSON.stringify(fog2.rows[0].slice(15, 18)));
-  const rows3 = await sheetRows('6', T + 6, T + 6);
-  assert.strictEqual(rows3.rows[0][6], 'KIR-COMR-REF-ESTR-S12P-R07');
+  const rows3 = await sheetRows('6', T + 1, T + 10);
+  assert.strictEqual(rows3.rows[5][6], 'KIR-COMR-REF-ESTR-S12P-R07', 'pendiente con el plano nuevo del registro');
+  assert.strictEqual(rows3.rows[9][6], 'KIR-COMR-REF-ESTR-S12P-R07', 'otro pendiente, también');
+  assert.strictEqual(rows3.rows[0][6], 'KIR-COMR-EST-P05-R00', 'el ya controlado conserva su plano');
 
   // 6d. "Siguiente pendiente" lleva al próximo control sin marcar, y las etapas se pliegan
   await page.evaluate(() => window.scrollTo(0, 0));

@@ -231,7 +231,7 @@
   var BOOT = window.PIE_BOOT || {};
   var IN_GAS = !!(window.google && google.script && google.script.run);
   var MODE = IN_GAS ? (BOOT.mode || 'webapp') : 'pwa';
-  var APP_VERSION = '1.4.0';
+  var APP_VERSION = '1.5.0';
   var ETAPAS = ['PRE', 'DURANTE', 'POST', 'DOC'];
   var FIELDS = ['documento', 'fecha', 'resp', 'estado', 'fum', 'obs', 'instrumento'];
 
@@ -709,10 +709,7 @@
     var d = docStatus(it);
     if (!d) return '';
     if (d.level === 'bad') return '<div class="warn"><span class="chip rz">⚠ Controlado con R' + esc(d.used) + ' cuando ya regía la R' + esc(d.latest) + '</span></div>';
-    if (d.level === 'old') {
-      return '<div class="warn"><span class="chip pend">Documento superado · vigente R' + esc(d.latest) + (d.fecha ? ' (' + esc(fmtDate(d.fecha)) + ')' : '') + '</span>' +
-        '<button class="btn tiny" data-act="docupd" data-key="' + reg.key + '" data-off="' + it.off + '">Usar R' + esc(d.latest) + '</button></div>';
-    }
+    if (d.level === 'old') return '';   // lo resuelve el plano del registro (banner de arriba)
     return '<div class="warn tiny muted">Hay una revisión posterior al control: R' + esc(d.latest) + '</div>';
   }
   function regDocAlerts(items) {
@@ -1442,19 +1439,20 @@
         '<button class="btn" data-act="hdr" data-key="' + reg.key + '">Editar</button></div>';
     }
     html += '</div>';
-    html += '<label class="f" style="margin:12px 0 0"><span>Documento al aprobar</span><span class="pick"><input class="in" data-input="docDefault" data-key="' + reg.key + '" value="' + esc(docDefault(reg)) + '" placeholder="Plano / documento de referencia">' +
-      '<button type="button" class="btn" data-act="docpick" data-target="default" data-key="' + reg.key + '">FOD 02</button></span></label>';
-    var dd = docStatus({ documento: docDefault(reg), estado: '', fecha: '' });
-    if (dd && dd.level === 'old') {
-      html += '<div class="warn"><span class="chip pend">Documento superado · vigente R' + esc(dd.latest) + '</span>' +
-        '<button class="btn tiny" data-act="docdefupd" data-key="' + reg.key + '">Usar ' + esc(dd.ref) + '</button></div>';
-    }
+    var rdoc = docDefault(reg);
+    html += '<div class="card pad" style="margin-top:12px"><label class="f" style="margin:0"><span>Plano del registro (FOD 02)</span>' +
+      '<span class="pick"><input class="in" data-regdoc="1" data-key="' + reg.key + '" value="' + esc(rdoc) + '" placeholder="Elegí el plano del FOD 02">' +
+      '<button type="button" class="btn" data-act="docpick" data-target="default" data-key="' + reg.key + '">FOD 02</button></span></label>' +
+      '<div class="flex" style="margin-top:6px"><span class="grow tiny muted">Se aplica a todos los controles pendientes. Los ya controlados conservan el plano con el que se hicieron.</span>' +
+      (rdoc ? '<button type="button" class="btn tiny" data-act="docpick" data-target="defaultAdd" data-key="' + reg.key + '">＋ Otro plano</button>' : '') + '</div></div>';
+    var dd = docStatus({ documento: rdoc, estado: '', fecha: '' });
     var na = regDocAlerts(reg.items);
-    if (na.bad || na.old) {
-      html += '<div class="note err" style="margin-top:12px"><b>Documento superado (FOD 02).</b> ' +
+    if (na.bad || na.old || (dd && dd.level === 'old')) {
+      html += '<div class="note err" style="margin-top:12px"><b>Plano superado (FOD 02).</b> ' +
+        (dd && dd.level === 'old' ? 'El plano del registro está en R' + esc(dd.used) + ' y rige la R' + esc(dd.latest) + (dd.fecha ? ' (desde ' + esc(fmtDate(dd.fecha)) + ')' : '') + '. ' : '') +
+        (na.old ? na.old + ' control' + (na.old > 1 ? 'es pendientes usan' : ' pendiente usa') + ' una revisión superada. ' : '') +
         (na.bad ? na.bad + ' control' + (na.bad > 1 ? 'es se controlaron' : ' se controló') + ' con una revisión que ya estaba reemplazada. ' : '') +
-        (na.old ? na.old + ' pendiente' + (na.old > 1 ? 's tienen' : ' tiene') + ' un documento superado.' : '') +
-        (na.old ? '<div class="flex" style="margin-top:8px"><button class="btn tiny" data-act="docupdall" data-key="' + reg.key + '">Actualizar pendientes a la revisión vigente</button></div>' : '') + '</div>';
+        ((dd && dd.level === 'old') || na.old ? '<div class="flex" style="margin-top:8px"><button class="btn tiny" data-act="docupdall" data-key="' + reg.key + '">Actualizar el plano a la revisión vigente</button></div>' : '') + '</div>';
     }
     var errs = S.queue.filter(function (o) { return o.status === 'error' && (o.op === 'create' ? o.id === reg.opId : opTargets(o, reg)); });
     if (errs.length) {
@@ -1521,6 +1519,19 @@
     Object.keys(count).forEach(function (d) { if (!best || count[d] > count[best]) best = d; });
     return best;
   }
+  /** Fija el plano del registro y lo aplica a todos los controles no controlados (pendientes y N/A). */
+  function setRegDoc(reg, val) {
+    val = String(val || '').trim();
+    LS.set('doc.' + reg.sheet + '.' + reg.key, val);
+    if (reg.pending) { var op = pendingCreate(reg.opId); if (op && op.status === 'pending') op.docDefault = val; }
+    var n = 0;
+    reg.items.forEach(function (it) {
+      var st = itemState(it);
+      if ((st === 'pend' || st === 'na') && it.documento !== val) { editItem(reg, it.off, { documento: val }); n++; }
+    });
+    if (!n) queueChanged();
+    return n;
+  }
   function itemCard(reg, it) {
     var st = itemState(it);
     var open = S.ui.open[reg.key + ':' + it.off];
@@ -1529,7 +1540,8 @@
     var filled = [];
     if (it.fecha) filled.push(fmtDate(it.fecha));
     if (it.resp) filled.push(it.resp);
-    if (it.documento) filled.push(it.documento);
+    var rdocIt = docDefault(reg);
+    if (it.documento && it.documento !== rdocIt) filled.push('Plano: ' + it.documento);
     var fz = itemFum(reg, it);
     if (it.fum && !fz.server) filled.push('FUM ' + it.fum);
     if (fz.server) filled.push('FUM ' + fz.server[0] + (fz.open ? ' abierta' : ' ' + fz.server[5].toLowerCase()));
@@ -1552,8 +1564,7 @@
         '<div class="grid2"><label class="f"><span>Fecha</span><input class="in" type="date" data-field="fecha" value="' + esc(/^\d{4}-\d{2}-\d{2}$/.test(it.fecha) ? it.fecha : '') + '"></label>' +
         '<label class="f"><span>Resp.</span><select class="in" data-field="resp"><option value="">—</option>' +
         abrevs.map(function (a) { return '<option' + (a === it.resp ? ' selected' : '') + '>' + esc(a) + '</option>'; }).join('') + '</select></label></div>' +
-        '<label class="f"><span>Documento</span><span class="pick"><input class="in" data-field="documento" value="' + esc(it.documento) + '">' +
-        '<button type="button" class="btn" data-act="docpick" data-target="item" data-key="' + reg.key + '" data-off="' + it.off + '">FOD 02</button></span></label>' +
+        (it.documento && it.documento !== rdocIt ? '<div class="tiny muted" style="margin-bottom:8px">Plano de este control: ' + esc(it.documento) + '</div>' : '') +
         instrSelect(reg, it) +
         fumBox(reg, it) +
         (fz.pend || fz.server ? '' : '<label class="f"><span>FUM N°</span><input class="in" data-field="fum" inputmode="numeric" value="' + esc(it.fum) + '" placeholder="Se genera sola al marcar RZ"></label>') +
@@ -1614,13 +1625,14 @@
       } else {
         patch = { estado: st.toUpperCase(), resp: it.resp || me };
         if (!/^\d{4}-\d{2}-\d{2}$/.test(it.fecha)) patch.fecha = today();
-        var doc = it.documento || docDefault(reg);
+        var doc = docDefault(reg) || it.documento;
         if (doc) {
           var ds = docStatus({ documento: doc, estado: '', fecha: '' });
           if (ds && ds.level === 'old' && !opts.silent &&
-              confirm('El documento ' + ds.code + ' R' + ds.used + ' está superado: rige la R' + ds.latest +
-                (ds.fecha ? ' (recibida el ' + fmtDate(ds.fecha) + ')' : '') + '.\n\n¿Usar la revisión vigente para este control?')) {
+              confirm('El plano ' + ds.code + ' R' + ds.used + ' está superado: rige la R' + ds.latest +
+                (ds.fecha ? ' (recibida el ' + fmtDate(ds.fecha) + ')' : '') + '.\n\n¿Actualizar el plano del registro a la revisión vigente? Se aplica a todos los controles pendientes.')) {
             doc = docUpgrade(doc);
+            setRegDoc(reg, doc);
           }
           if (doc !== it.documento) patch.documento = doc;
         }
@@ -1751,9 +1763,16 @@
         if (target === 'new') {
           var f = document.getElementById('newForm');
           if (f) f.documento.value = val;
-        } else if (target === 'default') {
-          LS.set('doc.' + mm[1] + '.' + el.dataset.key, val);
-          render({ keepScroll: true });
+        } else if (target === 'default' || target === 'defaultAdd') {
+          var rg0 = getReg(mm[1], el.dataset.key);
+          if (rg0) {
+            var cur0 = docDefault(rg0);
+            var nv = target === 'defaultAdd' && cur0 ? cur0 + ' // ' + val : val;
+            var n0 = setRegDoc(rg0, nv);
+            render({ keepScroll: true });
+            toast('Plano del registro: ' + nv + (n0 ? ' · aplicado a ' + n0 + ' control' + (n0 === 1 ? '' : 'es') : ''), 4000);
+          }
+          return;
         } else {
           var rg = getReg(mm[1], el.dataset.key);
           if (rg) { editItem(rg, Number(el.dataset.off), { documento: val }); refreshItem(rg, Number(el.dataset.off)); }
@@ -1804,24 +1823,14 @@
       return;
     }
     if (a === 'more') { var k = reg.key + ':' + off; S.ui.open[k] = !S.ui.open[k]; return refreshItem(reg, off); }
-    if (a === 'docupd') {
-      var di = reg.items.filter(function (x) { return x.off === off; })[0];
-      editItem(reg, off, { documento: docUpgrade(di.documento) });
-      toast('Documento actualizado a la revisión vigente');
-      return render({ keepScroll: true });
-    }
     if (a === 'clear') {
       editItem(reg, off, { estado: '', fecha: '', resp: '', fum: '', obs: '' });
       return refreshItem(reg, off);
     }
-    if (a === 'docdefupd') {
-      LS.set('doc.' + reg.sheet + '.' + reg.key, docUpgrade(docDefault(reg)));
-      return render({ keepScroll: true });
-    }
     if (a === 'docupdall') {
-      var n = 0;
-      reg.items.forEach(function (x) { var d = docStatus(x); if (d && d.level === 'old') { editItem(reg, x.off, { documento: docUpgrade(x.documento) }); n++; } });
-      toast(n + ' control' + (n === 1 ? '' : 'es') + ' actualizado' + (n === 1 ? '' : 's') + ' a la revisión vigente');
+      var nd = docUpgrade(docDefault(reg) || '');
+      var n = setRegDoc(reg, nd);
+      toast('Plano actualizado a ' + nd + (n ? ' en ' + n + ' control' + (n === 1 ? '' : 'es') + ' pendiente' + (n === 1 ? '' : 's') : ''), 4000);
       return render({ keepScroll: true });
     }
     if (a === 'bulk') {
@@ -1853,14 +1862,21 @@
       try { s2.setSelectionRange(p2, p2); } catch (e) { /* type=search */ }
       return;
     }
-    if (el.dataset.input === 'docDefault') {
-      var m = /^\/c\/([^/]+)\//.exec(S.route);
-      LS.set('doc.' + m[1] + '.' + el.dataset.key, el.value.trim());
-    }
+
   });
 
   document.addEventListener('change', function (ev) {
     var el = ev.target;
+    if (el.dataset.regdoc) {
+      var rm = /^\/c\/([^/]+)\//.exec(S.route);
+      var rr = rm && getReg(rm[1], el.dataset.key);
+      if (rr) {
+        var cnt = setRegDoc(rr, el.value);
+        if (cnt) toast('Plano aplicado a ' + cnt + ' control' + (cnt === 1 ? '' : 'es'));
+        render({ keepScroll: true });
+      }
+      return;
+    }
     if (el.dataset.photo) {
       var pm = /^\/c\/([^/]+)\//.exec(S.route);
       var preg = pm && getReg(pm[1], el.dataset.key);
