@@ -17,13 +17,13 @@
     --brand: #1d3557;
     --brand-ink: #ffffff;
     --accent: #2f6fde;
-    --ap: #1f8a4c;
+    --ap: #18733f;
     --ap-bg: #e3f4ea;
-    --rz: #c62f2f;
+    --rz: #b42828;
     --rz-bg: #fbe5e5;
     --na: #6b7684;
     --na-bg: #eceff3;
-    --pend: #b7791f;
+    --pend: #8a5a12;
     --pend-bg: #fdf3e1;
     --radius: 12px;
     --shadow: 0 1px 2px rgba(16, 24, 40, .06), 0 1px 3px rgba(16, 24, 40, .08);
@@ -70,7 +70,7 @@
   }
   header.top .back {
     background: transparent; border: 0; color: inherit; font-size: 22px; line-height: 1;
-    width: 36px; height: 36px; border-radius: 8px; display: grid; place-items: center; flex: none;
+    width: 44px; height: 44px; border-radius: 10px; display: grid; place-items: center; flex: none;
   }
   header.top .back:active { background: rgba(255,255,255,.15); }
   header.top .ttl { flex: 1; min-width: 0; }
@@ -85,7 +85,7 @@
   .net.off i { background: #f0a43a; }
   .net.busy i { background: #6bb6ff; animation: pulse 1s infinite; }
   @keyframes pulse { 50% { opacity: .3; } }
-  .icon-btn { background: transparent; border: 0; color: inherit; width: 36px; height: 36px; border-radius: 8px; font-size: 18px; flex: none; }
+  .icon-btn { background: transparent; border: 0; color: inherit; width: 44px; height: 44px; border-radius: 10px; font-size: 20px; flex: none; }
   main { max-width: 760px; margin: 0 auto; padding: 12px 12px calc(96px + env(safe-area-inset-bottom)); }
   .card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); border: 1px solid var(--line); }
   .pad { padding: 12px 14px; }
@@ -102,7 +102,7 @@
   .row .grow b { display: block; font-weight: 600; font-size: 14px; overflow: hidden; text-overflow: ellipsis; }
   .row .chev { color: var(--muted); flex: none; }
   .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
-  .chip { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: var(--na-bg); color: var(--muted); white-space: nowrap; }
+  .chip { font-size: 13px; padding: 2px 8px; border-radius: 999px; background: var(--na-bg); color: var(--muted); white-space: nowrap; }
   .chip.ap { background: var(--ap-bg); color: var(--ap); }
   .chip.rz { background: var(--rz-bg); color: var(--rz); }
   .chip.pend { background: var(--pend-bg); color: var(--pend); }
@@ -119,7 +119,7 @@
     background: var(--accent); color: #fff; border: 0; border-radius: 999px; padding: 14px 20px; font-weight: 700;
     box-shadow: 0 6px 16px rgba(47,111,222,.35); display: flex; align-items: center; gap: 8px;
   }
-  .btn { border: 1px solid var(--line); background: var(--card); padding: 10px 14px; border-radius: 10px; font-weight: 600; }
+  .btn { border: 1px solid var(--line); background: var(--card); padding: 10px 14px; border-radius: 10px; font-weight: 600; min-height: 44px; }
   .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
   .btn.danger { color: var(--rz); }
   .btn.block { width: 100%; }
@@ -133,6 +133,12 @@
   @media (max-width: 380px) { .grid3 { grid-template-columns: 1fr 1fr; } }
   .stage { margin-top: 14px; }
   .stage-h { display: flex; align-items: center; gap: 8px; margin: 0 4px 8px; }
+  .stage-h .fold { border: 0; background: transparent; display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0; font: inherit; color: inherit; }
+  .nextpend {
+    position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(16px + env(safe-area-inset-bottom)); z-index: 15;
+    background: var(--ink); color: var(--card); border: 0; border-radius: 999px; padding: 0 22px; min-height: 52px;
+    font-weight: 700; font-size: 15px; box-shadow: 0 6px 16px rgba(0,0,0,.25); white-space: nowrap;
+  }
   .stage-h b { font-size: 13px; letter-spacing: .05em; }
   .stage-h .sp { flex: 1; }
   .task { margin-bottom: 10px; }
@@ -143,15 +149,15 @@
   .item.ap { box-shadow: inset 4px 0 0 var(--ap); }
   .item.rz { box-shadow: inset 4px 0 0 var(--rz); }
   .item.na { box-shadow: inset 4px 0 0 #9aa5b1; }
-  .item .crit { font-size: 14px; white-space: pre-line; }
-  .item .meta { font-size: 12px; color: var(--muted); margin-top: 3px; }
+  .item .crit { font-size: 16px; line-height: 1.35; white-space: pre-line; }
+  .item .meta { font-size: 13px; color: var(--muted); margin-top: 3px; }
   .acts { display: flex; gap: 6px; margin-top: 8px; align-items: center; }
-  .acts .st { flex: 1; border: 1px solid var(--line); background: var(--bg); border-radius: 9px; padding: 9px 0; font-weight: 700; font-size: 13px; min-width: 0; }
+  .acts .st { flex: 1; border: 1px solid var(--line); background: var(--bg); border-radius: 10px; min-height: 48px; font-weight: 800; font-size: 15px; min-width: 0; }
   .acts .st.ap.on { background: var(--ap); border-color: var(--ap); color: #fff; }
   .acts .st.rz.on { background: var(--rz); border-color: var(--rz); color: #fff; }
   .acts .st.na.on { background: var(--na); border-color: var(--na); color: #fff; }
-  .acts .more { flex: none; width: 42px; border: 1px solid var(--line); background: var(--bg); border-radius: 9px; padding: 8px 0; }
-  .filled { font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .acts .more { flex: none; width: 52px; min-height: 48px; border: 1px solid var(--line); background: var(--bg); border-radius: 10px; font-size: 18px; }
+  .filled { font-size: 13px; color: var(--muted); margin-top: 6px; }
   .det { margin-top: 10px; padding: 10px; border-radius: 10px; background: var(--bg); border: 1px dashed var(--line); }
   .det .grid2 label.f, .det label.f { margin-bottom: 8px; }
   .det .in { background: var(--card); }
@@ -172,7 +178,7 @@
   }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
   .filters { display: flex; gap: 6px; overflow-x: auto; margin: 10px 0 2px; padding-bottom: 2px; }
-  .filters button { border: 1px solid var(--line); background: var(--card); border-radius: 999px; padding: 6px 12px; font-size: 13px; white-space: nowrap; }
+  .filters button { border: 1px solid var(--line); background: var(--card); border-radius: 999px; padding: 6px 14px; min-height: 44px; font-size: 14px; white-space: nowrap; }
   .filters button.on { background: var(--ink); color: var(--card); border-color: var(--ink); }
   details.hid > summary { cursor: pointer; list-style: none; }
   details.hid > summary::-webkit-details-marker { display: none; }
@@ -225,7 +231,7 @@
   var BOOT = window.PIE_BOOT || {};
   var IN_GAS = !!(window.google && google.script && google.script.run);
   var MODE = IN_GAS ? (BOOT.mode || 'webapp') : 'pwa';
-  var APP_VERSION = '1.3.0';
+  var APP_VERSION = '1.4.0';
   var ETAPAS = ['PRE', 'DURANTE', 'POST', 'DOC'];
   var FIELDS = ['documento', 'fecha', 'resp', 'estado', 'fum', 'obs', 'instrumento'];
 
@@ -304,7 +310,7 @@
     route: '/',
     stack: [],
     thumbs: {},             // id de foto pendiente -> dataURL (miniatura local)
-    ui: { tab: {}, filter: {}, open: {}, search: '', regSearch: {} }
+    ui: { tab: {}, filter: {}, open: {}, search: '', regSearch: {}, folded: {} }
   };
   if (BOOT.token) S.settings.token = BOOT.token;
 
@@ -322,6 +328,11 @@
   function uid() {
     try { if (crypto.randomUUID) return crypto.randomUUID(); } catch (e) { /* contexto no seguro */ }
     return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+  }
+  function localStamp() {
+    var d = new Date();
+    var p = function (n) { return (n < 10 ? '0' : '') + n; };
+    return today() + 'T' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
   }
   function today() {
     var d = new Date();
@@ -790,7 +801,7 @@
     var estado = f.closing ? (f.closing.resultado === 'Anulada' ? 'Anulándose (sin enviar)' : 'Cerrándose (sin enviar)') : (s ? s[5] : 'Abierta');
     var src = f.pend || {};
     var accion = src.accionCorrectiva != null ? src.accionCorrectiva : (s ? s[7] : '');
-    var inm = src.accionInmediata != null ? src.accionInmediata : (s && s[15] ? s[15] : 'Reparar');
+    var inm = src.accionInmediata != null ? src.accionInmediata : (s ? s[15] || '' : 'Reparar');
     var plazo = src.plazo != null ? src.plazo : (s ? s[6] : '');
     var ok = !f.open;
     var h = '<div class="fumbox' + (ok ? ' ok' : '') + '"><div class="flex"><b class="grow">' +
@@ -798,6 +809,7 @@
       (s && s[4] ? '<div class="tiny muted">Abierta el ' + esc(fmtDate(s[4])) + (s[11] ? ' · cerrada el ' + esc(fmtDate(s[11])) : '') + (s[12] ? ' · ' + esc(s[12]) : '') + '</div>' : '');
     if (f.open) {
       h += '<label class="f" style="margin-top:8px"><span>Acción inmediata</span><select class="in" data-fum="accionInmediata">' +
+        (inm ? '' : '<option value="" selected>— elegir —</option>') +
         ['Reparar', 'Recambio', 'Recalificar', 'Dejar como esta'].map(function (x) {
           return '<option' + (x === inm ? ' selected' : '') + '>' + esc(x) + '</option>';
         }).join('') + '</select></label>' +
@@ -849,7 +861,8 @@
         '</span><span class="chev">›</span></button>';
     };
     var closed = fumsAll().filter(function (f) { return f[5] !== 'Abierta'; }).slice(-40).reverse();
-    var html = '<h2 class="sec">Abiertas · ' + open.length + '</h2>' +
+    var html = (S.catalog && S.catalog.fogAviso ? '<div class="note err">' + esc(S.catalog.fogAviso) + '. Las FUM se guardan igual y se pasan al FOG cuando vuelva a estar disponible.</div>' : '') +
+      '<h2 class="sec">Abiertas · ' + open.length + '</h2>' +
       (open.length ? '<div class="list">' + open.map(row).join('') + '</div>' : '<div class="card pad small muted">No hay FUM abiertas.</div>');
     if (closed.length) {
       html += '<details class="hid"><summary><h2 class="sec">Cerradas / anuladas · ' + closed.length + ' ▾</h2></summary><div class="card">' +
@@ -893,7 +906,7 @@
         var id = uid();
         var op = {
           id: id, op: 'photo', sheet: reg.sheet, off: off, criterio: it.criterio, tarea: it.tarea, mime: 'image/jpeg',
-          img: 'img:' + id, status: 'pending', createdAt: Date.now(), by: S.settings.inspector
+          img: 'img:' + id, status: 'pending', createdAt: Date.now(), by: S.settings.inspector, takenAt: localStamp()
         };
         if (reg.pending) op.ref = reg.opId; else { op.h = reg.h; op.sig = reg.sig; op.elemento = reg.elemento; }
         S.thumbs[id] = dataUrl;
@@ -939,16 +952,12 @@
     var ctl = window.AbortController ? new AbortController() : null;
     var t = setTimeout(function () { if (ctl) ctl.abort(); }, 90000);
     var p;
-    if (req.action === 'catalog' || req.action === 'ping') {
-      p = fetch(url + (url.indexOf('?') >= 0 ? '&' : '?') + 'action=' + req.action + '&token=' + encodeURIComponent(req.token),
-        { signal: ctl && ctl.signal, redirect: 'follow' });
-    } else {
-      p = fetch(url, {
-        method: 'POST', redirect: 'follow', signal: ctl && ctl.signal,
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify(req)
-      });
-    }
+    // todo por POST: la clave nunca viaja en la URL
+    p = fetch(url, {
+      method: 'POST', redirect: 'follow', signal: ctl && ctl.signal,
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(req)
+    });
     return p.then(function (r) {
       clearTimeout(t);
       return r.text().then(function (txt) {
@@ -1463,14 +1472,19 @@
         return { name: tk.name, muestra: tk.muestra, items: tk.items.filter(function (it) { return filter === 'all' || itemState(it) === filter; }) };
       }).filter(function (tk) { return tk.items.length; });
       if (!visibleTasks.length) return;
-      html += '<div class="stage"><div class="stage-h"><b>' + esc(g.name) + '</b><span class="chip ' + (gs.pend ? 'pend' : 'ap') + '">' + (gs.total - gs.pend) + '/' + gs.total + '</span><span class="sp"></span>' +
-        (gs.pend ? '<button class="btn tiny" data-act="bulk" data-key="' + reg.key + '" data-stage="' + esc(g.name) + '">Pendientes → AP</button>' : '') + '</div>';
+      var fk = reg.key + '|' + g.name;
+      var folded = S.ui.folded[fk] != null ? S.ui.folded[fk] : false;
+      html += '<div class="stage"><div class="stage-h"><button class="fold" data-act="fold" data-k="' + esc(fk) + '" aria-expanded="' + !folded + '">' +
+        '<span aria-hidden="true">' + (folded ? '▸' : '▾') + '</span><b>' + esc(g.name) + '</b><span class="chip ' + (gs.pend ? 'pend' : 'ap') + '">' + (gs.total - gs.pend) + '/' + gs.total + '</span></button><span class="sp"></span>' +
+        (gs.pend && !folded ? '<button class="btn tiny" data-act="bulk" data-key="' + reg.key + '" data-stage="' + esc(g.name) + '">Pendientes → AP</button>' : '') + '</div>';
+      if (folded) { html += '</div>'; return; }
       visibleTasks.forEach(function (tk) {
         html += '<div class="card task"><div class="task-h">' + esc(tk.name) + (tk.muestra !== '' ? '<span class="mu chip">Muestra ' + esc(fmtMuestra(tk.muestra)) + '</span>' : '') + '</div>' +
           tk.items.map(function (it) { return itemCard(reg, it); }).join('') + '</div>';
       });
       html += '</div>';
     });
+    if (s.pend) html += '<button class="nextpend" data-act="nextpend">Siguiente pendiente ↓ <span style="opacity:.75">(' + s.pend + ')</span></button>';
     view.innerHTML = html;
     if (S.ui.focus != null) {
       var fe = document.getElementById('it-' + S.ui.focus);
@@ -1746,6 +1760,24 @@
         }
         toast('Documento: ' + val);
       });
+    }
+    if (a === 'fold') { S.ui.folded[el.dataset.k] = !S.ui.folded[el.dataset.k]; return render({ keepScroll: true }); }
+    if (a === 'nextpend') {
+      // el próximo control pendiente debajo de lo que se está viendo (si no hay, el primero)
+      var all = [].slice.call(document.querySelectorAll('.item.pend'));
+      var top = 70;
+      var nx = all.filter(function (x) { return x.getBoundingClientRect().top > top + 10; })[0] || all[0];
+      if (!nx) {
+        // puede estar en una etapa plegada: desplegar todo y reintentar
+        Object.keys(S.ui.folded).forEach(function (k) { S.ui.folded[k] = false; });
+        render({ keepScroll: true });
+        nx = document.querySelector('.item.pend');
+      }
+      if (nx) {
+        window.scrollTo({ top: window.scrollY + nx.getBoundingClientRect().top - top, behavior: 'smooth' });
+        nx.classList.remove('hl'); void nx.offsetWidth; nx.classList.add('hl');
+      }
+      return;
     }
     if (a === 'gofum') {
       S.ui.open[el.dataset.key + ':' + el.dataset.off] = true;

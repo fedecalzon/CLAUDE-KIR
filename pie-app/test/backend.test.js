@@ -451,6 +451,87 @@ test('FOG 01: la FUM se registra en el formulario de mejoras con su numeración'
   assert.ok(!JSON.parse(JSON.stringify(g.api({ action: 'catalog' }))).categorias.some(c => /F\.U\.M/.test(c.sheet)));
 });
 
+test('v1.4 FOG 01: FUM previas al vínculo no se mezclan con FUM del FOG del mismo número', () => {
+  if (!process.argv[4]) return;
+  const { loadWorkbook: lw } = require('./fake-gas');
+  // libro nuevo con FUM de la app SIN FOG (N° 1 y 2 en el índice)
+  const book = lw(process.argv[2]);
+  const g0 = createGas(book, {});
+  const c13 = cat('13', JSON.parse(JSON.stringify(g0.api({ action: 'catalog' }))));
+  const r = c13.registros[1];
+  const mk = (id, k) => ({ id, op: 'fum', accion: 'abrir', sheet: '13', h: r.h, sig: r.sig, off: r.items[k][0], criterio: c13.crit[r.items[k][1]][3], by: 'FC' });
+  const r0 = JSON.parse(JSON.stringify(g0.api({ action: 'batch', ops: [mk('p1', 0), mk('p2', 1)] })));
+  assert.deepStrictEqual(r0.results.map(x => x.fum), [1, 2]);
+  // ahora se vincula el FOG 01 (que tiene su propia FUM N° 1 y 2, ya cerradas)
+  const GID = 'FOGID000000000000000000002';
+  const fogBook = lw(process.argv[4]);
+  const props = {};
+  const g = createGas(book, props, { books: { [GID]: fogBook }, files: {} });
+  const link = g.linkFog_(`https://docs.google.com/spreadsheets/d/${GID}/edit`);
+  assert.ok(/N° 4/.test(link.msg) || /N° 3/.test(link.msg), link.msg);
+  const fums = JSON.parse(JSON.stringify(g.api({ action: 'catalog' }))).fums;
+  assert.deepStrictEqual(fums.map(f => [f[0], f[5]]), [[1, 'Abierta'], [2, 'Abierta']], 'no toma el cierre de otra FUM del FOG');
+  // cerrar la FUM 1 de la app no toca la fila de la FUM 1 del FOG
+  const before = JSON.stringify([...fogBook.sheets[0].cells.entries()].filter(([k]) => k.startsWith('14,')));
+  const rc = JSON.parse(JSON.stringify(g.api({ action: 'batch', ops: [{ id: 'p3', op: 'fum', accion: 'cerrar', num: 1, resultado: 'Reinspección AP', by: 'FC' }] })));
+  assert.ok(rc.results[0].ok, JSON.stringify(rc.results[0]));
+  assert.strictEqual(JSON.stringify([...fogBook.sheets[0].cells.entries()].filter(([k]) => k.startsWith('14,'))), before, 'fila 14 del FOG intacta');
+  // la próxima FUM sigue la numeración del FOG y del índice, y el cartel lo dice bien
+  const nx = JSON.parse(JSON.stringify(g.api({ action: 'batch', ops: [mk('p4', 2)] })));
+  assert.strictEqual(nx.results[0].fum, 4);
+});
+
+test('v1.4 FOG 01: si el FOG no abre, la FUM se crea igual y se pasa al FOG cuando vuelve', () => {
+  if (!process.argv[4]) return;
+  const { loadWorkbook: lw } = require('./fake-gas');
+  const book = lw(process.argv[2]);
+  const GID = 'FOGID000000000000000000003';
+  const extra = { books: { [GID]: lw(process.argv[4]) }, files: {} };
+  const props = {};
+  const g = createGas(book, props, extra);
+  assert.ok(g.linkFog_(`https://docs.google.com/spreadsheets/d/${GID}/edit`).ok);
+  delete extra.books[GID];   // el FOG deja de estar disponible
+  const c13 = cat('13', JSON.parse(JSON.stringify(g.api({ action: 'catalog' }))));
+  const r = c13.registros[1];
+  const res = JSON.parse(JSON.stringify(g.api({ action: 'batch', ops: [{ id: 'q1', op: 'fum', accion: 'abrir', sheet: '13', h: r.h, sig: r.sig, off: r.items[0][0], criterio: c13.crit[r.items[0][1]][3], by: 'FC' }] })));
+  assert.ok(res.results[0].ok, JSON.stringify(res.results[0]));
+  assert.ok(/FOG 01/.test(res.results[0].warnings.join(' ')), 'avisa que quedó pendiente en el FOG');
+  // vuelve el FOG: la próxima operación de FUM la registra
+  const fogBook = lw(process.argv[4]);
+  extra.books[GID] = fogBook;
+  const res2 = JSON.parse(JSON.stringify(g.api({ action: 'batch', ops: [{ id: 'q2', op: 'fum', accion: 'editar', num: res.results[0].fum, accionCorrectiva: 'Rehacer' }] })));
+  assert.ok(res2.results[0].ok, JSON.stringify(res2.results[0]));
+  const fsh = fogBook.sheets[0];
+  assert.strictEqual(res.results[0].fum, 4, 'sigue la numeración del FOG aunque no abriera');
+  const hit = [...fsh.cells.entries()].find(([k, v]) => k.endsWith(',1') && v.v === res.results[0].fum);
+  assert.ok(hit, 'la FUM pendiente se escribió en el FOG');
+  const row = Number(hit[0].split(',')[0]);
+  assert.strictEqual(fsh.cell(row, 14).v, 'Rehacer');
+});
+
+test('v1.4 FOG 01: reintento después de un fallo no duplica la fila', () => {
+  if (!process.argv[4]) return;
+  const { loadWorkbook: lw } = require('./fake-gas');
+  const book = lw(process.argv[2]);
+  const GID = 'FOGID000000000000000000004';
+  const fogBook = lw(process.argv[4]);
+  const g = createGas(book, { FOG01_ID: GID }, { books: { [GID]: fogBook }, files: {} });
+  const c13 = cat('13', JSON.parse(JSON.stringify(g.api({ action: 'catalog' }))));
+  const r = c13.registros[1];
+  const op = { id: 'w1', op: 'fum', accion: 'abrir', sheet: '13', h: r.h, sig: r.sig, off: r.items[0][0], criterio: c13.crit[r.items[0][1]][3], by: 'FC' };
+  // falla la escritura del log después de escribir todo lo demás
+  const log = book.getSheetByName('_PIE_LOG') || book.insertSheet('_PIE_LOG');
+  const orig = log.appendRow.bind(log);
+  log.appendRow = () => { throw new Error('se cortó'); };
+  const r1 = JSON.parse(JSON.stringify(g.api({ action: 'batch', ops: [op] })));
+  log.appendRow = orig;
+  assert.ok(!r1.results[0].ok);
+  const r2 = JSON.parse(JSON.stringify(g.api({ action: 'batch', ops: [op] })));
+  assert.ok(r2.results[0].ok, JSON.stringify(r2.results[0]));
+  const nums = [...fogBook.sheets[0].cells.entries()].filter(([k, v]) => k.endsWith(',1') && typeof v.v === 'number' && Number(k.split(',')[0]) >= 18).map(([, v]) => v.v);
+  assert.deepStrictEqual(nums, [4], 'una sola fila nueva en el FOG');
+});
+
 test('foto sin permiso de Drive: mensaje con los pasos para autorizar (error reportado)', () => {
   const g = createGas(ss, {});
   const c10 = cat('10', JSON.parse(JSON.stringify(g.api({ action: 'catalog' }))));
@@ -462,13 +543,78 @@ test('foto sin permiso de Drive: mensaje con los pasos para autorizar (error rep
   assert.ok(/autorizar/.test(res.results[0].error) && /Nueva versión/.test(res.results[0].error), res.results[0].error);
 });
 
+test('v1.4 seguridad: textos que empiezan con = se guardan como texto (inyección de fórmulas)', () => {
+  const c10 = cat('10', call({ action: 'catalog' }));
+  const r = c10.registros[2];
+  const it = r.items[1];
+  const res = call({ action: 'batch', ops: [{ id: 'op-inj', op: 'update', sheet: '10', h: r.h, sig: r.sig,
+    header: { elemento: '=IMPORTXML("http://x","//a")' },
+    items: { [it[0]]: { criterio: c10.crit[it[1]][3], obs: '=HYPERLINK("http://x")', fum: '+1', documento: '-A1' } } }] });
+  assert.ok(res.results[0].ok, JSON.stringify(res.results[0]));
+  const sh = ss.getSheetByName('10');
+  const row = r.h + it[0];
+  assert.ok(!sh.cell(row, 12).f && sh.cell(row, 12).quoted && sh.cell(row, 12).v === '=HYPERLINK("http://x")', JSON.stringify(sh.cell(row, 12)));
+  assert.ok(sh.cell(row, 11).quoted && sh.cell(row, 11).v === '+1');
+  assert.ok(sh.cell(row, 7).quoted && sh.cell(row, 7).v === '-A1');
+  const el = [...sh.cells.entries()].find(([k, v]) => typeof v.v === 'string' && v.v.includes('IMPORTXML'));
+  assert.ok(el && !el[1].f && el[1].quoted, JSON.stringify(el));
+  // la app lo lee sin el apóstrofo
+  const nr = cat('10', res).registros[2];
+  assert.strictEqual(nr.elemento, '=IMPORTXML("http://x","//a")');
+  // un "-5 mm" sigue siendo texto normal
+  const res2 = call({ action: 'batch', ops: [{ id: 'op-inj2', op: 'update', sheet: '10', h: r.h, sig: r.sig,
+    items: { [it[0]]: { criterio: c10.crit[it[1]][3], obs: '-5 mm respecto al eje' } } }] });
+  assert.strictEqual(sh.cell(row, 12).v, '-5 mm respecto al eje');
+});
+
+test('v1.4 seguridad: fotos sólo imágenes y de tamaño razonable', () => {
+  const c10 = cat('10', call({ action: 'catalog' }));
+  const r = c10.registros[1], it = r.items[1];
+  const base = { op: 'photo', sheet: '10', h: r.h, sig: r.sig, off: it[0], criterio: c10.crit[it[1]][3] };
+  const res = call({ action: 'batch', ops: [
+    Object.assign({ id: 'op-bad1', mime: 'text/html', data: 'AAAA' }, base),
+    Object.assign({ id: 'op-bad2', mime: 'image/jpeg', data: 'A'.repeat(15 * 1024 * 1024) }, base)
+  ] });
+  assert.strictEqual(res.results[0].code, 'bad_request');
+  assert.strictEqual(res.results[1].code, 'bad_request');
+});
+
+test('v1.4 fotos: nombre y carpeta que permiten rastrear el control', () => {
+  const c6 = cat('6', call({ action: 'catalog' }));
+  const r = c6.registros[3], it = r.items[4];
+  const g2 = createGas(ss, {});
+  const res = JSON.parse(JSON.stringify(g2.api({ action: 'batch', ops: [
+    { id: 'op-name1', op: 'photo', sheet: '6', h: r.h, sig: r.sig, off: it[0], criterio: c6.crit[it[1]][3], tarea: c6.crit[it[1]][1],
+      mime: 'image/jpeg', data: 'AAAA', by: 'FC', takenAt: '2026-10-18T09:41:00' },
+    { id: 'op-name2', op: 'photo', sheet: '6', h: r.h, sig: r.sig, off: it[0], criterio: c6.crit[it[1]][3], tarea: c6.crit[it[1]][1],
+      mime: 'image/jpeg', data: 'AAAA', by: 'FC', takenAt: '2026-10-18T09:42:00' }
+  ] })));
+  assert.ok(res.results.every(x => x.ok), JSON.stringify(res.results));
+  const folders = Object.values(g2.__drive.byId);
+  const files = folders.flatMap(f => f.files);
+  assert.strictEqual(files.length, 2);
+  const n = files[0].name;
+  const row = r.h + it[0];
+  assert.ok(n.startsWith('PIE-6_F' + row + '_'), n);
+  assert.ok(/_2026-10-18_0941_FC_01\.jpg$/.test(n), n);
+  assert.ok(/_02\.jpg$/.test(files[1].name), files[1].name);
+  assert.ok(n.length <= 140 && !/[\\/:*?"<>|]/.test(n), n);
+  // carpeta: Fotos de control › 6 - HORMIGON… › Fila <tarea> - <elemento>
+  const reg = folders.find(f => f.files.length);
+  assert.ok(reg.name.startsWith('Fila ' + r.h + ' - '), reg.name);
+});
+
 test('errores: hoja inexistente y clave', () => {
   const res = call({ action: 'batch', ops: [{ id: 'op-8', op: 'create', sheet: 'DATOS', items: {} }] });
   assert.ok(!res.results[0].ok);
   assert.strictEqual(res.results[0].code, 'not_found');
   gas = createGas(ss, { PIE_TOKEN: 'secreto' });
   assert.ok(call({ action: 'catalog', token: 'secreto' }).fod.aviso, 'sin FOD vinculado avisa');
-  assert.strictEqual(call({ action: 'catalog' }).code, 'auth');
+  assert.strictEqual(call({ action: 'catalog', token: 'mala' }).code, 'auth');
+  assert.strictEqual(call({ action: 'catalog', token: '' }).code, 'auth');
+  // sin clave configurada la API no queda abierta
+  const sinClave = createGas(ss, { PIE_TOKEN: '' });
+  assert.strictEqual(JSON.parse(JSON.stringify(sinClave.api({ action: 'catalog', token: '' }))).code, 'config');
   assert.ok(call({ action: 'catalog', token: 'secreto' }).ok);
 });
 

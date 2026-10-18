@@ -19,7 +19,7 @@ const sheetRows = (name, from, to, book) => fetch(`http://localhost:8081/__sheet
   const shot = (n) => page.screenshot({ path: `${shots}/${n}.png`, fullPage: false });
 
   // 1. Configuración por enlace + descarga del catálogo
-  await page.goto(`${APP}?api=${encodeURIComponent(API)}`);
+  await page.goto(`${APP}?api=${encodeURIComponent(API)}&token=clave-prueba`);
   await page.waitForSelector('text=MARIA DEL PILAR LOPEZ', { timeout: 20000 });
   await shot('01-quien');
   await page.click('text=FEDERICO CALZON');
@@ -156,6 +156,19 @@ const sheetRows = (name, from, to, book) => fetch(`http://localhost:8081/__sheet
   assert.ok(/Reinspección aprobada en el PIE/.test(fog2.rows[0][16]) && /^\d{4}-\d{2}-\d{2}$/.test(fog2.rows[0][17]), JSON.stringify(fog2.rows[0].slice(15, 18)));
   const rows3 = await sheetRows('6', T + 6, T + 6);
   assert.strictEqual(rows3.rows[0][6], 'KIR-COMR-REF-ESTR-S12P-R07');
+
+  // 6d. "Siguiente pendiente" lleva al próximo control sin marcar, y las etapas se pliegan
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.click('button[data-act=nextpend]');
+  await page.waitForTimeout(700);
+  const firstPendVisible = await page.evaluate(() => { const el = document.querySelector('.item.pend'); const r = el.getBoundingClientRect(); return r.top >= 0 && r.top < innerHeight; });
+  assert.ok(firstPendVisible, 'el primer pendiente quedó a la vista');
+  await page.click('button[data-act=fold] >> nth=0');
+  assert.ok((await page.$$('.item')).length < 46, 'la etapa PRE se plegó');
+  await page.click('button[data-act=fold] >> nth=0');
+  // tamaños para usar con guantes
+  const sizes = await page.evaluate(() => ['.acts .st', '.acts .more', '.filters button'].map(q => Math.round(document.querySelector(q).getBoundingClientRect().height)));
+  assert.ok(sizes[0] >= 48 && sizes[1] >= 48 && sizes[2] >= 44, 'botones grandes: ' + sizes);
 
   // 7. Filtro de pendientes y vista de registro existente con datos
   await page.click('button[data-f=ap]');

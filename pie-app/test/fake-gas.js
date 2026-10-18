@@ -124,7 +124,8 @@ class FakeSheet {
     if (Object.prototype.toString.call(v) === '[object Date]') {
       const p = (n) => String(n).padStart(2, '0');
       this.cells.set(k, { d: `${v.getFullYear()}-${p(v.getMonth() + 1)}-${p(v.getDate())}`, v: '' });
-    } else if (typeof v === 'string' && v.startsWith('=')) this.cells.set(k, { f: v, v: '#CALC' });
+    } else if (typeof v === 'string' && v.startsWith("'")) this.cells.set(k, { v: v.slice(1), quoted: true }); // como Sheets: texto forzado
+    else if (typeof v === 'string' && /^[=+]/.test(v)) this.cells.set(k, { f: v, v: '#CALC' });
     else if (v === '' || v == null) this.cells.delete(k);
     else this.cells.set(k, { v });
   }
@@ -230,6 +231,7 @@ class FakeFolder {
 }
 
 function createGas(ss, props = {}, extra = {}) {
+  if (!('PIE_TOKEN' in props)) props.PIE_TOKEN = 'clave-prueba';
   const drive = { n: 0, byId: {} };
   const root = new FakeFolder('Mi unidad', drive);
   const src = fs.readFileSync(path.join(__dirname, '../apps-script/Code.gs'), 'utf8');
@@ -293,6 +295,9 @@ function createGas(ss, props = {}, extra = {}) {
   };
   vm.createContext(ctx);
   vm.runInContext(src, ctx);
+  // las pruebas llaman api() sin clave salvo que la pasen explícitamente
+  const rawApi = ctx.api;
+  ctx.api = (req) => rawApi(Object.assign({ token: props.PIE_TOKEN }, req));
   return ctx;
 }
 
