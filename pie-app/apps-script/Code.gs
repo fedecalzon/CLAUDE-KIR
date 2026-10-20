@@ -22,13 +22,15 @@
  */
 
 var PIE = {
-  VERSION: '1.4.0',
+  VERSION: '1.7.0',
   DATOS_SHEET: 'DATOS',
   LOG_SHEET: '_PIE_LOG',
   FOTOS_SHEET: '_PIE_FOTOS',
   FOD_SHEET: 'FOD-02',   // pestaña del Registro de Control y Distribución de Documentos
   FUM_SHEET: '_PIE_FUM',          // índice interno (oculto) de las FUM abiertas desde la app
   FUM_SHEET_OLD: 'FUM - Rechazos', // nombre de la v1.2, se migra solo
+  EQUIPOS_SHEET: 'EQUIPOS DE MEDICIÓN', // equipos con N° de serie y vencimiento de calibración (v1.7)
+  LIB_SHEET: 'LIBERACIONES',            // liberaciones de etapa hechas desde la app (v1.7)
   FOTOS_FOLDER_NAME: 'PIE - Fotos de control',
   DATE_FORMAT: 'dd/mm/yy',
   MAX_COLS: 30,          // columnas a leer por hoja (los bloques usan A:O)
@@ -72,6 +74,7 @@ function onOpen() {
     .addItem('Configurar clave de acceso', 'configurarClave')
     .addItem('Vincular FOD 02 (registro de documentos)', 'vincularFod02')
     .addItem('Vincular FOG 01 (FUM - formulario de mejoras)', 'vincularFog01')
+    .addItem('Crear hoja de equipos de medición', 'crearHojaEquipos')
     .addItem('Ver enlace de la app', 'verEnlace')
     .addToUi();
 }
@@ -365,6 +368,8 @@ function catalog_(ss) {
     datos: readDatos_(ss),
     fod: readFodSafe_(ss),
     fums: readFums_(ss),
+    equipos: readEquipos_(ss),
+    liberaciones: readLiberaciones_(ss),
     fogAviso: (function () { var l = fogLinkedSafe_(); return l.configured && !l.fog ? 'No se pudo abrir el FOG 01: ' + l.error : ''; })(),
     categorias: cats
   };
@@ -392,6 +397,7 @@ function batch_(ss, ops) {
         else if (op.op === 'update') res = opUpdate_(ss, log, op);
         else if (op.op === 'photo') res = opPhoto_(ss, log, op);
         else if (op.op === 'fum') res = opFum_(ss, log, op);
+        else if (op.op === 'liberar') res = opLiberar_(ss, log, op);
         else throw pieError_('Operación desconocida: ' + op.op, 'bad_request');
         var extra = res.url || (res.fum != null ? String(res.fum) : '');
         var sheetName = res.sheet || op.sheet;
@@ -410,7 +416,7 @@ function batch_(ss, ops) {
   var cats = Object.keys(touched).map(function (name) {
     return readCategory_(ss.getSheetByName(name), fotos);
   });
-  return { ok: true, results: results, categorias: cats, fums: readFums_(ss) };
+  return { ok: true, results: results, categorias: cats, fums: readFums_(ss), liberaciones: readLiberaciones_(ss) };
 }
 
 /* ------------------------------------------------------------------ */
@@ -419,6 +425,7 @@ function batch_(ss, ops) {
 
 function isCategorySheet_(name) {
   return name !== PIE.DATOS_SHEET && name !== PIE.FOD_SHEET && name !== PIE.FUM_SHEET_OLD && name.charAt(0) !== '_' &&
+    key_(name) !== key_(PIE.EQUIPOS_SHEET) && name !== PIE.LIB_SHEET &&
     !/^F\.?U\.?M\b/i.test(name);
 }
 
@@ -532,6 +539,136 @@ function fileSafe_(v, max, sep) {
 function readDatos_(ss) {
   var sh = ss.getSheetByName(PIE.DATOS_SHEET);
   return parseDatos_(sh ? readValues_(sh) : []);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Equipos de medición (v1.7): N° de serie y vencimiento de calibración */
+/* ------------------------------------------------------------------ */
+
+var EQUIPOS_HEAD = ['EQUIPO', 'N° DE SERIE', 'CALIBRACIÓN VENCE', 'CERTIFICADO', 'OBSERVACIONES'];
+
+function equiposSheet_(ss) {
+  var want = key_(PIE.EQUIPOS_SHEET);
+  return ss.getSheets().filter(function (sh) { return key_(sh.getName()) === want; })[0] || null;
+}
+
+/** Menú PIE › Crear hoja de equipos de medición: la arma con los equipos que ya tienen N° en DATOS. */
+function crearHojaEquipos() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ui = SpreadsheetApp.getUi();
+  var sh = equiposSheet_(ss);
+  if (sh) { ss.setActiveSheet(sh); ui.alert('La hoja «' + sh.getName() + '» ya existe. Completá el vencimiento de calibración de cada equipo (columna C).'); return; }
+  var n = crearHojaEquipos_(ss);
+  ui.alert('Se creó la hoja «' + PIE.EQUIPOS_SHEET + '» con ' + n + ' equipo(s) tomados de DATOS.\n\n' +
+    'Completá la fecha de vencimiento de la calibración (columna C) y, si querés, el enlace al certificado. ' +
+    'Agregá una fila por cada equipo con su N° de serie: la app los ofrece al elegir el instrumento y avisa si la calibración está vencida.');
+}
+
+function crearHojaEquipos_(ss) {
+  var sh = ss.insertSheet(PIE.EQUIPOS_SHEET);
+  var rows = [];
+  var seen = {};
+  readDatos_(ss).instrumentos.forEach(function (ins) {
+    String(ins).split('/').forEach(function (part) {
+      var m = /^(.*?)\s*\(([^)]+)\)\s*$/.exec(part.trim());
+      if (!m || /INDIQUE/i.test(m[2])) return;
+      var k = key_(m[1]) + '|' + key_(m[2]);
+      if (seen[k]) return;
+      seen[k] = true;
+      rows.push([m[1].trim(), m[2].trim(), '', '', '']);
+    });
+  });
+  sh.getRange(1, 1, 1, EQUIPOS_HEAD.length).setValues([EQUIPOS_HEAD]).setFontWeight('bold');
+  if (rows.length) sh.getRange(2, 1, rows.length, EQUIPOS_HEAD.length).setValues(rows);
+  sh.getRange(2, 3, Math.max(rows.length, 1) + 50, 1).setNumberFormat('dd/mm/yyyy');
+  sh.setFrozenRows(1);
+  return rows.length;
+}
+
+/** Fecha de una celda (Date ya convertida, «dd/mm/aa», «dd/mm/aaaa» o «aaaa-mm-dd») como aaaa-mm-dd. */
+function isoDate_(v) {
+  var t = txt_(v);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(t)) return t;
+  var m = /^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2}|\d{4})$/.exec(t);
+  if (!m) return '';
+  var y = m[3].length === 2 ? '20' + m[3] : m[3];
+  return y + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[1]).slice(-2);
+}
+
+/** [{equipo, serie, vence (aaaa-mm-dd o ''), cert, obs}] de la hoja de equipos (si existe). */
+function readEquipos_(ss) {
+  var sh = equiposSheet_(ss);
+  if (!sh) return [];
+  var values = readValues_(sh);
+  var hr = -1, col = {};
+  for (var i = 0; i < Math.min(values.length, 10) && hr < 0; i++) {
+    values[i].forEach(function (v, j) {
+      var k = key_(v);
+      if (k === 'EQUIPO' || k.indexOf('INSTRUMENTO') === 0) { col.eq = j; hr = i; }
+      else if (k.indexOf('SERIE') >= 0 || k.indexOf('SERIAL') >= 0) col.serie = j;
+      else if (k.indexOf('CALIBRA') >= 0 || k.indexOf('VENCE') >= 0 || k.indexOf('VENCIMIENTO') >= 0) col.vence = j;
+      else if (k.indexOf('CERTIFICADO') >= 0) col.cert = j;
+      else if (k.indexOf('OBSERV') >= 0) col.obs = j;
+    });
+  }
+  if (hr < 0 || col.serie == null) return [];
+  var out = [];
+  values.slice(hr + 1).forEach(function (r) {
+    var serie = txt_(r[col.serie]);
+    if (!serie) return;
+    out.push({
+      equipo: txt_(r[col.eq]), serie: serie,
+      vence: col.vence != null ? isoDate_(r[col.vence]) : '',
+      venceTxt: col.vence != null ? txt_(r[col.vence]) : '',
+      cert: col.cert != null ? txt_(r[col.cert]) : '',
+      obs: col.obs != null ? txt_(r[col.obs]) : ''
+    });
+  });
+  return out;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Liberación de etapa (v1.7)                                          */
+/* ------------------------------------------------------------------ */
+
+var LIB_HEAD = ['Fecha', 'Planilla', 'Categoría', 'Fila PIE', 'Elemento', 'Piso', 'Sector', 'Etapa', 'Liberó',
+  'Controles', 'Plano', 'Observaciones', 'Registrada', 'op_id'];
+
+function libSheet_(ss) {
+  var sh = ss.getSheetByName(PIE.LIB_SHEET);
+  if (!sh) {
+    sh = ss.insertSheet(PIE.LIB_SHEET);
+    sh.getRange(1, 1, 1, LIB_HEAD.length).setValues([LIB_HEAD]).setFontWeight('bold');
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+
+/** [[planilla, filaTarea, etapa, fecha, liberó, controles]] para la app. */
+function readLiberaciones_(ss) {
+  var sh = ss.getSheetByName(PIE.LIB_SHEET);
+  if (!sh || sh.getLastRow() < 2) return [];
+  return readValues_(sh).slice(1).filter(function (r) { return r[1] !== '' && r[3] !== ''; }).map(function (r) {
+    return [txt_(r[1]), Number(r[3]), txt_(r[7]), isoDate_(r[0]) || txt_(r[0]), txt_(r[8]), txt_(r[9])];
+  });
+}
+
+/**
+ * op = {op:'liberar', sheet, h|ref, sig, elemento, etapa, fecha, by, resumen, plano, obs}. La app sólo la ofrece
+ * con la etapa sin pendientes, sin RZ ni FUM abiertas, con el plano vigente y los instrumentos en regla.
+ */
+function opLiberar_(ss, log, op) {
+  var sh = sheetOrThrow_(ss, op.sheet);
+  var found = resolveBlock_(sh, log, op);
+  var blk = found.blk;
+  if (!op.etapa) throw pieError_('Falta la etapa a liberar', 'bad_request');
+  var fecha = isoDate_(op.fecha) || Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  var ls = libSheet_(ss);
+  var hd = blk.header || {};
+  ls.appendRow([toCellValue_('fecha', fecha), op.sheet, found.title || '', blk.tareaRow, safeText_(hd.elemento || op.elemento || ''),
+    safeText_(hd.piso || ''), safeText_(hd.sector || ''), safeText_(op.etapa), safeText_(op.by || ''), safeText_(op.resumen || ''),
+    safeText_(op.plano || ''), safeText_(op.obs || ''), new Date(), op.id]);
+  return { h: blk.tareaRow };
 }
 
 /* ------------------------------------------------------------------ */

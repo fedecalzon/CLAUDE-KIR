@@ -28,7 +28,15 @@ const sheetRows = (name, from, to, book) => fetch(`http://localhost:8081/__sheet
   // buscador de Inicio (§6.10): al escribir sólo cambia la lista; el campo es el mismo y no pierde el foco
   await page.evaluate(() => { document.querySelector('[data-input=search]')._k = 1; });
   await page.fill('[data-input=search]', 'zzzz');
-  await page.waitForSelector('#homeList .empty:has-text("No hay planillas con «zzzz»")');
+  await page.waitForSelector('#homeList .empty:has-text("Nada coincide con «zzzz»")');
+  // búsqueda global (v1.7): registros de todas las planillas y veredicto del plano del FOD 02
+  await page.fill('[data-input=search]', 'bajo recorrido ss4');
+  await page.waitForSelector('#homeList .row:has-text("Bajo recorrido"):has-text("Planilla 6")');
+  await page.fill('[data-input=search]', 'S12P R06');
+  await page.waitForSelector('#homeList .srch-doc:has-text("KIR-COMR-REF-ESTR-S12P") .chip.rz:has-text("R06 SUPERADA · rige R07")');
+  await page.fill('[data-input=search]', 's12p r07');
+  await page.waitForSelector('#homeList .srch-doc .chip.ap:has-text("R07 VIGENTE")');
+  await shot('02b-busqueda');
   await page.fill('[data-input=search]', 'hormig');
   await page.waitForSelector('#homeList .row:has-text("HORMIGON ARMADO")');
   assert.ok(await page.evaluate(() => document.querySelector('[data-input=search]')._k === 1 && document.activeElement.dataset.input === 'search'), 'el buscador no se vuelve a dibujar');
@@ -292,6 +300,9 @@ const sheetRows = (name, from, to, book) => fetch(`http://localhost:8081/__sheet
   // Inicio: «Seguir» lleva directo al registro trabajado, sin repetir el título de la planilla
   await page.evaluate(() => { location.hash = '#/'; });
   await page.waitForSelector('.row.recent:has-text("Losa prueba offline L1")');
+  await page.fill('[data-input=search]', 'fum 4');
+  await page.waitForSelector('#homeList .fumrow:has-text("FUM 4"):has-text("Cerrada")');
+  await page.fill('[data-input=search]', '');
   assert.strictEqual(await page.locator('.row.recent:has-text("HORMIGON")').count(), 0, 'la fila de «Seguir» no repite el título de la planilla');
   assert.strictEqual(await page.locator('.row:has-text("HORMIGON ARMADO") >> nth=0').getAttribute('data-to'), '/c/6', 'el primer «HORMIGON ARMADO» sigue siendo la planilla 6');
   await page.evaluate(() => { location.hash = '#/fum'; });

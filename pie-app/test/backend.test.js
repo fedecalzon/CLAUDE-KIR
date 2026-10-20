@@ -604,6 +604,55 @@ test('v1.4 fotos: nombre y carpeta que permiten rastrear el control', () => {
   assert.ok(reg.name.startsWith('Fila ' + r.h + ' - '), reg.name);
 });
 
+test('v1.7 equipos de medición: la hoja se arma con los N° de serie de DATOS y la app recibe los vencimientos', () => {
+  assert.deepStrictEqual(call({ action: 'catalog' }).equipos, [], 'sin hoja, sin equipos');
+  const n = gas.crearHojaEquipos_(ss);
+  const sh = ss.getSheetByName('EQUIPOS DE MEDICIÓN');
+  assert.ok(sh && n >= 3, 'equipos tomados de DATOS: ' + n);
+  const rows = [];
+  for (let r = 2; r <= n + 1; r++) rows.push([sh.cell(r, 1).v, String(sh.cell(r, 2).v)]);
+  assert.ok(rows.some(x => x[0] === 'NIVEL LASER' && x[1] === '1167'), JSON.stringify(rows));
+  assert.ok(rows.some(x => x[0] === 'TELURIMETRO' && x[1] === 'TELU 117'), JSON.stringify(rows));
+  assert.ok(!rows.some(x => /INDIQUE/.test(x[1])), 'sin «INDIQUE NO. SERIAL»');
+  const r1167 = rows.findIndex(x => x[1] === '1167') + 2;
+  sh.put(r1167, 3, '15/03/2027');
+  sh.put(r1167, 4, 'https://drive.google.com/cert-1167');
+  sh.appendRow(['NIVEL OPTICO', 'NO-2231', '2026-01-10', '', 'Pendiente de recalibrar']);
+  const eq = call({ action: 'catalog' }).equipos;
+  const e1 = eq.find(x => x.serie === '1167');
+  assert.deepStrictEqual([e1.equipo, e1.vence, e1.cert], ['NIVEL LASER', '2027-03-15', 'https://drive.google.com/cert-1167']);
+  const e2 = eq.find(x => x.serie === 'NO-2231');
+  assert.deepStrictEqual([e2.equipo, e2.vence, e2.obs], ['NIVEL OPTICO', '2026-01-10', 'Pendiente de recalibrar']);
+  assert.ok(!call({ action: 'catalog' }).categorias.some(c => c.sheet === 'EQUIPOS DE MEDICIÓN'), 'no es una planilla del PIE');
+});
+
+test('v1.7 liberación de etapa: queda en la hoja LIBERACIONES y vuelve a la app (también con ref a un alta)', () => {
+  const c = cat('6', call({ action: 'catalog' }));
+  const r = c.registros[0];
+  const res = call({ action: 'batch', ops: [{ id: 'lib-1', op: 'liberar', sheet: '6', h: r.h, sig: r.sig, elemento: r.elemento,
+    etapa: 'PRE', fecha: '2026-10-20', by: 'FC', resumen: '33 controles: 30 AP · 3 N/A', plano: 'KIR-COMR-REF-ESTR-S12P-R07', obs: '=HYPERLINK("x")' }] });
+  assert.ok(res.results[0].ok, JSON.stringify(res.results[0]));
+  const ls = ss.getSheetByName('LIBERACIONES');
+  assert.ok(ls, 'hoja creada');
+  assert.strictEqual(ls.cell(1, 9).v, 'Liberó');
+  assert.deepStrictEqual([ls.cell(2, 2).v, ls.cell(2, 4).v, ls.cell(2, 8).v, ls.cell(2, 9).v, ls.cell(2, 14).v], ['6', r.h, 'PRE', 'FC', 'lib-1']);
+  assert.ok(!ls.cell(2, 12).f && ls.cell(2, 12).quoted && ls.cell(2, 12).v === '=HYPERLINK("x")', 'texto, no fórmula: ' + JSON.stringify(ls.cell(2, 12)));
+  assert.deepStrictEqual(res.liberaciones.slice(-1)[0].slice(0, 5), ['6', r.h, 'PRE', '2026-10-20', 'FC']);
+  // reintento del mismo envío: no se duplica
+  const again = call({ action: 'batch', ops: [{ id: 'lib-1', op: 'liberar', sheet: '6', h: r.h, sig: r.sig, etapa: 'PRE', by: 'FC' }] });
+  assert.ok(again.results[0].dup);
+  assert.strictEqual(call({ action: 'catalog' }).liberaciones.length, 1);
+  // alta y liberación en el mismo lote (sin señal se encolan juntas)
+  const last = c.registros[c.registros.length - 1];
+  const both = call({ action: 'batch', ops: [
+    { id: 'lib-c', op: 'create', sheet: '6', by: 'FC', base: { h: last.h, sig: last.sig }, header: { elemento: 'Losa L9', piso: '9P' }, items: {} },
+    { id: 'lib-2', op: 'liberar', sheet: '6', ref: 'lib-c', etapa: 'PRE', fecha: '2026-10-20', by: 'FC' }] });
+  assert.ok(both.results[1].ok, JSON.stringify(both.results[1]));
+  assert.strictEqual(both.results[1].h, both.results[0].h);
+  assert.strictEqual(ls.cell(3, 5).v, 'Losa L9');
+  assert.ok(!call({ action: 'catalog' }).categorias.some(c => c.sheet === 'LIBERACIONES'), 'no es una planilla del PIE');
+});
+
 test('errores: hoja inexistente y clave', () => {
   const res = call({ action: 'batch', ops: [{ id: 'op-8', op: 'create', sheet: 'DATOS', items: {} }] });
   assert.ok(!res.results[0].ok);

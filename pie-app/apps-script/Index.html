@@ -175,6 +175,11 @@
   .btn.danger { background: var(--rz-fill); border-color: var(--rz-fill); color: var(--on-state); }
   .btn.ap { background: var(--ap-fill); border-color: var(--ap-fill); color: var(--on-state); }
   .btn.ap-line { color: var(--ap); border-color: var(--ap); }
+  .btn.lib { color: var(--ap); border-color: var(--ap); margin: 0 0 16px; }
+  .srch-doc { padding: 12px 14px; border-top: 1px solid var(--line); }
+  .srch-doc:first-child { border-top: 0; }
+  .srch-doc .code { font-weight: 700; font-size: 15px; overflow-wrap: anywhere; }
+  .srch-more { margin: 8px 4px 0; }
   .btn.ghost { background: transparent; border-color: transparent; }
   .btn.ghost.danger { color: var(--rz); }
   .btn.sm { font-size: 14px; padding: 0 12px; }
@@ -393,6 +398,18 @@
   .st-name { font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
   .st-cnt { font-size: 14px; font-weight: 600; color: var(--pend); font-variant-numeric: tabular-nums; }
   .stage.done .st-cnt { color: var(--ap); }
+  .t-pend { color: var(--pend); }
+  .cal { display: flex; gap: 6px; align-items: flex-start; font-size: 14px; line-height: 1.35; margin: -4px 0 12px; }
+  .cal svg { flex: none; margin-top: 2px; }
+  .cal a { color: inherit; font-weight: 700; text-decoration: underline; white-space: nowrap; }
+  .lib-ok { display: flex; gap: 8px; align-items: center; margin: 0 0 16px; padding: 12px 14px; border-radius: var(--radius); background: var(--ap-bg); color: var(--ap); font-weight: 600; font-size: 15px; }
+  .lib-ok .meta { color: inherit; font-weight: 500; }
+  .lib-tag { font-size: 12px; font-weight: 700; color: var(--ap); text-transform: uppercase; letter-spacing: .04em; }
+  ul.chk { list-style: none; margin: 0 0 12px; padding: 0; text-align: left; }
+  ul.chk li { display: flex; gap: 8px; align-items: flex-start; padding: 6px 0; font-size: 16px; line-height: 1.35; border-top: 1px solid var(--line); }
+  ul.chk li:first-child { border-top: 0; }
+  ul.chk li svg { flex: none; margin-top: 2px; }
+  ul.chk li.ok svg { color: var(--ap); } ul.chk li.no { font-weight: 700; } ul.chk li.no svg { color: var(--rz); }
   .t-ap { color: var(--ap); } .t-rz { color: var(--rz); } .t-na { color: var(--na); } .t-sync { color: var(--sync); }
   .task { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--sh-1); margin-bottom: 12px; overflow: hidden; }
   .task-h { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 12px 12px 8px 16px; background: var(--surface-2); border-bottom: 1px solid var(--line); }
@@ -613,7 +630,7 @@
   var BOOT = window.PIE_BOOT || {};
   var IN_GAS = !!(window.google && google.script && google.script.run);
   var MODE = IN_GAS ? (BOOT.mode || 'webapp') : 'pwa';
-  var APP_VERSION = '1.6.0';
+  var APP_VERSION = '1.7.0';
   var ETAPAS = ['PRE', 'DURANTE', 'POST', 'DOC'];
   var FIELDS = ['documento', 'fecha', 'resp', 'estado', 'fum', 'obs', 'instrumento'];
   // movimiento reducido (iPhone › Accesibilidad › Movimiento): los desplazamientos van sin animación
@@ -919,7 +936,7 @@
       var tone = { primary: 'primary', ap: 'ap', danger: 'danger' }[o.ok && o.ok.tone] || 'primary';
       m.innerHTML = '<div class="panel" role="alertdialog" aria-modal="true" aria-labelledby="ask-t" aria-describedby="ask-b">' +
         '<h2 id="ask-t" tabindex="-1">' + esc(o.title) + '</h2>' +
-        '<p id="ask-b">' + esc(o.body || '') + '</p>' +
+        (o.html ? '<div id="ask-b">' + o.html + '</div>' : '<p id="ask-b">' + esc(o.body || '') + '</p>') +
         '<div class="ask-btns"><button class="btn lg block ' + tone + '" type="button" data-ans="ok">' + esc(o.ok.label) + '</button>' +
         (o.alt ? '<button class="btn lg block" type="button" data-ans="alt">' + esc(o.alt.label) + '</button>' : '') +
         '<button class="btn lg block ghost" type="button" data-ans="cancel">' + esc(o.cancel || 'Cancelar') + '</button></div></div>';
@@ -1492,13 +1509,81 @@
     var all = (datos().instrumentos || []).filter(function (x) { return x && x !== 'NA'; });
     var base = instrBase(it.instrumento);
     var same = all.filter(function (x) { return instrBase(x) === base; });
+    // los equipos de la hoja EQUIPOS DE MEDICIÓN del mismo tipo, con lo que sigue al «(…)» del modelo
+    // (p. ej. «NIVEL LASER (INDIQUE NO. SERIAL)/CINTA METRICA» → «NIVEL LASER (1167)/CINTA METRICA»)
+    var tail = /\)/.test(it.instrumento) ? it.instrumento.slice(it.instrumento.indexOf(')') + 1) : '';
+    equiposAll().forEach(function (e) {
+      if (instrBase(e.equipo) !== base) return;
+      var v = e.equipo + ' (' + e.serie + ')' + tail;
+      if (same.indexOf(v) < 0 && all.indexOf(v) < 0) same.push(v);
+    });
     var rest = all.filter(function (x) { return same.indexOf(x) < 0; });
-    var opt = function (x) { return '<option' + (x === it.instrumento ? ' selected' : '') + '>' + esc(x) + '</option>'; };
-    var cur = all.indexOf(it.instrumento) < 0 ? '<option selected>' + esc(it.instrumento) + '</option>' : '';
+    var opt = function (x) {
+      var cs = equiposOf(x).map(function (e) { return calState(e); });
+      var tag = cs.indexOf('vencida') >= 0 ? ' · calibración vencida' : cs.indexOf('soon') >= 0 ? ' · calibración por vencer' : '';
+      return '<option value="' + esc(x) + '"' + (x === it.instrumento ? ' selected' : '') + '>' + esc(x + tag) + '</option>';
+    };
+    var cur = all.indexOf(it.instrumento) < 0 && same.indexOf(it.instrumento) < 0 ? '<option selected>' + esc(it.instrumento) + '</option>' : '';
     return '<label class="f"><span>Instrumento' + (needsSerial(it.instrumento) ? ' · elegí el N° de serie' : '') + '</span>' +
       '<select class="in" data-field="instrumento">' + cur +
       (same.length ? '<optgroup label="Mismo tipo">' + same.map(opt).join('') + '</optgroup>' : '') +
-      '<optgroup label="Otros">' + rest.map(opt).join('') + '</optgroup></select></label>';
+      '<optgroup label="Otros">' + rest.map(opt).join('') + '</optgroup></select></label>' + calHtml(it);
+  }
+
+  /* ---------- Equipos de medición (v1.7): calibración desde la hoja EQUIPOS DE MEDICIÓN ---------- */
+  function equiposAll() { return (S.catalog && S.catalog.equipos) || []; }
+  function serialKey(v) { return norm(v).toUpperCase().replace(/[^A-Z0-9]/g, ''); }
+  /** Equipos citados en el texto del instrumento: «NIVEL LASER (1167)/CINTA METRICA» → el de serie 1167. */
+  function equiposOf(instr) {
+    var eqs = equiposAll(), out = [];
+    if (!eqs.length || !instr) return out;
+    String(instr).replace(/\(([^)]+)\)/g, function (m, ser) {
+      var k = serialKey(ser);
+      eqs.forEach(function (e) { if (k && serialKey(e.serie) === k && out.indexOf(e) < 0) out.push(e); });
+      return m;
+    });
+    return out;
+  }
+  function daysTo(a, b) { return Math.round((new Date(b + 'T00:00:00') - new Date(a + 'T00:00:00')) / 86400000); }
+  /** Calibración a una fecha (hoy, o la del control): 'ok' | 'soon' (30 días o menos) | 'vencida' | 'sin' (sin fecha). */
+  function calState(e, at) {
+    if (!e.vence) return 'sin';
+    at = /^\d{4}-\d{2}-\d{2}$/.test(at || '') ? at : today();
+    if (e.vence < at) return 'vencida';
+    return daysTo(at, e.vence) <= 30 ? 'soon' : 'ok';
+  }
+  function calText(e, at) {
+    var name = e.equipo + ' ' + e.serie, st = calState(e, at);
+    if (st === 'sin') return name + ': sin fecha de calibración en EQUIPOS DE MEDICIÓN';
+    if (st === 'vencida') return name + ': calibración vencida el ' + fmtDate(e.vence);
+    var d = daysTo(today(), e.vence);
+    return name + ': calibración ' + (st === 'soon' ? 'vence ' + (d === 0 ? 'hoy' : d === 1 ? 'mañana' : 'en ' + d + ' días') + ' (' + fmtDate(e.vence) + ')' : 'al día · vence ' + fmtDate(e.vence));
+  }
+  /** Estado de calibración del instrumento del control (en el detalle, debajo del instrumento). */
+  function calHtml(it) {
+    var eqs = equiposOf(it.instrumento);
+    if (!eqs.length) return '';
+    var at = (itemState(it) === 'ap' || itemState(it) === 'rz') ? it.fecha : '';
+    return eqs.map(function (e) {
+      var st = calState(e, at);
+      var cls = st === 'vencida' ? 'rz' : st === 'ok' ? 'ap' : 'pend';
+      return '<p class="cal t-' + (cls === 'pend' ? 'pend' : cls) + '">' + ic(st === 'ok' ? 'check-circle' : 'alert', 'ic-16') + '<span>' + esc(calText(e, at)) + '</span>' +
+        (/^https?:\/\//.test(e.cert) ? ' <a href="' + esc(e.cert) + '" target="_blank" rel="noopener">Certificado</a>' : '') + '</p>';
+    }).join('');
+  }
+  /** El control se marcó (AP/RZ) con un equipo cuya calibración ya estaba vencida ese día. */
+  function calVencida(it) {
+    var st = itemState(it);
+    if (st !== 'ap' && st !== 'rz') return false;
+    return equiposOf(it.instrumento).some(function (e) { return calState(e, it.fecha) === 'vencida'; });
+  }
+  /** Aviso en Inicio: equipos vencidos o que vencen en 15 días o menos. */
+  function calAlertHtml() {
+    var t = today();
+    var bad = equiposAll().filter(function (e) { return e.vence && (e.vence < t || daysTo(t, e.vence) <= 15); });
+    if (!bad.length) return '';
+    return noteHtml(bad.some(function (e) { return e.vence < t; }) ? 'err' : 'warn',
+      '<p><b>Calibración de equipos</b></p>' + bad.map(function (e) { return '<p>' + esc(calText(e)) + '</p>'; }).join(''), 'alert');
   }
 
   /* ================================================================
@@ -1884,6 +1969,7 @@
     LS.set('resolved', S.resolved);
     adoptResolved();   // ya: la retención de la FUM, lo abierto y la ruta siguen al registro real
     if (res.fums && S.catalog) S.catalog.fums = res.fums;
+    if (res.liberaciones && S.catalog) S.catalog.liberaciones = res.liberaciones;
     mergeCategories(res.categorias);
     saveQueue();
     fumNums.forEach(function (n) { toast('FUM N° ' + n + ' abierta en el FOG 01', { kind: 'ok' }); });
@@ -2259,11 +2345,12 @@
     var d = datos();
     renderTop(d.obra || 'PIE · Carga', 'PIE · FOP 01');
     var html = '<label class="search-box top-search">' + ic('search') +
-      '<input class="search" type="search" data-input="search" aria-label="Buscar planilla" placeholder="Buscar planilla (ej. hormigón, 28)"' +
+      '<input class="search" type="search" data-input="search" aria-label="Buscar planilla, registro, plano o FUM" placeholder="Planilla, losa 5P, S12P R06, FUM 4"' +
       ' enterkeyhint="search" autocomplete="off" autocorrect="off" value="' + esc(S.ui.search) + '"></label>';
     if (MODE === 'pwa' && !isStandalone()) {
       html += noteHtml('warn', 'Instalá la app: en Safari, Compartir › Agregar a inicio. Así no se borra lo cargado sin señal.', 'download');
     }
+    html += calAlertHtml();
     if (!S.settings.inspector) {
       html += noteHtml('info', '<p>Elegí quién sos: tus iniciales se cargan solas en RESP.</p>' +
         '<div class="btns"><button class="btn sm" data-act="go" data-to="/quien">Elegir</button></div>');
@@ -2293,11 +2380,103 @@
       html += '<details class="hid ocultas"><summary class="row">' + '<span class="grow t16">' + esc('Planillas ocultas · ' + hidden.length) + '</span>' +
         ic('chev-d', 'chev') + '</summary><div class="list">' + hidden.map(catRow).join('') + '</div></details>';
     }
-    if (terms.length && !order.length && !hidden.length) {
-      html += emptyHtml('No hay planillas con «' + raw + '». Probá con el número (28) o una palabra (hormigón).', 'search');
+    var extra = terms.length ? globalSearchHtml(terms) : '';
+    html += extra;
+    if (terms.length && !order.length && !hidden.length && !extra) {
+      html += emptyHtml('Nada coincide con «' + raw + '». Probá con un elemento (losa), un piso (5P), un plano (S12P) o una FUM (FUM 4).', 'search');
     }
     var s = ago(S.lastSync);
     html += '<p class="help center foot">' + esc((s === 'nunca' ? 'Sin actualizar' : 'Actualizado ' + (/^(hace|recién)/.test(s) ? s : 'el ' + s)) + ' · v' + APP_VERSION) + '</p>';
+    return html;
+  }
+  /*
+   * Búsqueda global (v1.7), sin señal: además de las planillas, registros (elemento, piso, sector, etapa),
+   * FUM (número, elemento o criterio) y planos del FOD 02 con su veredicto: «S12P R06» dice si esa revisión
+   * está vigente o superada y en cuántos registros se usa.
+   */
+  function globalSearchHtml(terms) {
+    var more = function (n, max) { return n > max ? '<p class="help srch-more">' + esc('Se ven ' + max + ' de ' + n + '. Escribí más para filtrar.') + '</p>' : ''; };
+    var match = function (hay) { hay = norm(hay); return terms.every(function (t) { return hay.indexOf(t) >= 0; }); };
+    var html = '';
+    // registros (también los nuevos sin enviar)
+    var regs = [];
+    S.queue.forEach(function (o) {
+      if (o.op !== 'create') return;
+      var h = o.header || {};
+      if (match(['planilla ' + o.sheet, h.elemento, 'piso ' + (h.piso || ''), h.piso, h.sector, h.etapa].join(' '))) regs.push([o.sheet, 'p' + o.id]);
+    });
+    (S.catalog.categorias || []).forEach(function (c) {
+      c.registros.forEach(function (r) {
+        if (!(r.elemento || r.piso)) return;
+        if (match(['planilla ' + c.sheet, c.titulo, r.elemento, 'piso ' + (r.piso || ''), r.piso, r.sector, r.etapa, 'fila ' + r.h].join(' '))) regs.push([c.sheet, 'h' + r.h]);
+      });
+    });
+    if (regs.length) {
+      html += '<h2 class="sec">Registros · ' + regs.length + '</h2><div class="list">' + regs.slice(0, 8).map(function (x) {
+        var r = getReg(x[0], x[1]);
+        return r ? regRow(r, true) : '';
+      }).join('') + '</div>' + more(regs.length, 8);
+    }
+    // FUM: «fum 4», «4» o palabras del elemento / criterio
+    var fums = [];
+    openFums().forEach(function (f) {
+      if (match([f.num != null ? 'fum ' + f.num + ' fum' + f.num + ' n ' + f.num : 'fum nueva', f.elemento, f.criterio, f.piso, 'planilla ' + f.sheet, 'abierta'].join(' '))) fums.push({ f: f, open: true });
+    });
+    fumsAll().forEach(function (f) {
+      if (f[5] === 'Abierta') return;
+      if (match(['fum ' + f[0] + ' fum' + f[0], f[8], f[9], f[14], 'planilla ' + f[1], f[5]].join(' '))) {
+        fums.push({ f: { num: f[0], sheet: f[1], key: 'h' + f[2], off: f[3], elemento: f[8], criterio: f[9], estado: f[5] }, open: false });
+      }
+    });
+    if (fums.length) {
+      html += '<h2 class="sec">FUM · ' + fums.length + '</h2><div class="list">' + fums.slice(0, 5).map(function (x) {
+        var f = x.f;
+        return '<button class="row fumrow" data-act="gofum" data-sheet="' + esc(f.sheet) + '" data-key="' + esc(f.key) + '" data-off="' + f.off + '">' +
+          (f.num != null ? '<span class="tag fum' + (x.open ? '' : ' done') + '">' + esc('FUM ' + f.num) + '</span>' : '<span class="tag fum new">Nueva</span>') +
+          '<span class="grow"><span class="ttl2">' + esc(f.elemento || 'Sin elemento') + '</span><span class="crit2">' + esc(f.criterio || '') + '</span>' +
+          '<span class="chips">' + (x.open ? chipHtml('rz', 'Abierta') : chipHtml('', f.estado || 'Cerrada')) + '</span></span>' + ic('chev-r', 'chev') + '</button>';
+      }).join('') + '</div>' + more(fums.length, 5);
+    }
+    // planos del FOD 02: la revisión escrita (R06, rev 6) se separa del código para dar el veredicto
+    var qrev = null, dterms = [];
+    terms.forEach(function (t) {
+      var m = /^r(?:ev)?\.?0*(\d{1,3}|[a-z])$/.exec(t);
+      if (m && dterms.length) qrev = /^\d+$/.test(m[1]) ? String(Number(m[1])) : m[1].toUpperCase(); else dterms.push(t);
+    });
+    var docs = dterms.length ? fodDocs().filter(function (x) {
+      var hay = norm([x[0], x[2], x[3], x[4]].join(' '));
+      return dterms.every(function (t) { return hay.indexOf(t) >= 0; });
+    }) : [];
+    if (docs.length) {
+      html += '<h2 class="sec">Planos FOD 02 · ' + docs.length + '</h2><div class="card">' + docs.slice(0, 5).map(function (x) {
+        var latest = String(x[1] == null ? '' : x[1]);
+        var v;
+        if (qrev == null) v = chipHtml('ap', 'Vigente: ' + revLabel(latest));
+        else if (revCmp(qrev, latest) < 0) {
+          var since = '';
+          (x[10] || []).forEach(function (h) { if (revCmp(h[0], qrev) > 0 && h[1] && (!since || h[1] < since)) since = h[1]; });
+          v = chipHtml('rz', revLabel(qrev) + ' SUPERADA · rige ' + revLabel(latest) + (since ? ' desde ' + fmtDate(since) : ''));
+        } else if (revCmp(qrev, latest) === 0) v = chipHtml('ap', revLabel(qrev) + ' VIGENTE');
+        else v = chipHtml('pend', revLabel(qrev) + ' no figura en el FOD 02 · última ' + revLabel(latest));
+        var code = normDoc(x[0]), used = 0, old = 0;
+        (S.catalog.categorias || []).forEach(function (c) {
+          c.registros.forEach(function (r) {
+            var hit = r.items.filter(function (it) { return it[2] && normDoc(it[2]).indexOf(code) >= 0; });
+            if (!hit.length) return;
+            used++;
+            if (hit.some(function (it) {
+              return itemState({ estado: it[5], fecha: it[3] }) === 'pend' && docRefs(it[2]).some(function (d) { return d.doc === x && d.used != null && revCmp(d.used, latest) < 0; });
+            })) old++;
+          });
+        });
+        var meta = [x[4], x[3], x[5] ? 'Recibido ' + fmtDate(x[5]) : ''].filter(Boolean).join(' · ');
+        return '<div class="srch-doc"><p class="code">' + esc(x[0]) + '</p>' + (x[2] ? '<p class="meta">' + esc(x[2]) + '</p>' : '') +
+          (meta ? '<p class="meta">' + esc(meta) + '</p>' : '') + '<div class="chips">' + v +
+          (isNo(x[7]) ? chipHtml('rz', 'No vigente') : '') + (x[6] && /^no/i.test(x[6]) ? chipHtml('rz', x[6]) : '') +
+          (used ? chipHtml('', 'En ' + used + (used === 1 ? ' registro' : ' registros')) : '') +
+          (old ? chipHtml('rz', old + (old === 1 ? ' registro con pendientes en revisión vieja' : ' registros con pendientes en revisión vieja')) : '') + '</div></div>';
+      }).join('') + '</div>' + more(docs.length, 5);
+    }
     return html;
   }
   /** «Seguir» (P2): los últimos registros abiertos, para volver directo desde Inicio. */
@@ -2401,9 +2580,9 @@
     return '<div class="list">' + shown.map(regRow).join('') + '</div>';
   }
   /** Fila de registro: elemento, dónde está, chips de estado y la barra de avance con hechos/total. */
-  function regRow(r) {
+  function regRow(r, withSheet) {
     var s = stats(r.items);
-    var meta = [r.piso ? 'Piso ' + r.piso : '', r.sector, r.etapa ? 'Etapa ' + r.etapa : '', r.h ? 'fila ' + r.h : ''].filter(Boolean).join(' · ');
+    var meta = [withSheet === true ? 'Planilla ' + r.sheet : '', r.piso ? 'Piso ' + r.piso : '', r.sector, r.etapa ? 'Etapa ' + r.etapa : '', r.h ? 'fila ' + r.h : ''].filter(Boolean).join(' · ');
     var na = regDocAlerts(r.items);
     var chips = (s.pend ? (s.total - s.pend ? chipHtml('pend', 'faltan ' + s.pend) : chipHtml('', 'Sin iniciar')) : (s.rz ? '' : chipHtml('ap', 'Completo'))) +
       (s.rz ? chipHtml('rz', s.rz + ' RZ') : '') +
@@ -2632,10 +2811,12 @@
       if (!visibleTasks.length) return;
       var fk = reg.key + '|' + g.name;
       var folded = !!S.ui.folded[fk];
+      var lib = liberacionOf(reg, g.name);
       // banda de etapa fija bajo el header mientras se recorre la etapa (§4.9)
       html += '<div class="stage' + (gs.pend ? '' : ' done') + '" data-stage="' + esc(g.name) + '"><div class="stage-h">' +
         '<button type="button" class="fold" data-act="fold" data-k="' + esc(fk) + '" aria-expanded="' + !folded + '">' + ic('chev-d', 'chev') +
-        '<span class="st-name">' + esc(g.name) + '</span><span class="st-cnt">' + (gs.total - gs.pend) + '/' + gs.total + '</span>' + barHtml(gs, 'mini') + '</button></div>';
+        '<span class="st-name">' + esc(g.name) + '</span><span class="st-cnt">' + (gs.total - gs.pend) + '/' + gs.total + '</span>' + barHtml(gs, 'mini') +
+        (lib ? '<span class="lib-tag">Liberada</span>' : '') + '</button></div>';
       if (folded) { html += '</div>'; return; }
       visibleTasks.forEach(function (tk) {
         // «N/A a la tarea» sólo con 2 o más pendientes a la vista (filtro Todos o Pend.)
@@ -2648,6 +2829,14 @@
       if (gs.pend && (filter === 'all' || filter === 'pend')) {
         html += '<button type="button" class="btn block ap-line bulk" data-act="bulk" data-key="' + reg.key + '" data-stage="' + esc(g.name) + '">' + ic('check2') +
           esc(gs.pend === 1 ? 'Aprobar el pendiente de ' + g.name : 'Aprobar los ' + gs.pend + ' pendientes de ' + g.name) + '</button>';
+      }
+      if (lib) {
+        html += '<div class="lib-ok">' + ic('check-circle') + '<span>' + esc(g.name + ' liberada el ' + fmtDate(lib.fecha) + (lib.by ? ' por ' + lib.by : '')) +
+          (lib.pend ? '<span class="meta"> · se registra al enviar</span>' : '') +
+          (gs.pend || gs.rz ? '<span class="meta"> · cambió después de liberar</span>' : '') + '</span></div>';
+      } else if (!gs.pend && (filter === 'all' || filter === 'pend')) {
+        html += '<button type="button" class="btn block lib" data-act="liberar" data-key="' + reg.key + '" data-stage="' + esc(g.name) + '">' + ic('check-circle') +
+          esc('Liberar ' + g.name) + '</button>';
       }
       html += '</div>';
     });
@@ -2825,6 +3014,7 @@
     var meta = [it.metodo, it.instrumento && it.instrumento !== 'NA' ? it.instrumento : ''].filter(Boolean).join(' · ');
     var warn = ((st === 'ap' || st === 'rz') && needsSerial(it.instrumento)
       ? '<button type="button" class="chip pend" data-act="serial" data-key="' + reg.key + '" data-off="' + it.off + '">Falta N° de serie</button>' : '') +
+      (calVencida(it) ? '<button type="button" class="chip rz" data-act="serial" data-key="' + reg.key + '" data-off="' + it.off + '">' + ic('alert', 'ic-16') + 'Calibración vencida</button>' : '') +
       docWarnHtml(reg, it);
     var moreLabel = 'Detalle del control' + (fotosTxt ? ', ' + fotosTxt : '') + (it.obs ? ', con observación' : '');
     var h = '<div class="item ' + st + (isKept(reg, it) ? ' kept' : '') + '" id="it-' + it.off + '">' +
@@ -2969,7 +3159,7 @@
     S.undo = null;
     // lo creado tiene que seguir sin enviar (la retención de 6 s lo asegura); si ya salió, no se toca nada
     var sent = u.drop.filter(function (o) { return S.queue.indexOf(o) < 0 || (o.status !== 'pending' && o.status !== 'error'); });
-    if (sent.length) { toast('No se puede deshacer: la FUM ya se cerró en el FOG 01.', { kind: 'err' }); return; }
+    if (sent.length) { toast(sent[0].op === 'liberar' ? 'No se puede deshacer: la liberación ya llegó al PIE.' : 'No se puede deshacer: la FUM ya se cerró en el FOG 01.', { kind: 'err' }); return; }
     u.drop.forEach(function (o) { dropOp(o); delete S.hold[o.id]; });
     // lo descartado vuelve a la cola (una FUM nueva vuelve a quedar retenida si su detalle sigue abierto)
     u.restore.forEach(function (o) { o.status = 'pending'; if (S.queue.indexOf(o) < 0) S.queue.push(o); });
@@ -3154,6 +3344,82 @@
     editItem(reg, off, patch);
     return u;
   }
+  /* ---------- Liberación de etapa (v1.7) ---------- */
+  /** Liberación de la etapa: la del PIE (hoja LIBERACIONES) o una encolada. null si no está liberada. */
+  function liberacionOf(reg, etapa) {
+    var q = S.queue.filter(function (o) { return o.op === 'liberar' && o.etapa === etapa && opTargets(o, reg); })[0];
+    if (q) return { fecha: q.fecha, by: q.by, pend: true, op: q };
+    if (reg.pending) return null;
+    var l = ((S.catalog && S.catalog.liberaciones) || []).filter(function (x) { return x[0] === reg.sheet && x[1] === reg.h && x[2] === etapa; }).pop();
+    return l ? { fecha: l[3], by: l[4] } : null;
+  }
+  /**
+   * Checklist de cierre de la etapa: [{ok, txt, off (primer control con problema)}]. Todo tiene que estar en
+   * regla para liberar: sin pendientes, sin RZ ni FUM abiertas, plano vigente, instrumentos con N° de serie
+   * y calibración al día el día del control.
+   */
+  function stageChecks(reg, etapa) {
+    var items = reg.items.filter(function (it) { return (it.etapa || '—') === etapa; });
+    var first = function (fn) { var x = items.filter(fn)[0]; return x ? x.off : null; };
+    var cnt = function (n, one, many) { return n + ' ' + (n === 1 ? one : many); };
+    var s = stats(items);
+    var fumOpen = items.filter(function (it) { return itemFum(reg, it).open; });
+    var plano = docDefault(reg);
+    var ds = docStatus({ documento: plano, estado: '', fecha: '' });
+    var na = regDocAlerts(items);
+    var planoOld = (ds && ds.level === 'old') || na.old || na.bad;
+    var sinSerie = items.filter(function (it) { var st = itemState(it); return (st === 'ap' || st === 'rz') && needsSerial(it.instrumento); });
+    var cal = items.filter(calVencida);
+    return [
+      { ok: !s.pend, txt: s.pend ? cnt(s.pend, 'control pendiente', 'controles pendientes') : 'Sin controles pendientes', off: first(function (it) { return itemState(it) === 'pend'; }) },
+      { ok: !s.rz, txt: s.rz ? cnt(s.rz, 'control en RZ (falta la reinspección)', 'controles en RZ (falta la reinspección)') : 'Sin controles en RZ', off: first(function (it) { return itemState(it) === 'rz'; }) },
+      { ok: !fumOpen.length, txt: fumOpen.length ? cnt(fumOpen.length, 'FUM abierta', 'FUM abiertas') : 'Sin FUM abiertas', off: fumOpen.length ? fumOpen[0].off : null },
+      { ok: !planoOld, txt: planoOld ? 'Plano superado en el FOD 02' + (ds && ds.level === 'old' ? ': rige la ' + revLabel(ds.latest) : '') : plano ? 'Plano vigente: ' + plano : 'Sin plano del FOD 02 cargado', off: null, warnOnly: !plano },
+      { ok: !sinSerie.length, txt: sinSerie.length ? cnt(sinSerie.length, 'control sin N° de serie del instrumento', 'controles sin N° de serie del instrumento') : 'Instrumentos con N° de serie', off: sinSerie.length ? sinSerie[0].off : null },
+      { ok: !cal.length, txt: cal.length ? cnt(cal.length, 'control con un equipo de calibración vencida', 'controles con equipos de calibración vencida') : 'Calibración de los equipos al día', off: cal.length ? cal[0].off : null }
+    ];
+  }
+  function checksHtml(chk) {
+    return '<ul class="chk">' + chk.map(function (c) {
+      return '<li class="' + (c.ok ? 'ok' : 'no') + '">' + ic(c.ok ? 'check' : 'x', 'ic-16') + '<span>' + esc(c.txt) + '</span></li>';
+    }).join('') + '</ul>';
+  }
+  function liberarStage(reg, etapa) {
+    var chk = stageChecks(reg, etapa);
+    var bad = chk.filter(function (c) { return !c.ok; });
+    if (bad.length) {
+      var go = bad.filter(function (c) { return c.off != null; })[0];
+      return ask({ title: 'Todavía no se puede liberar ' + etapa, html: checksHtml(chk), ok: { label: go ? 'Ir al primero' : 'Entendido', tone: 'primary' }, cancel: 'Cerrar' })
+        .then(function (r) {
+          if (r !== 'ok' || !go) return;
+          S.ui.filter[reg.key] = 'all';
+          delete S.ui.folded[reg.key + '|' + etapa];
+          S.ui.focus = go.off;
+          render();
+        });
+    }
+    var s = stats(reg.items.filter(function (it) { return (it.etapa || '—') === etapa; }));
+    var resumen = s.total + ' controles: ' + s.ap + ' AP · ' + s.na + ' N/A';
+    return ask({
+      title: '¿Liberar la etapa ' + etapa + '?',
+      html: checksHtml(chk) + '<p>Queda en la hoja LIBERACIONES del PIE con fecha de hoy y ' + esc(S.settings.inspector) + '.</p>',
+      ok: { label: 'Liberar ' + etapa, tone: 'ap' }
+    }).then(function (r) {
+      if (r !== 'ok') return;
+      var r2 = getReg(reg.sheet, reg.key);
+      if (!r2 || stageChecks(r2, etapa).some(function (c) { return !c.ok; })) { toast('La etapa cambió mientras tanto: revisala de nuevo.', { kind: 'err' }); return render({ keepScroll: true }); }
+      if (liberacionOf(r2, etapa)) return;
+      var op = { id: uid(), op: 'liberar', sheet: r2.sheet, status: 'pending', createdAt: Date.now(), by: S.settings.inspector,
+        etapa: etapa, fecha: today(), resumen: resumen, plano: docDefault(r2) || '', elemento: r2.elemento };
+      if (r2.pending) op.ref = r2.opId; else { op.h = r2.h; op.sig = r2.sig; }
+      S.queue.push(op);
+      hold(op, 6000);
+      queueChanged();
+      render({ keepScroll: true });
+      offerUndo(etapa + ' liberada · se registra al enviar', { patches: [], drop: [op], restore: [] });
+    });
+  }
+
   /** Avisos después de marcar: cierre, anulación o descarte de la FUM con Deshacer; plano pasado a la vigente. */
   function markToasts(plan, u) {
     if (plan.closeMsg) offerUndo(plan.closeMsg, u);
@@ -3197,6 +3463,7 @@
       return 'Cambios en ' + el + ' · ' + (n ? n + (n === 1 ? ' control' : ' controles') : 'datos del registro');
     }
     if (o.op === 'photo') return 'Foto · ' + recorte(o.criterio);
+    if (o.op === 'liberar') return 'Liberar ' + o.etapa + ' · ' + (o.elemento || (o.h ? 'fila ' + o.h : 'registro nuevo'));
     var info = fumOpInfo(o);
     var acc = o.accion === 'cerrar' && o.resultado === 'Anulada' ? 'anular' : o.accion;
     var nTxt = o.num != null ? ' N° ' + o.num : info.isNew ? ' nueva' : '';
@@ -3512,6 +3779,11 @@
         var mb = view.querySelector('#it-' + off + ' [data-st=' + mst + ']');
         if (mb) { try { mb.focus({ preventScroll: true }); } catch (e) { /* noop */ } }
         if (u) markToasts(plan, u);
+        var ci = itemOf(plan.reg, off);
+        if (u && ci && calVencida(ci)) {
+          var ve = equiposOf(ci.instrumento).filter(function (e) { return calState(e, ci.fecha) === 'vencida'; })[0];
+          toast('Ojo: ' + ve.equipo + ' ' + ve.serie + ' tiene la calibración vencida (' + fmtDate(ve.vence) + '). Cambiá el instrumento en el detalle.', { kind: 'info', ms: 6000 });
+        }
       });
     }
     if (a === 'more') {
@@ -3601,6 +3873,10 @@
         });
       });
     }
+    if (a === 'liberar') {
+      if (!S.settings.inspector) { toast('Primero elegí quién sos', { kind: 'info' }); return nav('/quien'); }
+      return liberarStage(reg, el.dataset.stage);
+    }
     if (a === 'taskna') {
       // §6.5 P2: los pendientes de una tarea pasan a N/A (sin pregunta de plano), con Deshacer
       if (!S.settings.inspector) { toast('Primero elegí quién sos', { kind: 'info' }); return nav('/quien'); }
@@ -3659,6 +3935,7 @@
         body: (n ? n + (n === 1 ? ' control' : ' controles') + '. ' : '') + 'Vuelven a como están en el PIE.', ok: ok };
     }
     if (o.op === 'photo') return { title: '¿Descartar esta foto?', body: 'Todavía no se envió.', ok: ok };
+    if (o.op === 'liberar') return { title: '¿Descartar la liberación de ' + o.etapa + '?', body: 'La etapa queda sin liberar.', ok: ok };
     if (o.accion === 'abrir') return { title: '¿Descartar la FUM de «' + recorte(o.criterio) + '»?', body: 'El control queda en RZ sin FUM.', ok: ok };
     return { title: '¿Descartar este cambio de la ' + (o.num ? 'FUM N° ' + o.num : 'FUM') + '?', body: 'La FUM queda como está en el FOG 01.', ok: ok };
   }
