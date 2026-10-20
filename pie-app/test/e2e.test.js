@@ -25,6 +25,15 @@ const sheetRows = (name, from, to, book) => fetch(`http://localhost:8081/__sheet
   await page.click('text=FEDERICO CALZON');
   await page.waitForSelector('text=HORMIGON ARMADO');
   await shot('02-inicio');
+  // buscador de Inicio (§6.10): al escribir sólo cambia la lista; el campo es el mismo y no pierde el foco
+  await page.evaluate(() => { document.querySelector('[data-input=search]')._k = 1; });
+  await page.fill('[data-input=search]', 'zzzz');
+  await page.waitForSelector('#homeList .empty:has-text("No hay planillas con «zzzz»")');
+  await page.fill('[data-input=search]', 'hormig');
+  await page.waitForSelector('#homeList .row:has-text("HORMIGON ARMADO")');
+  assert.ok(await page.evaluate(() => document.querySelector('[data-input=search]')._k === 1 && document.activeElement.dataset.input === 'search'), 'el buscador no se vuelve a dibujar');
+  await page.fill('[data-input=search]', '');
+  await page.waitForSelector('#homeList .row[data-to="/fum"]');
 
   // 2. Categoría 6: registros y requisitos
   await page.click('.row:has-text("HORMIGON ARMADO")');
@@ -265,6 +274,20 @@ const sheetRows = (name, from, to, book) => fetch(`http://localhost:8081/__sheet
   await page.waitForSelector('text=Envíos pendientes · 0');
   assert.strictEqual(await page.$$eval('input:not([type=file]), select, textarea', els => els.filter(e => parseFloat(getComputedStyle(e).fontSize) < 16).length), 0, 'campos ≥ 16 px');
   await shot('09-ajustes');
+  // Apariencia (§5.8): Oscuro forzado cambia el tema y la barra de estado; Automático vuelve a seguir al sistema
+  await page.click('button[data-act=theme][data-theme=dark]');
+  assert.ok(await page.evaluate(() => document.documentElement.getAttribute('data-theme') === 'dark' &&
+    [...document.querySelectorAll('meta[name=theme-color]')].every(m => m.getAttribute('content') === '#142338') &&
+    document.querySelector('button[data-act=theme][data-theme=dark]').getAttribute('aria-pressed') === 'true'), 'tema oscuro forzado');
+  await page.click('button[data-act=theme][data-theme=auto]');
+  assert.ok(await page.evaluate(() => !document.documentElement.hasAttribute('data-theme') && localStorage.getItem('pie.theme') === '"auto"'), 'vuelve a automático');
+  // Conexión: el enlace equivocado no se guarda y el error queda debajo del campo (no en un aviso que se va)
+  const api0 = await page.inputValue('#cfgForm [name=apiUrl]');
+  await page.fill('#cfgForm [name=apiUrl]', 'https://docs.google.com/spreadsheets/d/abc/edit');
+  await page.click('#cfgForm button[type=submit]');
+  await page.waitForSelector('#cfgForm .field-err:has-text("Ese es el enlace de la planilla")');
+  assert.strictEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('pie.settings')).apiUrl), api0, 'no se guardó el enlace equivocado');
+  await page.fill('#cfgForm [name=apiUrl]', api0);
 
   // 9. ancho de celular sin scroll horizontal
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);

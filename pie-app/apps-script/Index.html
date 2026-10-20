@@ -216,13 +216,39 @@
     display: flex; align-items: center; gap: 12px; width: 100%; min-height: 64px; padding: 12px 14px; text-align: left; color: var(--ink);
     background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--sh-1);
   }
-  .row .num { flex: none; min-width: 38px; height: 38px; border-radius: var(--r-md); background: var(--na-bg); display: grid; place-items: center; font-weight: 700; font-size: 14px; padding: 0 6px; font-variant-numeric: tabular-nums; }
-  .row .num.rz { background: var(--rz-bg); color: var(--rz); }
-  .row .num.ap { background: var(--ap-bg); color: var(--ap); }
   .row .grow { flex: 1; min-width: 0; }
-  .row .grow b { display: block; font-weight: 700; font-size: 16px; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; }
+  .row .ttl2 {
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    font-size: 16px; font-weight: 700; line-height: 1.3; overflow-wrap: anywhere;
+  }
   .row .grow > .meta { display: block; }
   .row .chev { color: var(--muted); flex: none; }
+  .row.slim { min-height: 56px; }
+  .t16 { font-size: 16px; font-weight: 600; }
+  /* FUM abiertas en Inicio: rojo sólo si hay algo que seguir */
+  .row.alert { background: var(--rz-bg); border-left: 4px solid var(--rz); }
+  .row.alert .ttl2, .row.alert > .ic:first-child { color: var(--rz); }
+  .fumrow { align-items: flex-start; }
+  .fumrow .chev { align-self: center; }
+  .fumrow .crit2 {
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    margin-top: 2px; font-size: 14px; line-height: 1.4; color: var(--ink); overflow-wrap: anywhere;
+  }
+  .ttl3 { margin: 0; font-size: 16px; font-weight: 700; line-height: 1.3; overflow-wrap: anywhere; }
+  .m0 { margin: 0; }
+  .mt { margin-top: 12px; }
+  .mb { margin-bottom: 12px; }
+  .help.intro { margin: 0 4px 12px; }
+  .help.foot { margin: 24px 4px 0; }
+  .top-search { margin-bottom: 12px; }
+  details.hid.ocultas { margin-top: 24px; }
+  details.hid > .list { margin-top: 8px; }
+  details.hid > summary.sec-sum { display: flex; align-items: center; gap: 6px; min-height: 48px; margin: 16px 4px 0; color: var(--muted); }
+  details.hid > summary.sec-sum h2.sec { margin: 0; }
+  .card .seg { margin: 0; }
+  .user { display: flex; align-items: center; gap: 12px; }
+  .user .grow { flex: 1; min-width: 0; }
+  .ok-line { display: flex; align-items: center; gap: 8px; margin: 0; }
   .chips, .warn { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-top: 8px; }
   .chip {
     display: inline-flex; align-items: center; gap: 4px; max-width: 100%; padding: 3px 10px; border-radius: var(--r-pill); font-size: 14px; font-weight: 600; line-height: 1.3;
@@ -246,6 +272,8 @@
   .tag.solid { min-width: 36px; min-height: 28px; border: 0; background: var(--tag); color: var(--on-tag); }
   .tag.fum { border: 0; background: var(--rz-fill); color: var(--on-state); font-family: var(--font); }
   .tag.fum.new { background: var(--sync-bg); color: var(--sync); }
+  .tag.fum.done { background: var(--na-bg); color: var(--na); }
+  .row .tag { margin-top: 1px; }
   .avatar { width: 40px; height: 40px; flex: none; border-radius: 50%; display: grid; place-items: center; background: var(--na-bg); color: var(--ink); font-size: 14px; font-weight: 700; }
   /* barra de avance (§4.5): RZ, AP y N/A rayado; lo pendiente queda como hueco */
   .bar { display: flex; gap: 2px; height: 8px; border-radius: 4px; overflow: hidden; background: var(--surface); box-shadow: inset 0 0 0 1px var(--border-strong); }
@@ -260,32 +288,53 @@
   .seg { display: flex; background: var(--na-bg); border-radius: 12px; padding: 4px; gap: 4px; margin-bottom: 12px; }
   .seg button { flex: 1; min-height: 48px; border: 0; background: transparent; border-radius: var(--r-md); font-weight: 600; color: var(--ink); }
   .seg button.on, .seg button[aria-selected=true], .seg button[aria-pressed=true] { background: var(--primary); color: var(--on-primary); }
+  /* nota (§4.14): ícono a la izquierda y el contenido en un bloque aparte; borde izquierdo según el tipo */
   .note {
-    border-radius: var(--r-md); padding: 12px 14px; margin: 12px 0; font-size: 14px; line-height: 1.4; color: var(--ink);
+    display: flex; gap: 10px; align-items: flex-start; border-radius: var(--r-md); padding: 12px 14px; margin: 12px 0;
+    font-size: 14px; line-height: 1.4; color: var(--ink); text-align: left;
     background: var(--pend-bg); border-left: 4px solid var(--accent-edge);
   }
+  .note > .ic { margin-top: -1px; color: var(--pend); }
+  .note > div { flex: 1; min-width: 0; }
   .note b { display: block; font-size: 16px; }
   .note.info { background: var(--sync-bg); border-left-color: var(--sync); }
+  .note.info > .ic { color: var(--sync); }
   .note.err { background: var(--rz-bg); border-left-color: var(--rz); }
-  /* nota con ícono a la izquierda y el texto en un bloque aparte (en el resto de las notas llega en §4.14) */
-  .note.ic-l { display: flex; gap: 10px; align-items: flex-start; }
-  .note.ic-l > .ic { margin-top: 1px; }
-  .note.err.ic-l > .ic { color: var(--rz); }
-  .note.ic-l > div { flex: 1; min-width: 0; }
+  .note.err > .ic { color: var(--rz); }
   .note p { margin: 2px 0 0; }
+  .note p:first-child { margin-top: 0; }
   .note .btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
   .empty { text-align: center; padding: 32px 16px; color: var(--muted); }
+  .empty .ico { width: 56px; height: 56px; margin: 0 auto 12px; border-radius: 50%; display: grid; place-items: center; background: var(--surface-2); color: var(--muted); }
+  .empty .ico.spin .ic { animation: spin 1s linear infinite; }
   .empty p { margin: 0 0 12px; font-size: 16px; }
+  .empty-btns { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-top: 16px; }
   details.hid > summary { list-style: none; }
   details.hid > summary::-webkit-details-marker { display: none; }
   details.hid > summary .chev { transition: transform .15s; }
   details.hid:not([open]) > summary .chev { transform: rotate(-90deg); }
-  .op { display: flex; gap: 10px; align-items: flex-start; padding: 10px 14px; border-top: 1px solid var(--line); }
+  /* Ajustes › Envíos pendientes: un bloque por envío, con lo destructivo separado */
+  .op { padding: 12px var(--gutter); border-top: 1px solid var(--line); }
   .op:first-child { border-top: 0; }
-  .op .grow { flex: 1; min-width: 0; }
-  .spacer { height: 10px; }
-  .flex { display: flex; gap: 8px; align-items: center; }
-  .flex .grow { flex: 1; }
+  .op .op-t {
+    display: flex; width: 100%; justify-content: space-between; align-items: center; gap: 8px; margin: -8px 0 -4px; padding: 0;
+    text-align: left; font-size: 16px; font-weight: 700; line-height: 1.3; color: var(--ink); overflow-wrap: anywhere;
+  }
+  .op p.op-t { margin: 0; }
+  .op .note { margin: 8px 0 0; }
+  .op-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 16px; margin-top: 4px; }
+  .op-foot .meta { margin: 0; }
+  .op-btns { display: flex; justify-content: flex-end; gap: 16px; margin: 0 -12px 0 auto; }
+  /* FUM cerradas o anuladas (historial) */
+  .fumc { display: flex; gap: 12px; align-items: flex-start; padding: 12px var(--gutter); border-top: 1px solid var(--line); }
+  .fumc:first-child { border-top: 0; }
+  .fumc .grow { flex: 1; min-width: 0; }
+  .fumc .meta { margin: 2px 0 0; }
+  /* dentro de label.f (más específico que label.f > span, el rótulo) */
+  .field-err, label.f > span.field-err { display: flex; gap: 6px; align-items: flex-start; margin: 6px 0 0; font-size: 14px; font-weight: 600; color: var(--rz); }
+  .field-err .ic { margin-top: 1px; }
+  label.f > span.chips { display: flex; margin: 8px 0 0; font-weight: 600; }
+  #newDocChip:empty { display: none; }
 
   /* ---------- Registro: resumen y plano (§5.6) ---------- */
   .sum { padding: 12px var(--gutter); }
@@ -428,7 +477,6 @@
   .quick { display: flex; gap: 8px; flex-wrap: wrap; margin-top: -4px; }
   .det-foot { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-top: 16px; }
   .det-foot .primary { flex: 0 1 60%; min-height: 56px; font-size: 17px; font-weight: 700; margin-left: auto; }
-  .fumrow .late { color: var(--rz); font-weight: 700; }
   .hl { outline: 3px solid var(--hl-ring); outline-offset: -3px; }
 
   /* ---------- Barra inferior acoplada (§4.10): reemplaza la píldora, el FAB y el botón de enviar el formulario ---------- */
@@ -495,8 +543,9 @@
   .picker .pb { flex: 1; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
   .picker .pf { padding: 8px 16px max(8px, env(safe-area-inset-bottom)); border-top: 1px solid var(--line); }
   .search-box { position: relative; display: block; }
-  .search-box .ic { position: absolute; left: 14px; top: 14px; color: var(--muted); pointer-events: none; }
-  .search-box .search { padding-left: 44px; }
+  .search-box .ic { position: absolute; left: 12px; top: 14px; color: var(--muted); pointer-events: none; }
+  /* a 320 px el texto de ayuda entra entero */
+  .search-box .search { padding-left: 40px; padding-right: 8px; }
   .doc { display: block; width: 100%; text-align: left; border: 0; border-top: 1px solid var(--line); background: transparent; padding: 12px 16px; min-height: 56px; color: var(--ink); }
   .doc:first-child { border-top: 0; }
   .doc:active { background: var(--surface-2); }
@@ -509,7 +558,7 @@
   .pb .empty p, .pb .note { margin: 0; }
 
   @media (prefers-reduced-motion: reduce) {
-    .net.busy .ic { animation: none; }
+    .net.busy .ic, .empty .ico.spin .ic { animation: none; }
     .toast, .bbar, .more .ic, .fold .chev, details.hid > summary .chev { transition: none; }
     button:active, .btn:active, .row:active { transform: none; }
   }
@@ -1015,12 +1064,6 @@
     items.forEach(function (it) { s[itemState(it)]++; });
     return s;
   }
-  function regLabel(s) {
-    if (s.rz) return ['rz', s.rz + ' rechazado' + (s.rz > 1 ? 's' : '')];
-    if (!s.pend) return ['ap', 'Completo'];
-    if (!s.ap && !s.na) return ['', 'Sin iniciar'];
-    return ['pend', 'En curso · faltan ' + s.pend];
-  }
   function listRegs(sheet) {
     var cat = category(sheet);
     var out = [];
@@ -1262,7 +1305,7 @@
       return terms.every(function (t) { return hay.indexOf(t) >= 0; });
     });
     var html = '';
-    if (aviso && !d.length) html += '<div class="pad"><div class="note">' + esc(aviso) + '</div></div>';
+    if (aviso && !d.length) html += '<div class="pad">' + noteHtml('warn', esc(aviso)) + '</div>';
     if (q) {
       // texto libre: siempre primero, para un plano que todavía no está en el FOD 02
       html += '<button class="doc" type="button" data-act="pickfree"><span class="doc-l1">' + ic('pencil') + '<span class="code free">Usar «' + esc(q) + '»</span></span>' +
@@ -1515,7 +1558,7 @@
       if (o.ref && S.resolved[o.ref]) key = 'h' + S.resolved[o.ref].h;
       var c = pendingCreate(o.ref);
       out.push({ num: null, sheet: o.sheet, key: key, off: o.off, apertura: '', plazo: o.plazo || '', accion: o.accionCorrectiva || '',
-        elemento: o.elemento || (c ? c.header.elemento : ''), criterio: o.criterio, obs: o.obs || '', por: o.by, pendiente: true });
+        elemento: o.elemento || (c ? c.header.elemento : ''), criterio: o.criterio, obs: o.obs || '', por: o.by, pendiente: true, ts: o.createdAt });
     });
     return out;
   }
@@ -1523,36 +1566,58 @@
     if (!/^\d{4}-\d{2}-\d{2}$/.test(d || '')) return null;
     return Math.round((new Date(today() + 'T00:00:00') - new Date(d + 'T00:00:00')) / 86400000);
   }
-  function renderFum() {
-    var open = openFums().sort(function (a, b) { return String(a.apertura || '9').localeCompare(String(b.apertura || '9')); });
-    renderTop('FUM', open.length === 0 ? 'Ninguna abierta' : open.length === 1 ? '1 abierta' : open.length + ' abiertas');
-    var t = today();
-    var row = function (f) {
-      var cat = category(f.sheet);
-      var late = f.plazo && f.plazo < t;
+  /** «abierta hoy», «abierta hace 3 días»; una FUM nueva sin enviar cuenta desde que se cargó. */
+  function openedTxt(f) {
+    if (f.apertura) {
       var d = daysSince(f.apertura);
+      return 'abierta ' + (d == null ? 'el ' + fmtDate(f.apertura) : d <= 0 ? 'hoy' : d === 1 ? 'ayer' : 'hace ' + d + ' días');
+    }
+    if (!f.ts) return '';
+    var s = ago(f.ts);
+    return 'abierta ' + (/^(hace|recién)/.test(s) ? s : 'el ' + s);
+  }
+  /*
+   * FUM (§5.7): primero las vencidas (por plazo), después las que tienen fecha de reinspección, las que
+   * no tienen (por apertura) y al final las que todavía no se enviaron.
+   */
+  function renderFum() {
+    var t = today();
+    var grp = function (f) { return f.pendiente ? 3 : f.plazo && f.plazo < t ? 0 : f.plazo ? 1 : 2; };
+    var open = openFums().sort(function (a, b) {
+      var ga = grp(a), gb = grp(b);
+      if (ga !== gb) return ga - gb;
+      if (ga < 2) return String(a.plazo).localeCompare(String(b.plazo));
+      if (ga === 2) return String(a.apertura || '9').localeCompare(String(b.apertura || '9'));
+      return (a.ts || 0) - (b.ts || 0);
+    });
+    renderTop('FUM', open.length === 0 ? 'Ninguna abierta' : open.length === 1 ? '1 abierta' : open.length + ' abiertas');
+    var row = function (f) {
+      var late = f.plazo && f.plazo < t;
+      var piso = f.piso;
+      if (!piso) { var rg = getReg(f.sheet, f.key); piso = rg ? rg.piso : ''; }
+      var meta = [piso ? 'Piso ' + piso : '', 'Planilla ' + f.sheet, openedTxt(f)].filter(Boolean).join(' · ');
+      var chips = (f.plazo ? (late ? chipHtml('rz', 'Vencida · ' + fmtDate(f.plazo)) : chipHtml('pend', 'Reinspección ' + fmtDate(f.plazo)))
+        : chipHtml('pend', 'Sin fecha de reinspección')) + (f.pendiente ? chipHtml('sync', 'Sin enviar') : '');
       return '<button class="row fumrow" data-act="gofum" data-sheet="' + esc(f.sheet) + '" data-key="' + esc(f.key) + '" data-off="' + f.off + '">' +
-        '<span class="num rz">' + (f.num != null ? esc(f.num) : '…') + '</span><span class="grow">' +
-        '<b>' + esc(f.elemento || 'Sin elemento') + '</b><span class="meta">' + esc(f.criterio) + '</span>' +
-        '<span class="chips"><span class="chip">' + esc(f.sheet + ' · ' + (cat ? cat.titulo : '')) + '</span>' +
-        (d != null ? '<span class="chip">' + (d === 0 ? 'hoy' : 'hace ' + d + ' día' + (d === 1 ? '' : 's')) + '</span>' : '') +
-        (f.plazo ? '<span class="chip' + (late ? ' rz' : '') + '">' + (late ? 'Vencida · ' : 'Reinspección ') + esc(fmtDate(f.plazo)) + '</span>' : '') +
-        (f.pendiente ? '<span class="chip sync">Sin enviar</span>' : '') + '</span>' +
-        (f.accion ? '<span class="meta">Acción: ' + esc(f.accion) + '</span>' : '') +
+        (f.num != null ? '<span class="tag fum">' + esc('FUM ' + f.num) + '</span>' : '<span class="tag fum new">Nueva</span>') +
+        '<span class="grow"><span class="ttl2">' + esc(f.elemento || 'Sin elemento') + '</span>' +
+        '<span class="crit2">' + esc(f.criterio) + '</span>' +
+        '<span class="meta">' + esc(meta) + '</span><span class="chips">' + chips + '</span>' +
+        (f.accion ? '<span class="meta">' + esc('Acción: ' + f.accion) + '</span>' : '') +
         '</span>' + ic('chev-r', 'chev') + '</button>';
     };
     var closed = fumsAll().filter(function (f) { return f[5] !== 'Abierta'; }).slice(-40).reverse();
-    var html = (S.catalog && S.catalog.fogAviso ? '<div class="note err">' + esc(S.catalog.fogAviso) + '. Las FUM se guardan igual y se pasan al FOG cuando vuelva a estar disponible.</div>' : '') +
+    var html = (S.catalog && S.catalog.fogAviso ? noteHtml('warn', esc(S.catalog.fogAviso + '. Las FUM se guardan igual y se pasan al FOG 01 cuando vuelva a estar disponible.')) : '') +
       '<h2 class="sec">Abiertas · ' + open.length + '</h2>' +
-      (open.length ? '<div class="list">' + open.map(row).join('') + '</div>' : '<div class="card pad muted">No hay FUM abiertas.</div>');
+      (open.length ? '<div class="list">' + open.map(row).join('') + '</div>' : emptyHtml('No hay FUM abiertas. Se abren solas al marcar RZ.', 'check-circle'));
     if (closed.length) {
-      html += '<details class="hid"><summary><h2 class="sec">Cerradas / anuladas · ' + closed.length + ' ' + ic('chev-d', 'chev ic-16') + '</h2></summary><div class="card">' +
+      html += '<details class="hid"><summary class="sec-sum"><h2 class="sec">Cerradas / anuladas · ' + closed.length + '</h2>' + ic('chev-d', 'chev ic-16') + '</summary><div class="card">' +
         closed.map(function (f) {
-          return '<div class="op"><div class="grow"><b>FUM ' + esc(f[0]) + ' · ' + esc(f[8] || '') + '</b><div class="meta">' +
-            esc(f[9]) + '</div><div class="meta">' + esc(f[5]) + (f[11] ? ' el ' + esc(fmtDate(f[11])) : '') + (f[12] ? ' · ' + esc(f[12]) : '') + '</div></div></div>';
+          return '<div class="fumc"><span class="tag fum done">' + esc('FUM ' + f[0]) + '</span><div class="grow"><p class="ttl3">' + esc(f[8] || 'Sin elemento') + '</p>' +
+            '<p class="meta">' + esc(f[9]) + '</p><p class="meta">' + esc(f[5] + (f[11] ? ' el ' + fmtDate(f[11]) : '') + (f[12] ? ' · ' + f[12] : '')) + '</p></div></div>';
         }).join('') + '</div></details>';
     }
-    html += '<p class="help" style="margin:16px 4px">Las FUM se registran en el FOG 01 (Formulario Único de Mejoras) con su número correlativo. Se abren solas al marcar RZ y la acción inmediata se cierra al marcar AP en la reinspección. El análisis de causa y la verificación de eficacia se completan en el FOG 01.</p>';
+    html += '<p class="help foot">Las FUM se abren solas al marcar RZ y se cierran al marcar AP en la reinspección. El análisis de causa y la eficacia se completan en el FOG 01.</p>';
     view.innerHTML = html;
   }
 
@@ -1630,19 +1695,46 @@
    *  Comunicación con Apps Script
    * ================================================================ */
   function apiError(msg, code) { var e = new Error(msg); e.code = code || 'error'; return e; }
+  /* Errores en palabras de obra (§7.8): se traducen acá por code; Code.gs no se toca. */
+  var ERR = {
+    noUrl: 'Falta el enlace de la app. Pegalo en Ajustes › Conexión.',
+    notJson: 'El enlace no responde como la app PIE. En Apps Script, la implementación tiene que tener acceso «Cualquier persona».',
+    network: 'No hay conexión con el PIE (señal débil). Tus cambios quedan en el celular y se envían solos.',
+    server: 'El PIE no respondió. Probá de nuevo en un rato; lo cargado queda en el celular.',
+    auth: 'La clave de acceso no coincide. Copiala del PIE (menú PIE › Ver enlace de la app) en Ajustes › Conexión.',
+    busy: 'El PIE está ocupado con otro envío. Se reintenta solo.',
+    badRequest: 'Error interno de la app. Tu carga queda guardada en el celular; avisá a quien mantiene la app.',
+    conflict: 'No encontré el registro en la planilla: puede que se hayan movido filas. Revisá la fila en el PIE y reintentá.',
+    photoLost: 'La foto se borró del celular antes de enviarse. Descartala y sacala de nuevo.'
+  };
+  /** Respuesta del PIE con ok:false → error con el texto traducido. */
+  function apiFail(r) {
+    var code = (r && r.code) || 'error', msg = r && r.error;
+    if (code === 'auth') msg = ERR.auth;
+    else if (code === 'busy') msg = ERR.busy;
+    else if (code === 'bad_request') msg = ERR.badRequest;
+    else if (!msg || msg === 'Error del servidor') msg = ERR.server;
+    return apiError(msg, code);
+  }
+  /** Error de una operación del lote; null si el texto del PIE ya alcanza. */
+  function opErrText(r, op) {
+    if (r.code === 'bad_request') return ERR.badRequest;
+    if (r.code === 'conflict' && (op.op === 'create' || op.op === 'update')) return ERR.conflict;
+    return null;
+  }
 
   function callApi(req) {
     req.token = S.settings.token || '';
     if (IN_GAS) {
       return new Promise(function (res, rej) {
         google.script.run
-          .withSuccessHandler(function (r) { r && r.ok ? res(r) : rej(apiError(r && r.error || 'Error del servidor', r && r.code)); })
-          .withFailureHandler(function (e) { rej(apiError(String(e && e.message || e), 'network')); })
+          .withSuccessHandler(function (r) { r && r.ok ? res(r) : rej(apiFail(r)); })
+          .withFailureHandler(function () { rej(apiError(ERR.network, 'network')); })
           .api(req);
       });
     }
     var url = (S.settings.apiUrl || '').trim();
-    if (!url) return Promise.reject(apiError('Configurá la URL de la API en Ajustes', 'config'));
+    if (!url) return Promise.reject(apiError(ERR.noUrl, 'config'));
     var ctl = window.AbortController ? new AbortController() : null;
     var t = setTimeout(function () { if (ctl) ctl.abort(); }, 90000);
     var p;
@@ -1657,14 +1749,14 @@
       return r.text().then(function (txt) {
         var data;
         try { data = JSON.parse(txt); } catch (e) {
-          throw apiError('Respuesta inesperada del servidor (¿la web app está publicada con acceso "Cualquier persona"?)', 'config');
+          throw apiError(ERR.notJson, 'config');
         }
-        if (!data.ok) throw apiError(data.error || 'Error del servidor', data.code);
+        if (!data || !data.ok) throw apiFail(data);
         return data;
       });
-    }, function (e) {
+    }, function () {
       clearTimeout(t);
-      throw apiError('Sin conexión con el servidor', 'network');
+      throw apiError(ERR.network, 'network');
     });
   }
 
@@ -1679,8 +1771,11 @@
 
   /** Hay un formulario o campo en edición que un re-render borraría. */
   function isEditing() {
+    // Ajustes se vuelve a dibujar al terminar un envío (la lista de envíos queda al día), salvo con la
+    // conexión a medio escribir
+    if (S.route === '/ajustes' && cfgDirty()) return true;
     if (!S.catalog) return false;
-    if (/\/nuevo$/.test(S.route) || S.route === '/ajustes') return true;
+    if (/\/nuevo$/.test(S.route)) return true;
     if (document.getElementById('hdrForm')) return true;
     var a = document.activeElement;
     return !!(a && view.contains(a) && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && a.type !== 'search');
@@ -1718,8 +1813,10 @@
         op.status = 'pending';
       } else {
         op.status = 'error';
-        op.error = r.error;
-        errors.push(r.error);
+        var known = opErrText(r, op);
+        op.error = known || r.error || ERR.server;
+        // un texto ya traducido se muestra tal cual; el del PIE va dentro de «No se pudo enviar: …»
+        errors.push(known || 'No se pudo enviar: ' + String(op.error).replace(/[\s.]+$/, '') + '. Queda guardado en el celular; revisalo en Ajustes.');
       }
     });
     LS.set('resolved', S.resolved);
@@ -1727,9 +1824,7 @@
     mergeCategories(res.categorias);
     saveQueue();
     fumNums.forEach(function (n) { toast('FUM N° ' + n + ' abierta en el FOG 01', { kind: 'ok' }); });
-    if (errors.length) {
-      toast('No se pudo enviar: ' + String(errors[0] || 'error').replace(/[\s.]+$/, '') + '. Queda guardado en el celular; revisalo en Ajustes.', { kind: 'err' });
-    }
+    if (errors.length) toast(errors[0], { kind: 'err' });
   }
   /** Sube las fotos pendientes de a una (cada una es una request chica). */
   function sendPhotos() {
@@ -1738,7 +1833,7 @@
       return p.then(function () {
         if (o.ref && pendingCreate(o.ref)) return; // espera a que exista el registro
         return KV.get(o.img).then(function (data) {
-          if (!data) { o.status = 'error'; o.error = 'La foto ya no está guardada en este dispositivo'; saveQueue(); return; }
+          if (!data) { o.status = 'error'; o.error = ERR.photoLost; saveQueue(); return; }
           o.status = 'sending';
           renderTop();
           var payload = stripOp(o);
@@ -1767,6 +1862,8 @@
     clearTimeout(weakT);
     weakT = setTimeout(function () { if (S.syncing) renderTop(); }, 15100);
     renderTop();
+    // primera descarga: «Sin datos» pasa a «Descargando el PIE…»
+    if (!S.catalog && S.route !== '/ajustes') render();
     var t0 = Date.now();
     // primero altas y cambios en un solo lote; las fotos van después, de a una. Lo retenido espera.
     var sending = S.queue.filter(function (o) { return o.status === 'pending' && o.op !== 'photo' && !isHeld(o); });
@@ -1829,9 +1926,15 @@
     clearTimeout(finT);
     if (Date.now() - lastScroll < 400) { renderTop(); finT = setTimeout(finishRender, 400); return; }
     var a = document.activeElement;
-    if (isEditing() || (a && view.contains(a) && a.type === 'search')) {
+    if (isEditing()) {
       renderTop();
       S.ui.renderOnBlur = true;
+      return;
+    }
+    // buscador enfocado (§6.10): sólo su lista; el campo, el teclado y el dictado siguen como estaban
+    if (a && view.contains(a) && a.type === 'search') {
+      renderTop();
+      refreshSearchList();
       return;
     }
     render({ keepScroll: true });
@@ -2045,12 +2148,14 @@
     var anchor = o.keepScroll ? itemAnchor() : null;
     if (!S.catalog && r !== '/ajustes') {
       renderTop('PIE · Carga', 'Plan de Inspección y Ensayo');
+      // Sin datos y primera descarga (§5.1)
       view.innerHTML = S.syncing
-        ? '<div class="empty">Descargando planillas…</div>'
-        : '<div class="empty"><p>Todavía no hay datos en este dispositivo.</p>' +
-          (S.lastError ? '<p class="note err">' + esc(S.lastError) + '</p>' : '') +
-          '<p><button class="btn primary" data-act="sync" data-full="1">Descargar planillas</button></p>' +
-          (MODE === 'pwa' ? '<p><button class="btn" data-act="go" data-to="/ajustes">Configurar conexión</button></p>' : '') + '</div>';
+        ? emptyHtml('Descargando el PIE… puede tardar hasta un minuto.', 'sync', true)
+        : '<div class="empty"><div class="ico">' + ic('download', 'ic-24') + '</div>' +
+          '<p>Todavía no hay datos en este celular. Hace falta señal una sola vez; después funciona sin conexión.</p>' +
+          (S.lastError ? noteHtml('err', esc(S.lastError)) : '') +
+          '<div class="empty-btns"><button type="button" class="btn primary lg" data-act="sync" data-full="1" data-manual="1">Descargar el PIE</button>' +
+          (MODE === 'pwa' ? '<button type="button" class="btn" data-act="go" data-to="/ajustes">Configurar conexión</button>' : '') + '</div></div>';
       afterRender();
       return;
     }
@@ -2071,48 +2176,86 @@
     }
   }
 
-  /* ---------- Inicio: categorías por rubro ---------- */
+  /* ---------- Piezas comunes de las pantallas (§4.14) ---------- */
+  var NO_MODEL = 'Esta planilla todavía no tiene registros para usar de modelo. Cargá el primero en el PIE desde la computadora.';
+  var NOTE_IC = { info: 'info', warn: 'alert', err: 'alert' };
+  /** Nota con ícono a la izquierda y el contenido (HTML ya escapado) en un bloque aparte. */
+  function noteHtml(kind, inner, icon) {
+    return '<div class="note ' + kind + '">' + ic(icon || NOTE_IC[kind] || 'info') + '<div>' + inner + '</div></div>';
+  }
+  function chipHtml(cls, txt) { return '<span class="chip ' + cls + '">' + esc(txt) + '</span>'; }
+  function emptyHtml(txt, icon, spin) {
+    return '<div class="empty">' + (icon ? '<div class="ico' + (spin ? ' spin' : '') + '">' + ic(icon, 'ic-24') + '</div>' : '') + '<p>' + esc(txt) + '</p></div>';
+  }
+  function searchTerms(s) { return norm(String(s || '').trim()).split(/\s+/).filter(Boolean); }
+
+  /* ---------- Inicio (§5.3) ---------- */
+  /*
+   * El buscador se dibuja una sola vez; al escribir sólo se reemplaza #homeList (§6.10), así el teclado
+   * y el dictado no se cortan, ni siquiera cuando termina un envío.
+   */
   function renderHome() {
     var d = datos();
     renderTop(d.obra || 'PIE · Carga', 'PIE · FOP 01');
-    var q = norm(S.ui.search);
+    var html = '<label class="search-box top-search">' + ic('search') +
+      '<input class="search" type="search" data-input="search" aria-label="Buscar planilla" placeholder="Buscar planilla (ej. hormigón, 28)"' +
+      ' enterkeyhint="search" autocomplete="off" autocorrect="off" value="' + esc(S.ui.search) + '"></label>';
+    if (MODE === 'pwa' && !isStandalone()) {
+      html += noteHtml('warn', 'Instalá la app: en Safari, Compartir › Agregar a inicio. Así no se borra lo cargado sin señal.', 'download');
+    }
+    if (!S.settings.inspector) {
+      html += noteHtml('info', '<p>Elegí quién sos: tus iniciales se cargan solas en RESP.</p>' +
+        '<div class="btns"><button class="btn sm" data-act="go" data-to="/quien">Elegir</button></div>');
+    }
+    view.innerHTML = html + '<div id="homeList">' + homeListHtml() + '</div>';
+  }
+  /** Lo que cambia con la búsqueda o con un envío: estado de las FUM, planillas por rubro, ocultas y pie. */
+  function homeListHtml() {
+    var raw = String(S.ui.search || '').trim();
+    var terms = searchTerms(raw);
     var groups = {};
     var order = [];
     var hidden = [];
     S.catalog.categorias.forEach(function (c) {
-      if (q && norm(c.sheet + ' ' + c.titulo).indexOf(q) < 0) return;
-      if (c.oculta && !q && !hasLocal(c.sheet)) { hidden.push(c); return; }
+      var hay = norm(c.sheet + ' ' + c.titulo);
+      if (terms.length && !terms.every(function (t) { return hay.indexOf(t) >= 0; })) return;
+      if (c.oculta && !terms.length && !hasLocal(c.sheet)) { hidden.push(c); return; }
       if (!groups[c.rubro]) { groups[c.rubro] = []; order.push(c.rubro); }
       groups[c.rubro].push(c);
     });
-    var html = '<input class="search" type="search" placeholder="Buscar planilla (ej. hormigón, 28)" value="' + esc(S.ui.search) + '" data-input="search">';
-    if (MODE === 'pwa' && !isStandalone()) {
-      html += '<div class="spacer"></div><div class="note warn">Instalá la app: en Safari, Compartir › Agregar a inicio. Así no se borra lo cargado sin señal.</div>';
-    }
-    var of = openFums();
-    var late = of.filter(function (f) { return f.plazo && f.plazo < today(); }).length;
-    html += '<div class="spacer"></div><button class="row" data-act="go" data-to="/fum"><span class="num ' + (of.length ? 'rz' : 'ap') + '">' + of.length + '</span>' +
-      '<span class="grow"><b>Rechazos · FUM abiertas</b><span class="chips">' +
-      (late ? '<span class="chip rz">' + late + ' con reinspección vencida</span>' : '<span class="chip">' + (of.length ? 'seguimiento de no conformidades' : 'sin rechazos pendientes') + '</span>') +
-      '</span></span>' + ic('chev-r', 'chev') + '</button>';
-    if (!S.settings.inspector) {
-      html += '<div class="spacer"></div><div class="note info">Elegí quién sos para completar automáticamente el responsable. <button class="btn" data-act="go" data-to="/quien">Elegir</button></div>';
-    }
+    // mientras se busca, la lista arranca directo con las planillas
+    var html = terms.length ? '' : fumStatusRow();
     order.forEach(function (g) {
       html += '<h2 class="sec">' + esc(g) + '</h2><div class="list">' + groups[g].map(catRow).join('') + '</div>';
     });
     if (hidden.length) {
-      html += '<details class="hid"><summary><h2 class="sec">Planillas sin uso (ocultas) · ' + hidden.length + ' ' + ic('chev-d', 'chev ic-16') + '</h2></summary><div class="list">' +
-        hidden.map(catRow).join('') + '</div></details>';
+      html += '<details class="hid ocultas"><summary class="row">' + '<span class="grow t16">' + esc('Planillas ocultas · ' + hidden.length) + '</span>' +
+        ic('chev-d', 'chev') + '</summary><div class="list">' + hidden.map(catRow).join('') + '</div></details>';
     }
-    if (!order.length && !hidden.length) html += '<div class="empty">Sin resultados</div>';
-    html += '<p class="help center" style="margin-top:24px">Datos ' + esc(ago(S.lastSync)) + ' · v' + APP_VERSION + '</p>';
-    view.innerHTML = html;
+    if (terms.length && !order.length && !hidden.length) {
+      html += emptyHtml('No hay planillas con «' + raw + '». Probá con el número (28) o una palabra (hormigón).', 'search');
+    }
+    var s = ago(S.lastSync);
+    html += '<p class="help center foot">' + esc((s === 'nunca' ? 'Sin actualizar' : 'Actualizado ' + (/^(hace|recién)/.test(s) ? s : 'el ' + s)) + ' · v' + APP_VERSION) + '</p>';
+    return html;
+  }
+  /** Estado de las FUM (V15, FLOW-17): una línea discreta si no hay abiertas; roja si hay. Siempre lleva a /fum. */
+  function fumStatusRow() {
+    var of = openFums(), t = today();
+    if (!of.length) {
+      return '<button class="row slim" data-act="go" data-to="/fum">' + ic('check-circle', 't-ap') + '<span class="grow t16">Sin FUM abiertas</span>' + ic('chev-r', 'chev') + '</button>';
+    }
+    var venc = of.filter(function (f) { return f.plazo && f.plazo < t; }).length;
+    var sinF = of.filter(function (f) { return !f.plazo; }).length;
+    var meta = [venc ? venc + (venc === 1 ? ' vencida' : ' vencidas') : '', sinF ? sinF + ' sin fecha de reinspección' : ''].filter(Boolean).join(' · ') || 'Ninguna vencida';
+    return '<button class="row alert" data-act="go" data-to="/fum">' + ic('alert') + '<span class="grow"><span class="ttl2">' +
+      esc(of.length === 1 ? '1 FUM abierta' : of.length + ' FUM abiertas') + '</span><span class="meta">' + esc(meta) + '</span></span>' + ic('chev-r', 'chev') + '</button>';
   }
   function isStandalone() {
     try { return !!(navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches)); } catch (e) { return false; }
   }
   function hasLocal(sheet) { return S.queue.some(function (o) { return o.sheet === sheet; }); }
+  /** Fila de planilla: número como etiqueta, título tal cual viene del PIE, cantidad como texto y chips sólo de estado. */
   function catRow(c) {
     var regs = c.registros;
     var local = S.queue.filter(function (o) { return o.sheet === c.sheet && o.op === 'create'; }).length;
@@ -2123,56 +2266,71 @@
     }).length;
     var supers = usedRegs.filter(function (r) { var n = regDocAlerts(r.items.map(rawItem)); return n.bad || n.old; }).length;
     var fumN = fumsAll().filter(function (f) { return f[1] === c.sheet && f[5] === 'Abierta'; }).length;
+    var chips = (inProgress && used ? chipHtml('pend', inProgress + ' con pendientes') : '') +
+      (fumN ? chipHtml('rz', fumN + (fumN === 1 ? ' FUM abierta' : ' FUM abiertas')) : '') +
+      (supers ? '<span class="chip rz">' + ic('alert', 'ic-16') + esc(supers + ' con plano superado') + '</span>' : '') +
+      (local ? chipHtml('sync', local + (local === 1 ? ' nuevo sin enviar' : ' nuevos sin enviar')) : '') +
+      (c.oculta ? chipHtml('', 'Oculta') : '');
     return '<button class="row" data-act="go" data-to="/c/' + esc(c.sheet) + '">' +
-      '<span class="num">' + esc(c.sheet) + '</span><span class="grow"><b>' + esc(c.titulo) + '</b>' +
-      '<span class="chips"><span class="chip">' + used + ' registro' + (used === 1 ? '' : 's') + '</span>' +
-      (inProgress && used ? '<span class="chip pend">' + inProgress + ' con pendientes</span>' : '') +
-      (fumN ? '<span class="chip rz">' + fumN + ' FUM abierta' + (fumN > 1 ? 's' : '') + '</span>' : '') +
-      (supers ? '<span class="chip rz">' + ic('alert', 'ic-16') + supers + ' con doc. superado</span>' : '') +
-      (local ? '<span class="chip sync">' + local + ' nuevo' + (local > 1 ? 's' : '') + ' sin enviar</span>' : '') +
-      (c.oculta ? '<span class="chip">oculta</span>' : '') +
-      '</span></span>' + ic('chev-r', 'chev') + '</button>';
+      '<span class="tag solid">' + esc(c.sheet) + '</span><span class="grow"><span class="ttl2">' + esc(c.titulo) + '</span>' +
+      '<span class="meta">' + used + (used === 1 ? ' registro' : ' registros') + '</span>' +
+      (chips ? '<span class="chips">' + chips + '</span>' : '') + '</span>' + ic('chev-r', 'chev') + '</button>';
   }
 
-  /* ---------- Categoría: registros y requisitos ---------- */
+  /* ---------- Planilla: registros y requisitos (§5.4) ---------- */
   function renderCategory(sheet) {
     var cat = category(sheet);
     if (!cat) { nav('/', { replace: true }); return; }
     renderTop(cat.titulo, 'Planilla ' + cat.sheet + (cat.rubro ? ' · ' + cat.rubro : ''));
     var tab = S.ui.tab[sheet] || 'reg';
-    var html = '<div class="seg"><button class="' + (tab === 'reg' ? 'on' : '') + '" data-act="tab" data-sheet="' + esc(sheet) + '" data-tab="reg">Registros</button>' +
-      '<button class="' + (tab === 'req' ? 'on' : '') + '" data-act="tab" data-sheet="' + esc(sheet) + '" data-tab="req">Requisitos</button></div>';
-    html += tab === 'reg' ? regList(sheet) : reqList(sheet);
+    var tabBtn = function (k, label) {
+      return '<button type="button" role="tab" aria-selected="' + (tab === k) + '" data-act="tab" data-sheet="' + esc(sheet) + '" data-tab="' + k + '">' + label + '</button>';
+    };
+    var html = '<div class="seg" role="tablist" aria-label="' + esc('Planilla ' + cat.sheet) + '">' + tabBtn('reg', 'Registros') + tabBtn('req', 'Requisitos') + '</div>';
+    html += tab === 'reg' ? regTab(sheet) : reqList(sheet);
     // sin registros no hay modelo para copiar: sin barra (.fab se conserva como gancho; ya no flota)
     if (cat.registros.length) html += bbar('<button class="fab btn primary lg block" data-act="go" data-to="/c/' + esc(sheet) + '/nuevo">' + ic('plus') + 'Nuevo registro</button>');
     view.innerHTML = html;
   }
-  function regList(sheet) {
+  /** Pestaña Registros: el buscador (si hay más de 5) se dibuja una vez y la lista va en #regListBox (§6.10). */
+  function regTab(sheet) {
     var regs = listRegs(sheet);
-    var q = norm(S.ui.regSearch[sheet]);
     var html = '';
     if (regs.length > 5) {
-      html += '<input class="search" type="search" placeholder="Buscar elemento, piso, sector" value="' + esc(S.ui.regSearch[sheet] || '') + '" data-input="regSearch" data-sheet="' + esc(sheet) + '"><div class="spacer"></div>';
+      html += '<label class="search-box top-search">' + ic('search') + '<input class="search" type="search" data-input="regSearch" data-sheet="' + esc(sheet) + '"' +
+        ' aria-label="Buscar registro" placeholder="Buscar elemento, piso o sector" enterkeyhint="search" autocomplete="off" autocorrect="off"' +
+        ' value="' + esc(S.ui.regSearch[sheet] || '') + '"></label>';
     }
-    if (category(sheet).oculta) html += '<div class="note">Esta planilla está oculta en el Excel. Al crear un registro se vuelve a mostrar.</div>';
-    var shown = regs.filter(function (r) { return !q || norm([r.elemento, r.piso, r.sector, r.etapa].join(' ')).indexOf(q) >= 0; });
-    if (!shown.length) return html + '<div class="empty">No hay registros' + (q ? ' que coincidan' : '') + '.</div>';
-    html += '<div class="list">' + shown.map(function (r) {
-      var s = stats(r.items);
-      var lb = regLabel(s);
-      var where = [r.piso && 'Piso ' + r.piso, r.sector, r.etapa && 'Etapa ' + r.etapa].filter(Boolean).join(' · ');
-      return '<button class="row" data-act="go" data-to="/c/' + esc(sheet) + '/r/' + r.key + '"><span class="grow">' +
-        '<b>' + esc(r.elemento || 'Sin elemento') + '</b>' +
-        '<span class="meta">' + esc(where || '—') + (r.pending ? '' : ' · fila ' + r.h) + '</span>' +
-        '<span class="chips"><span class="chip ' + lb[0] + '">' + esc(lb[1]) + '</span>' +
-        (s.ap ? '<span class="chip ap">' + s.ap + ' AP</span>' : '') +
-        (s.na ? '<span class="chip">' + s.na + ' N/A</span>' : '') +
-        (r.pending ? '<span class="chip sync">Nuevo · sin enviar</span>' : (r.dirty ? '<span class="chip sync">Cambios sin enviar</span>' : '')) +
-        (function () { var n = regDocAlerts(r.items); return n.bad || n.old ? '<span class="chip rz">' + ic('alert', 'ic-16') + 'Doc. superado</span>' : ''; })() +
-        '</span><span class="bar-row">' + barHtml(s) + '<span class="n">' + (s.total - s.pend) + '/' + s.total + '</span></span>' +
-        '</span>' + ic('chev-r', 'chev') + '</button>';
-    }).join('') + '</div>';
-    return html;
+    if (category(sheet).oculta) html += noteHtml('warn', 'Esta planilla está oculta en el PIE. Se vuelve a mostrar al crear un registro.', 'info');
+    return html + '<div id="regListBox">' + regListHtml(sheet, regs) + '</div>';
+  }
+  function regListHtml(sheet, regs) {
+    regs = regs || listRegs(sheet);
+    if (!regs.length) return emptyHtml(NO_MODEL, 'doc');
+    var raw = regs.length > 5 ? String(S.ui.regSearch[sheet] || '').trim() : '';
+    var terms = searchTerms(raw);
+    var shown = regs.filter(function (r) {
+      var hay = norm([r.elemento, r.piso, r.sector, r.etapa].join(' '));
+      return terms.every(function (t) { return hay.indexOf(t) >= 0; });
+    });
+    if (!shown.length) return emptyHtml('Ningún registro coincide con «' + raw + '».', 'search');
+    return '<div class="list">' + shown.map(regRow).join('') + '</div>';
+  }
+  /** Fila de registro: elemento, dónde está, chips de estado y la barra de avance con hechos/total. */
+  function regRow(r) {
+    var s = stats(r.items);
+    var meta = [r.piso ? 'Piso ' + r.piso : '', r.sector, r.etapa ? 'Etapa ' + r.etapa : '', r.h ? 'fila ' + r.h : ''].filter(Boolean).join(' · ');
+    var na = regDocAlerts(r.items);
+    var chips = (s.pend ? (s.total - s.pend ? chipHtml('pend', 'faltan ' + s.pend) : chipHtml('', 'Sin iniciar')) : (s.rz ? '' : chipHtml('ap', 'Completo'))) +
+      (s.rz ? chipHtml('rz', s.rz + ' RZ') : '') +
+      (r.pending ? chipHtml('sync', 'Nuevo · sin enviar') : r.dirty ? chipHtml('sync', 'Cambios sin enviar') : '') +
+      (na.bad || na.old ? '<span class="chip rz">' + ic('alert', 'ic-16') + 'Plano superado</span>' : '');
+    return '<button class="row" data-act="go" data-to="/c/' + esc(r.sheet) + '/r/' + r.key + '"><span class="grow">' +
+      '<span class="ttl2">' + esc(r.elemento || 'Sin elemento') + '</span>' +
+      (meta ? '<span class="meta">' + esc(meta) + '</span>' : '') +
+      (chips ? '<span class="chips">' + chips + '</span>' : '') +
+      '<span class="bar-row">' + barHtml(s) + '<span class="n">' + (s.total - s.pend) + '/' + s.total + '</span></span>' +
+      '</span>' + ic('chev-r', 'chev') + '</button>';
   }
   /** Barra de avance (§4.5): RZ, AP y N/A, en ese orden; lo pendiente queda como hueco. */
   function barHtml(s, cls) {
@@ -2202,8 +2360,8 @@
   }
   function reqList(sheet) {
     var t = templateReg(sheet);
-    if (!t) return '<div class="empty">La planilla no tiene un bloque modelo.</div>';
-    var html = '<p class="help" style="margin:0 4px 6px">Controles del último registro (' + t.items.length + ' criterios). Método: IV = inspección visual · ID = inspección dimensional.</p>';
+    if (!t) return emptyHtml(NO_MODEL, 'doc');
+    var html = '<p class="help intro">' + esc('Los ' + t.items.length + ' controles que se copian en cada registro nuevo. IV = inspección visual · ID = inspección dimensional.') + '</p>';
     groupItems(t.items).forEach(function (g) {
       // misma banda que en el registro, pero fija en su lugar y sin plegar
       html += '<div class="stage"><div class="stage-h static"><span class="st-name">' + esc(g.name) + '</span><span class="st-cnt">' +
@@ -2219,18 +2377,41 @@
     });
     return html;
   }
+  /** Con un buscador enfocado sólo se reemplaza su lista (al escribir y al terminar un envío). */
+  function refreshSearchList() {
+    var hl = document.getElementById('homeList');
+    if (hl && S.route === '/' && S.catalog) { hl.innerHTML = homeListHtml(); return; }
+    var m = /^\/c\/([^/]+)$/.exec(S.route), box = document.getElementById('regListBox');
+    if (m && box && category(m[1])) box.innerHTML = regListHtml(m[1]);
+  }
 
   /** Nota fija mientras no se pueda guardar en el celular. */
   function storageNote() {
-    return S.storageError ? '<div class="note err"><b>No se pudo guardar en el celular.</b> No cierres la app y liberá espacio: lo cargado sigue en pantalla y se envía al tener señal.</div>' : '';
+    return S.storageError ? noteHtml('err', '<b>No se pudo guardar en el celular.</b><p>No cierres la app y liberá espacio: lo cargado sigue en pantalla y se envía al tener señal.</p>') : '';
   }
 
-  /* ---------- Nuevo registro ---------- */
+  /* ---------- Nuevo registro (§5.5) ---------- */
+  /** Chip en vivo del plano escrito o elegido: vigente, superado o fuera del FOD 02. */
+  function newDocChipHtml(val) {
+    val = String(val || '').trim();
+    if (!val) return '';
+    var r = docRefs(val)[0];
+    if (!r) return chipHtml('', 'No está en el FOD 02');
+    if (isNo(r.doc[7])) return chipHtml('rz', 'No vigente');
+    if (r.used == null) return String(r.doc[1] == null ? '' : r.doc[1]).trim() ? chipHtml('', 'Sin rev. · rige ' + revLabel(r.doc[1])) : chipHtml('ap', 'vigente');
+    return revCmp(r.used, r.doc[1]) < 0
+      ? chipHtml('rz', revLabel(r.used) + ' · superado: rige ' + revLabel(r.doc[1]))
+      : chipHtml('ap', revLabel(r.used) + ' · vigente');
+  }
+  function updateNewDocChip(val) {
+    var b = document.getElementById('newDocChip');
+    if (b) b.innerHTML = newDocChipHtml(val);
+  }
   function renderNew(sheet) {
     var cat = category(sheet);
     if (!cat) { nav('/', { replace: true }); return; }
     renderTop('Nuevo registro', 'Planilla ' + cat.sheet + ' · ' + cat.titulo);
-    if (!cat.registros.length) { view.innerHTML = '<div class="empty">La planilla no tiene un bloque modelo para copiar.</div>'; return; }
+    if (!cat.registros.length) { view.innerHTML = emptyHtml(NO_MODEL, 'doc'); return; }
     // un modelo por cada estructura distinta de criterios (la más reciente)
     var models = [];
     var seen = {};
@@ -2250,27 +2431,31 @@
     var respOpts = function (sel) {
       var names = datos().responsables.map(function (x) { return x.nombre; }).concat(['N/A']);
       if (sel && names.indexOf(sel) < 0) names.push(sel);
-      return '<option value="">—</option>' + names.map(function (n) {
+      return '<option value="">Sin responsable</option>' + names.map(function (n) {
         return '<option' + (n === sel ? ' selected' : '') + '>' + esc(n) + '</option>';
       }).join('');
     };
+    // teclado de iOS (eng-15): códigos sin autocorrector ni mayúscula inicial forzada
+    var code = ' autocapitalize="characters" autocorrect="off" spellcheck="false" autocomplete="off"';
     var html = '<form id="newForm" class="card pad" autocomplete="off">' +
-      '<label class="f"><span>Elemento a verificar *</span><input class="in" name="elemento" required placeholder="Ej. Losa sobre 3° piso, V12-V14" list="dl-el"></label>' +
+      '<label class="f"><span>Elemento a verificar (obligatorio)</span><input class="in" name="elemento" required placeholder="Ej.: Losa sobre 3° piso, V12-V14" list="dl-el"' +
+      ' autocapitalize="sentences" autocorrect="off"></label>' +
       '<datalist id="dl-el">' + sugg('elemento') + '</datalist>' +
       '<div class="grid3">' +
-      '<label class="f"><span>Piso</span><input class="in" name="piso" list="dl-piso"></label>' +
-      '<label class="f"><span>Sector</span><input class="in" name="sector" list="dl-sector"></label>' +
-      '<label class="f"><span>Etapa</span><input class="in" name="etapa" list="dl-etapa"></label></div>' +
+      '<label class="f"><span>Piso</span><input class="in" name="piso" list="dl-piso" placeholder="Ej.: 5P"' + code + '></label>' +
+      '<label class="f"><span>Sector</span><input class="in" name="sector" list="dl-sector" autocapitalize="sentences" autocorrect="off"></label>' +
+      '<label class="f"><span>Etapa</span><input class="in" name="etapa" list="dl-etapa" autocorrect="off"></label></div>' +
       '<datalist id="dl-piso">' + sugg('piso') + '</datalist><datalist id="dl-sector">' + sugg('sector') + '</datalist><datalist id="dl-etapa">' + sugg('etapa') + '</datalist>' +
-      '<label class="f"><span>Documento de referencia (FOD 02)</span><span class="pick"><input class="in" name="documento" list="dl-doc" placeholder="Elegí del FOD 02 o escribilo">' +
-      '<button type="button" class="btn" data-act="docpick" data-target="new">FOD 02</button></span></label>' +
+      '<label class="f"><span>Plano (FOD 02)</span><span class="pick"><input class="in" name="documento" list="dl-doc" placeholder="Código del plano"' + code + '>' +
+      '<button type="button" class="btn" data-act="docpick" data-target="new" aria-label="Elegir plano del FOD 02">FOD 02</button></span>' +
+      '<span class="chips" id="newDocChip" aria-live="polite"></span></label>' +
       '<datalist id="dl-doc">' + Object.keys(docs).map(function (v) { return '<option value="' + esc(v) + '">'; }).join('') + '</datalist>' +
-      '<div id="respBox"></div>' +
-      '<label class="f"><span>Copiar estructura de</span><select class="in" name="modelo">' +
+      '<fieldset class="f"><legend>Responsables</legend><div id="respList"></div></fieldset>' +
+      '<label class="f"><span>Controles a copiar</span><select class="in" name="modelo">' +
       models.map(function (r, i) {
-        return '<option value="' + r.h + '">' + esc((i === 0 ? 'Último registro' : 'Modelo') + ' · ' + (r.elemento || 'sin elemento') + (r.piso ? ' (' + r.piso + ')' : '') + ' · ' + r.items.length + ' controles') + '</option>';
+        return '<option value="' + r.h + '">' + esc(r.items.length + ' controles · como ' + (r.elemento || 'sin elemento') + (i === 0 ? ' (último)' : '')) + '</option>';
       }).join('') + '</select></label>' +
-      '<p class="help" style="margin:-4px 0 12px">Se agrega debajo del último registro de la planilla con el mismo formato. Las columnas de carga arrancan vacías.</p>' +
+      '<p class="help">' + esc('Se agrega al final de la planilla ' + cat.sheet + ' con todos los controles pendientes.') + '</p>' +
       '</form>' +
       // el único botón de enviar de la pantalla: en la barra, asociado al formulario con form=
       bbar('<button type="submit" form="newForm" class="btn primary lg block">Crear registro</button>');
@@ -2281,13 +2466,13 @@
       var r = cat.registros.filter(function (x) { return x.h === h; })[0] || last;
       var cur = [].slice.call(form.querySelectorAll('select[name=resp]')).map(function (s) { return s.value; });
       var src = cur.length ? cur : last.resp;
-      var box = document.getElementById('respBox');
+      var box = document.getElementById('respList');
       var slots = Math.max(1, r.slots || 3);
-      var htmlR = '<div>';
+      var htmlR = '';
       for (var i = 0; i < slots; i++) {
         htmlR += '<label class="f"><span>Responsable ' + (i + 1) + '</span><select class="in" name="resp">' + respOpts(src[i] || '') + '</select></label>';
       }
-      box.innerHTML = htmlR + '</div>';
+      box.innerHTML = htmlR;
     };
     drawResp();
     form.modelo.addEventListener('change', drawResp);
@@ -2439,7 +2624,7 @@
     if (na.bad) lines.push(na.bad + (na.bad > 1 ? ' controles marcados' : ' control marcado') + ' con una revisión ya reemplazada: ' + (na.bad > 1 ? 'revisalos.' : 'revisalo.'));
     var cur = docRefs(rdoc)[0];
     var latest = regOld ? dd.latest : cur ? cur.doc[1] : null;
-    return '<div class="note err ic-l">' + ic('alert') + '<div><b>Plano superado</b>' +
+    return '<div class="note err">' + ic('alert') + '<div><b>Plano superado</b>' +
       lines.map(function (x) { return '<p>' + esc(x) + '</p>'; }).join('') +
       (regOld || na.old ? '<div class="btns"><button type="button" class="btn sm primary" data-act="docupdall" data-key="' + reg.key + '">' +
         esc(latest != null ? 'Pasar a ' + revLabel(latest) : 'Pasar a la revisión vigente') + '</button></div>' : '') + '</div></div>';
@@ -2448,7 +2633,7 @@
   function sendErrNote(reg) {
     var errs = S.queue.filter(function (o) { return o.status === 'error' && (o.op === 'create' ? o.id === reg.opId : opTargets(o, reg)); });
     if (!errs.length) return '';
-    return '<div class="note err ic-l">' + ic('alert') + '<div><p>' + esc('No se pudo enviar al PIE: ' + String(errs[0].error || 'error').replace(/[\s.]+$/, '')) + '</p>' +
+    return '<div class="note err">' + ic('alert') + '<div><p>' + esc('No se pudo enviar al PIE: ' + String(errs[0].error || 'error').replace(/[\s.]+$/, '')) + '</p>' +
       '<div class="btns"><button type="button" class="btn sm" data-act="retry" data-id="' + esc(errs.map(function (o) { return o.id; }).join(',')) + '">Reintentar</button>' +
       '<button type="button" class="btn sm" data-act="go" data-to="/ajustes">Ver envíos</button></div></div></div>';
   }
@@ -2844,64 +3029,134 @@
     if (plan.upgraded) toast(plan.upgraded, { kind: 'ok' });   // espera su turno detrás del Deshacer
   }
 
-  /* ---------- Ajustes ---------- */
+  /* ---------- ¿Quién sos? (§5.2) ---------- */
   function renderWho() {
     renderTop('¿Quién sos?', '');
     var rs = datos().responsables;
-    view.innerHTML = '<div class="list">' + rs.map(function (r) {
-      return '<button class="row" data-act="who" data-abrev="' + esc(r.abrev) + '"><span class="num">' + esc(r.abrev) + '</span><span class="grow"><b>' + esc(r.nombre) + '</b></span>' +
-        (S.settings.inspector === r.abrev ? '<span class="chip ap">actual</span>' : '') + '</button>';
-    }).join('') + '</div>' + (rs.length ? '' : '<div class="empty">Descargá las planillas primero.</div>');
+    view.innerHTML = '<p class="help intro">Elegí quién sos: tus iniciales se cargan solas en RESP.</p>' +
+      (rs.length ? '<div class="list">' + rs.map(function (r) {
+        var me = S.settings.inspector === r.abrev;
+        // el nombre tal como está en DATOS
+        return '<button class="row" data-act="who" data-abrev="' + esc(r.abrev) + '"' + (me ? ' aria-current="true"' : '') + '>' +
+          '<span class="avatar">' + esc(r.abrev) + '</span><span class="grow"><span class="ttl2">' + esc(r.nombre) + '</span></span>' +
+          (me ? chipHtml('ap', 'vos') : '') + '</button>';
+      }).join('') + '</div>' : emptyHtml('No hay responsables cargados en la hoja DATOS del PIE.'));
   }
 
+  /* ---------- Ajustes (§5.8) ---------- */
+  /** Datos de la FUM a la que apunta una operación: criterio, registro y si todavía es nueva (sin número). */
+  function fumOpInfo(o) {
+    if (o.accion === 'abrir') return { criterio: o.criterio, key: o.ref ? liveKey('p' + o.ref) : 'h' + o.h, isNew: true };
+    if (o.num != null) {
+      var f = fumsAll().filter(function (x) { return x[0] === o.num; })[0];
+      return { criterio: o.criterio || (f ? f[9] : ''), key: f ? 'h' + f[2] : null, isNew: false };
+    }
+    var ab = S.queue.filter(function (x) { return x.id === o.ref; })[0];
+    if (!ab) return { criterio: o.criterio || '', key: null, isNew: false };
+    return { criterio: o.criterio || ab.criterio, key: ab.ref ? liveKey('p' + ab.ref) : 'h' + ab.h, isNew: true };
+  }
+  /** Título de cada envío pendiente (§7.7, C16). */
+  function opTitle(o) {
+    if (o.op === 'create') return 'Registro nuevo · ' + (o.header.elemento || 'sin elemento');
+    if (o.op === 'update') {
+      var n = Object.keys(o.items || {}).length;
+      var c = o.ref && pendingCreate(o.ref);
+      var el = o.elemento || (c ? c.header.elemento : '') || (o.h ? 'fila ' + o.h : 'registro nuevo');
+      return 'Cambios en ' + el + ' · ' + (n ? n + (n === 1 ? ' control' : ' controles') : 'datos del registro');
+    }
+    if (o.op === 'photo') return 'Foto · ' + recorte(o.criterio);
+    var info = fumOpInfo(o);
+    var acc = o.accion === 'cerrar' && o.resultado === 'Anulada' ? 'anular' : o.accion;
+    var nTxt = o.num != null ? ' N° ' + o.num : info.isNew ? ' nueva' : '';
+    var t = { abrir: 'Abrir FUM', cerrar: 'Cerrar FUM' + nTxt, anular: 'Anular FUM' + nTxt, editar: 'Editar FUM' + nTxt }[acc] || 'FUM' + nTxt;
+    return t + (info.criterio ? ' · ' + recorte(info.criterio) : '');
+  }
+  /** Registro al que lleva el título de un envío (null si no se sabe). */
+  function opRegKey(o) {
+    if (o.op === 'create') return 'p' + o.id;
+    if (o.op === 'fum') return fumOpInfo(o).key;
+    return o.ref ? liveKey('p' + o.ref) : o.h != null ? 'h' + o.h : null;
+  }
+  function opRow(o) {
+    var key = opRegKey(o), title = opTitle(o);
+    var link = !!(key && category(o.sheet) && getReg(o.sheet, key));
+    return '<div class="op">' +
+      (link ? '<button type="button" class="btn ghost op-t" data-act="go" data-to="/c/' + esc(o.sheet) + '/r/' + esc(key) + '"><span>' + esc(title) + '</span>' + ic('chev-r', 'chev') + '</button>'
+        : '<p class="op-t">' + esc(title) + '</p>') +
+      (o.status === 'error' ? noteHtml('err', esc(o.error || 'Error')) : '') +
+      // dónde y cuándo, y a la derecha los botones (Descartar separado 16 px de Reintentar)
+      '<div class="op-foot"><p class="meta">' + esc('Planilla ' + o.sheet + ' · ' + ago(o.createdAt)) + '</p>' +
+      '<div class="op-btns">' + (o.status === 'error' ? '<button type="button" class="btn sm" data-act="retry" data-id="' + esc(o.id) + '">Reintentar</button>' : '') +
+      '<button type="button" class="btn sm ghost danger" data-act="discard" data-id="' + esc(o.id) + '">Descartar</button></div></div></div>';
+  }
+  /** El formulario de conexión tiene algo escrito y sin guardar (un dibujo de fondo no lo pisa). */
+  function cfgDirty() {
+    var f = document.getElementById('cfgForm');
+    if (!f) return false;
+    return (!!f.apiUrl && f.apiUrl.value.trim() !== (S.settings.apiUrl || '')) || (!!f.token && f.token.value.trim() !== (S.settings.token || ''));
+  }
   function renderSettings() {
     renderTop('Ajustes', '');
-    var me = datos().responsables.filter(function (r) { return r.abrev === S.settings.inspector; })[0];
-    var html = '';
-    html += '<h2 class="sec">Usuario</h2><button class="row" data-act="go" data-to="/quien"><span class="num">' + esc(S.settings.inspector || '?') + '</span><span class="grow"><b>' +
-      esc(me ? me.nombre : 'Elegir responsable') + '</b><span class="meta">Se completa en la columna RESP. al marcar</span></span>' + ic('chev-r', 'chev') + '</button>';
-
-    html += '<h2 class="sec" id="envios">Envíos pendientes · ' + S.queue.length + '</h2>';
+    // lo escrito y todavía no guardado en Conexión se conserva al volver a dibujar
+    var old = document.getElementById('cfgForm');
+    var draft = { apiUrl: S.settings.apiUrl || '', token: S.settings.token || '' };
+    if (old) { ['apiUrl', 'token'].forEach(function (k) { if (old[k]) draft[k] = old[k].value; }); } else { S.ui.cfgErr = ''; }
+    var online = IN_GAS || navigator.onLine;
+    var html = '<h2 class="sec" id="envios">Envíos pendientes · ' + S.queue.length + '</h2>';
     if (!S.queue.length) {
-      html += '<div class="card pad muted">No hay cambios sin enviar.</div>';
+      html += '<div class="card pad"><p class="ok-line">' + ic('check-circle', 't-ap') + 'Todo enviado. No hay nada pendiente.</p></div>';
     } else {
-      html += '<div class="card">' + S.queue.map(function (o) {
-        var cat = category(o.sheet);
-        var what = o.op === 'create' ? 'Nuevo registro: ' + (o.header.elemento || 'sin elemento')
-          : o.op === 'photo' ? 'Foto: ' + String(o.criterio || '').slice(0, 60)
-          : o.op === 'fum' ? 'FUM ' + (o.num || '') + ' · ' + ({ abrir: 'abrir', cerrar: o.resultado === 'Anulada' ? 'anular' : 'cerrar', editar: 'editar' }[o.accion] || o.accion) + (o.criterio ? ': ' + String(o.criterio).slice(0, 50) : '')
-          : 'Cambios en ' + (o.elemento || (o.ref ? 'registro nuevo' : 'fila ' + o.h));
-        var n = Object.keys(o.items || {}).length;
-        return '<div class="op"><div class="grow"><b>' + esc(what) + '</b><div class="meta">' + esc(o.sheet + ' · ' + (cat ? cat.titulo : '')) + ' · ' + n + ' control' + (n === 1 ? '' : 'es') + ' · ' + esc(ago(o.createdAt)) + '</div>' +
-          (o.status === 'error' ? '<div class="note err" style="margin:6px 0 0">' + esc(o.error || 'Error') + '</div>' : '') + '</div>' +
-          (o.status === 'error' ? '<button class="btn sm" data-act="retry" data-id="' + esc(o.id) + '">Reintentar</button>' : '') +
-          '<button class="btn sm ghost danger" data-act="discard" data-id="' + esc(o.id) + '">Descartar</button></div>';
-      }).join('') + '</div>';
+      if (online && S.queue.some(function (o) { return o.status === 'pending'; })) {
+        html += '<button type="button" class="btn primary block mb" data-act="sync" data-manual="1">Enviar ahora</button>';
+      }
+      html += '<div class="card">' + S.queue.map(opRow).join('') + '</div>';
     }
 
-    html += '<h2 class="sec">Datos</h2>' + storageNote() + '<div class="card pad"><div>Última actualización: <b>' + esc(ago(S.lastSync)) + '</b>' +
-      '<div class="meta" id="storeUse"></div>' +
-      (S.lastError ? '<div class="note err" style="margin:8px 0 0">' + esc(S.lastError) + '</div>' : '') + '</div><div class="spacer"></div>' +
-      '<button class="btn primary block" data-act="sync" data-full="1">Sincronizar y descargar todo</button></div>';
+    var me = datos().responsables.filter(function (r) { return r.abrev === S.settings.inspector; })[0];
+    var ini = S.settings.inspector;
+    html += '<h2 class="sec">Tu usuario</h2><div class="card pad user"><span class="avatar">' + esc(ini || '?') + '</span>' +
+      '<div class="grow"><p class="ttl3">' + esc(me ? me.nombre : ini || 'Sin elegir') + '</p><p class="meta">' +
+      esc(ini ? 'Tus iniciales (' + ini + ') van en RESP. al marcar' : 'Elegí quién sos: tus iniciales se cargan solas en RESP.') + '</p></div>' +
+      '<button type="button" class="btn sm" data-act="go" data-to="/quien">' + (ini ? 'Cambiar' : 'Elegir') + '</button></div>';
+
+    html += '<h2 class="sec">Datos</h2><div class="card pad"><p class="meta">' + esc('Última actualización: ' + ago(S.lastSync)) + '</p>' +
+      (S.lastError ? noteHtml('err', esc(S.lastError)) : '') +
+      '<p class="meta" id="storeUse"></p>' + storageNote() +
+      '<button type="button" class="btn primary block mt" data-act="sync" data-full="1" data-manual="1">Enviar y actualizar ahora</button></div>';
+
+    // teclado de iOS (eng-15): ni mayúsculas ni autocorrector en el enlace y la clave
+    var off = ' autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="off"';
+    var tokenField = '<label class="f"><span>Clave de acceso</span><input class="in" name="token" type="password"' + off + ' value="' + esc(draft.token) + '"></label>';
+    if (MODE === 'pwa') {
+      var err = S.ui.cfgErr;
+      html += '<h2 class="sec" id="conexion">Conexión</h2><form id="cfgForm" class="card pad" novalidate>' +
+        '<label class="f"><span>Enlace de la app (termina en /exec)</span><input class="in" name="apiUrl" type="url" inputmode="url"' + off +
+        ' placeholder="https://script.google.com/macros/s/…/exec" value="' + esc(draft.apiUrl) + '"' + (err ? ' aria-invalid="true" aria-describedby="cfgErr"' : '') + '>' +
+        (err ? '<span class="field-err" id="cfgErr">' + ic('alert', 'ic-16') + '<span>' + esc(err) + '</span></span>' : '') + '</label>' +
+        tokenField + '<button class="btn primary block" type="submit">Guardar y probar</button></form>';
+    } else {
+      html += '<h2 class="sec" id="conexion">Conexión</h2><form id="cfgForm" class="card pad">' + tokenField +
+        '<button class="btn primary block" type="submit">Guardar y probar</button></form>';
+    }
+
+    var th = LS.get('theme', 'auto');
+    html += '<h2 class="sec">Apariencia</h2><div class="card pad"><div class="seg" role="group" aria-label="Apariencia">' +
+      [['auto', 'Automático'], ['light', 'Claro'], ['dark', 'Oscuro']].map(function (x) {
+        return '<button type="button" data-act="theme" data-theme="' + x[0] + '" aria-pressed="' + (th === x[0]) + '">' + x[1] + '</button>';
+      }).join('') + '</div><p class="help">Automático sigue el modo del iPhone.</p></div>';
 
     if (MODE === 'pwa') {
-      html += '<h2 class="sec" id="conexion">Conexión con la planilla</h2><form id="cfgForm" class="card pad">' +
-        '<label class="f"><span>URL de la API (web app de Apps Script)</span><input class="in" name="apiUrl" type="url" placeholder="https://script.google.com/macros/s/…/exec" value="' + esc(S.settings.apiUrl) + '"></label>' +
-        '<label class="f"><span>Clave de acceso</span><input class="in" name="token" type="password" value="' + esc(S.settings.token) + '"></label>' +
-        '<button class="btn primary block" type="submit">Guardar y probar</button></form>';
-      html += '<h2 class="sec">Instalar</h2><div class="card pad">' +
-        (window.__piePrompt ? '<button class="btn primary block" data-act="install">Instalar en este celular</button>' :
-          'Android/Chrome: menú ⋮ → <b>Instalar app</b>. iPhone/Safari: compartir → <b>Agregar a inicio</b>. Una vez instalada abre sin señal.') + '</div>';
-    } else {
-      html += '<h2 class="sec">Modo sin conexión</h2><div class="card pad">' +
-        (MODE === 'sidebar' ? 'Estás en el panel de la planilla.' : 'Estás usando la web app de Apps Script: si perdés señal podés seguir cargando mientras la página quede abierta y se envía sola al volver la conexión.') +
-        ' Para abrir la app <b>sin señal desde cero</b>, usá la versión instalable (PWA) — ver README.</div>';
-      if (MODE === 'webapp') {
-        html += '<h2 class="sec" id="conexion">Clave de acceso</h2><form id="cfgForm" class="card pad"><label class="f"><span>Clave</span><input class="in" name="token" type="password" value="' + esc(S.settings.token) + '"></label>' +
-          '<button class="btn primary block" type="submit">Guardar</button></form>';
+      if (!isStandalone()) {
+        html += '<h2 class="sec">Instalar</h2><div class="card pad"><p class="m0">iPhone (Safari): Compartir → Agregar a inicio. Android (Chrome): menú ⋮ → Instalar app. Instalada, abre sin señal.</p>' +
+          (window.__piePrompt ? '<button type="button" class="btn primary block mt" data-act="install">Instalar en este celular</button>' : '') + '</div>';
       }
+    } else {
+      html += '<h2 class="sec">Modo sin conexión</h2><div class="card pad"><p class="m0">Para abrirla sin señal, usá la app instalada en el celular.</p></div>';
     }
-    html += '<p class="help center" style="margin-top:24px">PIE · Carga v' + APP_VERSION + ' · modo ' + MODE + '</p>';
+    // abierta en Safari (sin instalar) no dice «app instalada»: es justo lo que hay que resolver
+    var modeTxt = MODE === 'pwa' ? (isStandalone() ? ' · app instalada' : ' · navegador') : ({ webapp: ' · web', sidebar: ' · panel' }[MODE] || '');
+    html += '<p class="help center foot">' + esc('PIE · Carga v' + APP_VERSION + modeTxt) + '</p>' +
+      (S.updateReady ? '<p class="center"><button type="button" class="btn" data-act="reload">Recargar app</button></p>' : '');
     view.innerHTML = html;
     try {
       if (navigator.storage && navigator.storage.estimate) {
@@ -2925,13 +3180,25 @@
     if (a === 'back') return back();
     if (a === 'go') return nav(el.dataset.to);
     if (a === 'net') return netTap();
-    if (a === 'sync') return sync({ full: true, manual: true }).then(function (ok) { if (ok) toast('Todo enviado y actualizado', { kind: 'ok' }); });
+    if (a === 'sync') {
+      // «Enviar ahora» sólo envía; «Enviar y actualizar ahora» y «Descargar el PIE» también actualizan
+      var sfull = !!el.dataset.full;
+      return sync(sfull ? { full: true, manual: true } : { manual: true }).then(function (ok) {
+        // sólo si de verdad no quedó nada: con errores ya avisó el error, y lo retenido sale después
+        if (ok && !pendingChanges() && !S.queue.some(function (o) { return o.status === 'error'; })) {
+          toast(sfull ? 'Todo enviado y actualizado' : 'Todo enviado', { kind: 'ok' });
+        }
+      });
+    }
     if (a === 'tab') { S.ui.tab[el.dataset.sheet] = el.dataset.tab; return render(); }
     if (a === 'who') {
+      var wr = datos().responsables.filter(function (x) { return x.abrev === el.dataset.abrev; })[0];
       S.settings.inspector = el.dataset.abrev; saveSettings();
-      toast('Listo: ' + el.dataset.abrev, { kind: 'ok' });
+      toast('Vas a firmar como ' + el.dataset.abrev + (wr ? ' (' + wr.nombre + ')' : ''), { kind: 'ok' });
       return back();
     }
+    if (a === 'theme') { applyTheme(el.dataset.theme); return render({ keepScroll: true }); }
+    if (a === 'reload') { location.reload(); return; }
     if (a === 'install' && window.__piePrompt) { window.__piePrompt.prompt(); window.__piePrompt = null; return; }
     if (a === 'discard') {
       var did = el.dataset.id;
@@ -2939,12 +3206,20 @@
       if (!dop) return;
       return ask(discardQuestion(dop)).then(function (r) {
         if (r !== 'ok') return;
+        // también lo que depende de lo descartado (p. ej. la FUM de un registro nuevo y su cierre)
+        var ids = {};
+        ids[did] = true;
+        for (var grew = true; grew;) {
+          grew = false;
+          S.queue.forEach(function (o) { if (!ids[o.id] && o.ref && ids[o.ref]) { ids[o.id] = true; grew = true; } });
+        }
         S.queue = S.queue.filter(function (o) {
-          var drop = o.id === did || o.ref === did;
-          if (drop && o.img) { KV.del(o.img); delete S.thumbs[o.id]; }
-          return !drop;
+          if (!ids[o.id]) return true;
+          if (o.img) { KV.del(o.img); delete S.thumbs[o.id]; }
+          delete S.hold[o.id];
+          return false;
         });
-        saveQueue(); render();
+        saveQueue(); render({ keepScroll: true });
       });
     }
     if (a === 'retry') {
@@ -2984,7 +3259,7 @@
       if (el.dataset.target === 'new') {
         return openDocPicker({ title: 'Elegí el plano', sub: 'Última revisión de cada uno (FOD 02)', onPick: function (val) {
           var f = document.getElementById('newForm');
-          if (f) f.documento.value = val;
+          if (f) { f.documento.value = val; updateNewDocChip(val); }
           toast('Plano: ' + val, { kind: 'ok' });
         } });
       }
@@ -3187,18 +3462,16 @@
   document.addEventListener('input', function (ev) {
     var el = ev.target;
     if (el.dataset.input === 'docq' && picker) { picker.q = el.value; renderDocList(); return; }
-    if (el.dataset.input === 'search') { S.ui.search = el.value; var pos = el.selectionStart; renderHome(); var s = view.querySelector('[data-input=search]'); s.focus(); try { s.setSelectionRange(pos, pos); } catch (e) { /* type=search */ } return; }
-    if (el.dataset.input === 'regSearch') {
-      S.ui.regSearch[el.dataset.sheet] = el.value;
-      var p2 = el.selectionStart;
-      render();
-      var s2 = view.querySelector('[data-input=regSearch]');
-      s2.focus();
-      try { s2.setSelectionRange(p2, p2); } catch (e) { /* type=search */ }
+    // buscadores (§6.10): el campo no se vuelve a dibujar; sólo su lista, 150 ms después de la última tecla
+    if (el.dataset.input === 'search' || el.dataset.input === 'regSearch') {
+      if (el.dataset.input === 'search') S.ui.search = el.value; else S.ui.regSearch[el.dataset.sheet] = el.value;
+      clearTimeout(searchT);
+      searchT = setTimeout(refreshSearchList, 150);
       return;
     }
-
+    if (el.name === 'documento' && el.form && el.form.id === 'newForm') updateNewDocChip(el.value);
   });
+  var searchT = null;
 
   document.addEventListener('change', function (ev) {
     var el = ev.target;
@@ -3253,26 +3526,31 @@
     }
     if (f.id === 'cfgForm') {
       ev.preventDefault();
+      // la validación queda debajo del campo hasta corregirla (no en un aviso que se va)
+      S.ui.cfgErr = '';
       if (f.apiUrl) {
         var u = f.apiUrl.value.trim();
-        if (u && !/^https:\/\/script\.google\.com\/.*\/exec(\?.*)?$/.test(u)) {
-          toast(/docs\.google\.com\/spreadsheets/.test(u)
-            ? 'Ese es el enlace de la planilla. Va el de la web app: Apps Script › Implementar › Administrar implementaciones (termina en /exec)'
-            : 'La URL tiene que ser la de la web app de Apps Script y terminar en /exec', { kind: 'err', ms: 7000 });
+        if (u && /docs\.google\.com\/spreadsheets/.test(u)) S.ui.cfgErr = 'Ese es el enlace de la planilla. Va el de la app: en el PIE, menú PIE › Ver enlace de la app.';
+        else if (u && !/^https?:\/\/\S+\/exec(\?\S*)?$/.test(u)) S.ui.cfgErr = 'El enlace tiene que terminar en /exec.';
+        if (S.ui.cfgErr) {
+          render({ keepScroll: true });
+          var ue = document.querySelector('#cfgForm [name=apiUrl]');
+          if (ue) { try { ue.focus({ preventScroll: true }); } catch (e) { /* noop */ } }
           return;
         }
         S.settings.apiUrl = u;
       }
       S.settings.token = f.token.value.trim();
       saveSettings();
+      render({ keepScroll: true });   // saca el error anterior; el formulario ya coincide con lo guardado
       toast('Probando conexión…');
-      sync({ full: true, manual: true }).then(function (ok) { if (ok) { toast('Conectado', { kind: 'ok' }); render(); } });
+      sync({ full: true, manual: true }).then(function (ok) { if (ok) { toast('Conectado al PIE', { kind: 'ok' }); render({ keepScroll: true }); } });
     }
   });
 
-  // Enter en el buscador del FOD 02 cierra el teclado (la lista ya está filtrada)
+  // Enter en un buscador cierra el teclado (la lista ya está filtrada)
   document.addEventListener('keydown', function (ev) {
-    if (ev.key === 'Enter' && ev.target.dataset && ev.target.dataset.input === 'docq') { ev.preventDefault(); ev.target.blur(); }
+    if (ev.key === 'Enter' && ev.target.type === 'search') { ev.preventDefault(); ev.target.blur(); }
   });
 
   // un dibujo que se postergó porque había un campo en edición se hace al salir del campo
