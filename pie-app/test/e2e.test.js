@@ -62,7 +62,9 @@ const sheetRows = (name, from, to, book) => fetch(`http://localhost:8081/__sheet
   assert.strictEqual(await page.$$eval('input:not([type=file]), select, textarea', els => els.filter(e => parseFloat(getComputedStyle(e).fontSize) < 16).length), 0, 'campos ≥ 16 px');
   await page.click('button[type=submit]');
   await page.waitForSelector('text=Nuevo · se crea en la planilla al sincronizar');
-  await page.waitForSelector('.net:has-text("Offline")');
+  await page.waitForSelector('.net:has-text("Sin señal")');
+  // indicador: relleno claro = hay cambios sólo en el celular; el texto completo sigue en el DOM
+  assert.ok(await page.$eval('.net', e => e.classList.contains('q') && /^Envíos: Sin señal/.test(e.getAttribute('aria-label'))), 'indicador con cambios sin enviar');
 
   // 4. Cerrar y reabrir la app sin señal (sale del service worker + IndexedDB)
   await page.reload();
@@ -72,6 +74,8 @@ const sheetRows = (name, from, to, book) => fetch(`http://localhost:8081/__sheet
   // marcar: primer ítem AP, segundo RZ con FUM y observación, tercero N/A
   await page.click('.item >> nth=0 >> button[data-st=ap]');
   await page.click('.item >> nth=1 >> button[data-st=rz]');
+  // con el detalle a la vista, la barra inferior se oculta
+  await page.waitForFunction(() => document.body.classList.contains('det-vis') && getComputedStyle(document.querySelector('.bbar')).visibility === 'hidden');
   // RZ abre una FUM (se numera al sincronizar)
   await page.waitForSelector('.item >> nth=1 >> .fumbox:has-text("se numera al sincronizar")');
   await page.fill('.item >> nth=1 >> [data-fum=accionCorrectiva]', 'Rehacer recubrimiento');
@@ -81,9 +85,11 @@ const sheetRows = (name, from, to, book) => fetch(`http://localhost:8081/__sheet
   await page.fill('.item >> nth=1 >> [data-field=obs]', 'Recubrimiento insuficiente');
   await page.locator('.item >> nth=1 >> [data-field=obs]').blur();
   // «Borrar carga» descarta la FUM nueva (no se envió) y «Deshacer» devuelve todo como estaba
-  await page.click('.item >> nth=1 >> button[data-act=clear]');   // confirm() aceptado por page.on('dialog')
+  await page.click('.item >> nth=1 >> button[data-act=clear]');
+  await page.click('#ask [data-ans=ok]');                          // hoja propia, nunca confirm()
   await page.waitForFunction(() => document.querySelectorAll('.item')[1].classList.contains('pend'));
   assert.strictEqual(await page.$$eval('.item >> nth=1 >> .fumbox', n => n.length), 0, 'la FUM nueva se descartó');
+  assert.ok(await page.$eval('#toast', e => e.classList.contains('bottom')), 'el aviso con Deshacer va abajo');
   await page.click('#toast button.act');                           // Deshacer
   await page.waitForFunction(() => document.querySelectorAll('.item')[1].classList.contains('rz'));
   assert.strictEqual(await page.inputValue('.item >> nth=1 >> [data-fum=accionCorrectiva]'), 'Rehacer recubrimiento');
@@ -98,7 +104,7 @@ const sheetRows = (name, from, to, book) => fetch(`http://localhost:8081/__sheet
   await page.click('.item >> nth=2 >> button:has-text("Listo")');
   await shot('06-checklist-offline');
   const pending = await page.textContent('.net');
-  assert.ok(/Offline · \d+ sin enviar/.test(pending), pending);
+  assert.ok(/Sin señal · \d+/.test(pending), pending);
   // FLOW-02: detalle abierto más abajo y texto escrito sin salir del campo mientras se crea el registro
   await page.click('.item >> nth=10 >> button[data-act=more]');
   await page.fill('.item >> nth=10 >> [data-field=obs]', 'Escrito mientras se crea el registro');
@@ -149,7 +155,8 @@ const sheetRows = (name, from, to, book) => fetch(`http://localhost:8081/__sheet
 
   // 5b. «Borrar carga» sobre la FUM 4 ya numerada: la anulación queda retenida y «Deshacer» la descarta
   await page.click('.item >> nth=1 >> button[data-act=more]');
-  await page.click('.item >> nth=1 >> button[data-act=clear]');   // confirm() aceptado
+  await page.click('.item >> nth=1 >> button[data-act=clear]');
+  await page.click('#ask [data-ans=ok]');
   await page.waitForFunction(() => document.querySelectorAll('.item')[1].classList.contains('pend'));
   await page.click('#toast button.act');                           // Deshacer
   await page.waitForSelector('.item >> nth=1 >> .fumbox:has-text("FUM N° 4")');
@@ -181,12 +188,23 @@ const sheetRows = (name, from, to, book) => fetch(`http://localhost:8081/__sheet
   await page.locator('[data-regdoc]').blur();
   await page.waitForSelector('text=Plano superado (FOD 02).');
   await shot('10-doc-superado');
+  // marcar AP con el plano superado: hoja con tres salidas; «No marcar» deja el control como estaba
+  await page.click('.item.pend >> nth=0 >> button[data-st=ap]');
+  await page.waitForSelector('#ask [data-ans=alt]');
+  assert.strictEqual(await page.$$eval('#ask [data-ans]', n => n.length), 3, 'pasar a la vigente · marcar con la vieja · no marcar');
+  assert.ok(await page.$eval('#view', e => e.inert), 'lo de atrás no responde');
+  await shot('10b-ask-plano');
+  const pendBefore = await page.$$eval('.item.pend', n => n.length);
+  await page.click('#ask [data-ans=cancel]');
+  assert.strictEqual(await page.$$('#ask').then(n => n.length), 0, 'la hoja se cerró');
+  assert.strictEqual(await page.$$eval('.item.pend', n => n.length), pendBefore, 'no marcó nada');
   await page.click('button[data-act=docupdall]');
   await page.waitForFunction(() => document.querySelector('[data-regdoc]').value === 'KIR-COMR-REF-ESTR-S12P-R07');
   assert.ok(!(await page.textContent('main')).includes('Plano superado'), 'la alerta desaparece');
 
   // 6c. Reinspección: AP sobre el control rechazado cierra la FUM
   await page.click('.item >> nth=1 >> button[data-st=ap]');
+  await page.click('#ask [data-ans=ok]');                          // «Cerrar FUM y marcar AP»
   await page.waitForFunction(() => document.querySelector('.net').textContent.includes('Al día') && !document.getElementById('hdr').textContent.includes('cambios sin enviar'), null, { timeout: 20000 });
   const fumRows2 = await sheetRows('_PIE_FUM', 2, 2);
   assert.deepStrictEqual([fumRows2.rows[0][14], fumRows2.rows[0][17]], ['Cerrada', 'Reinspección AP']);
@@ -228,6 +246,10 @@ const sheetRows = (name, from, to, book) => fetch(`http://localhost:8081/__sheet
   // 9. ancho de celular sin scroll horizontal
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
   assert.ok(!overflow, 'sin scroll horizontal');
+  // iPhone SE: el indicador queda compacto, pero el texto completo sigue en el DOM
+  await page.setViewportSize({ width: 320, height: 568 });
+  assert.ok((await page.textContent('.net')).includes('Al día'), 'texto del indicador en el DOM');
+  assert.ok(!(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)), 'sin scroll horizontal a 320');
 
   assert.deepStrictEqual(errors.filter(e => !/Failed to load resource|ERR_INTERNET_DISCONNECTED/.test(e)), []);
   console.log('E2E OK');

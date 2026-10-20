@@ -124,34 +124,47 @@
   .mono { font-family: var(--mono); }
   h2.sec { margin: 24px 4px 8px; font-size: 13px; font-weight: 700; line-height: 1.2; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
   h2.sec .ic { vertical-align: -3px; }
-  main { max-width: 760px; margin: 0 auto; padding: 12px var(--gutter) calc(96px + env(safe-area-inset-bottom)); }
+  main { max-width: 760px; margin: 0 auto; padding: 12px var(--gutter) 32px; }
 
-  /* ---------- Header e indicador (se rehacen en §4.1-4.2) ---------- */
+  /* ---------- Header (§4.1) ---------- */
   header.top {
-    position: sticky; top: 0; z-index: 30;
+    position: sticky; top: 0; z-index: 30; height: var(--hdr-h);
+    display: flex; align-items: center; gap: 4px;
+    padding: env(safe-area-inset-top) max(8px, env(safe-area-inset-right)) 0 max(8px, env(safe-area-inset-left));
     background: var(--brand); color: var(--on-brand); border-bottom: 1px solid var(--hdr-line);
-    padding: calc(env(safe-area-inset-top) + 8px) 12px 8px;
-    display: flex; align-items: center; gap: 8px;
   }
-  header.top .back, header.top .icon-btn { width: 44px; height: 44px; color: inherit; }
-  header.top .back {
-    background: transparent; border: 0; line-height: 1;
-    border-radius: var(--r-md); display: grid; place-items: center; flex: none;
+  /* navy también por encima: al tirar la página hacia abajo en iOS no aparece una franja de otro color */
+  header.top::before { content: ""; position: absolute; left: 0; right: 0; bottom: 100%; height: 100vh; background: var(--brand); }
+  header.top .back, header.top .icon-btn {
+    width: 48px; height: 48px; flex: none; display: grid; place-items: center; border: 0; background: transparent; color: inherit; border-radius: var(--r-md);
   }
   header.top .back:active, header.top .icon-btn:active { background: rgba(255, 255, 255, .14); }
-  header.top .ttl { flex: 1; min-width: 0; }
+  header.top .ttl { flex: 1; min-width: 0; padding: 0 4px; }
+  header.top .ttl:first-child { padding-left: 8px; }
   header.top .ttl b { display: block; font-size: 17px; line-height: 22px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   header.top .ttl small { display: block; font-size: 14px; line-height: 18px; color: var(--brand-sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  header.top .ttl small:empty { display: none; }
+
+  /* ---------- Indicador de envíos (§4.2): contorno = nada pendiente; relleno claro = cambios sólo en el celular; rojo = hay que actuar ---------- */
   .net {
-    flex: none; border: 1px solid var(--net-line); background: transparent; color: inherit;
-    border-radius: var(--r-pill); padding: 5px 10px; font-size: 12px; display: flex; align-items: center; gap: 6px; white-space: nowrap;
+    position: relative; flex: none; display: flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px 0 10px; border-radius: var(--r-pill);
+    border: 1px solid var(--net-line); background: transparent; color: var(--on-brand); font-size: 14px; font-weight: 600; white-space: nowrap;
     font-variant-numeric: tabular-nums;
   }
-  .net i { width: 8px; height: 8px; border-radius: 50%; background: var(--net-off); display: inline-block; }
-  .net.on i { background: var(--net-ok); }
-  .net.off i { background: var(--accent); }
-  .net.busy i { background: var(--net-q-bg); animation: pulse 1s infinite; }
-  @keyframes pulse { 50% { opacity: .3; } }
+  .net::before { content: ""; position: absolute; inset: -6px -2px; }   /* área táctil de 48 px sin ensanchar */
+  .net .ic { width: 18px; height: 18px; }
+  .net.ok .ic { color: var(--net-ok); }
+  .net.off .ic, .net.weak .ic { color: var(--net-off); }
+  .net.q { background: var(--net-q-bg); border-color: var(--net-q-bg); color: var(--net-q-ink); }
+  .net.q .ic { color: var(--net-q-ink); }
+  .net.err, .net.fix { background: var(--net-err); border-color: var(--on-brand); color: var(--on-brand); }
+  .net.err .ic, .net.fix .ic { color: var(--on-brand); }
+  .net.busy .ic { animation: spin 1s linear infinite; }
+  /* angosto (SE, panel de Sheets): sólo ícono y número; el texto sigue en el DOM para el lector y la E2E */
+  @media (max-width: 359px) {
+    .net .lbl { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+    .net { padding: 0 10px; }
+  }
 
   /* ---------- Botones ---------- */
   .btn {
@@ -170,11 +183,6 @@
   .btn:disabled { opacity: .45; }
   .icon-btn { width: 48px; height: 48px; flex: none; display: grid; place-items: center; border: 0; background: transparent; color: var(--ink); border-radius: var(--r-md); }
   .icon-btn:active { background: var(--surface-2); }
-  .fab {
-    position: fixed; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom)); z-index: 25;
-    background: var(--primary); color: var(--on-primary); border: 0; border-radius: var(--r-pill); padding: 14px 20px; font-weight: 700;
-    box-shadow: var(--sh-pop); display: flex; align-items: center; gap: 8px;
-  }
 
   /* ---------- Campos ---------- */
   .in, .search {
@@ -260,14 +268,7 @@
   .stage-h .sp { flex: 1; }
   .fold .chev { transition: transform .15s; }
   .fold[aria-expanded=false] .chev { transform: rotate(-90deg); }
-  .nextpend {
-    position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(16px + env(safe-area-inset-bottom)); z-index: 25;
-    display: flex; align-items: center; gap: 8px;
-    background: var(--accent); color: var(--on-accent); border: 1px solid var(--accent-edge); border-radius: var(--r-pill); padding: 0 22px; min-height: 52px;
-    font-weight: 700; font-size: 15px; box-shadow: var(--sh-pop); white-space: nowrap; font-variant-numeric: tabular-nums;
-  }
-  .nextpend:active { transform: translateX(-50%) scale(.97); }
-  .nextpend .cnt { min-width: 28px; padding: 2px 8px; border-radius: var(--r-pill); background: rgba(26, 19, 0, .14); }
+  .t-ap { color: var(--ap); } .t-rz { color: var(--rz); } .t-na { color: var(--na); } .t-sync { color: var(--sync); }
   .task { margin-bottom: 10px; overflow: hidden; }
   .task-h { font-weight: 600; font-size: 14px; padding: 10px 14px 6px; display: flex; gap: 8px; align-items: baseline; }
   .task-h .mu { margin-left: auto; }
@@ -330,36 +331,73 @@
   .fumrow .late { color: var(--rz); font-weight: 700; }
   .hl { outline: 3px solid var(--hl-ring); outline-offset: -3px; }
 
-  /* ---------- Aviso (toast) y selector de planos (se rehacen en §4.11 y §4.13) ---------- */
-  .toast {
-    position: fixed; left: 16px; right: 16px; margin: 0 auto; width: -webkit-fit-content; width: fit-content; max-width: 520px;
-    bottom: calc(86px + env(safe-area-inset-bottom)); transform: translateY(20px);
-    display: flex; align-items: center; gap: 12px;
-    background: var(--toast-bg); color: var(--toast-ink); border: 1px solid var(--toast-edge); box-shadow: var(--sh-pop);
-    padding: 10px 16px; border-radius: var(--r-md); font-size: 14px; opacity: 0;
-    pointer-events: none; transition: .2s; z-index: 60; text-align: center;
+  /* ---------- Barra inferior acoplada (§4.10): reemplaza la píldora, el FAB y el botón de enviar el formulario ---------- */
+  .bbar {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 25; background: var(--surface); border-top: 1px solid var(--line); box-shadow: var(--sh-bar);
+    padding: 8px max(var(--gutter), env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(var(--gutter), env(safe-area-inset-left));
+    transition: transform .18s, visibility .18s;
   }
-  .toast.show { opacity: 1; transform: none; }
+  .bbar-in { max-width: 760px; margin: 0 auto; display: flex; align-items: center; gap: 8px; }
+  /* el lugar de la barra queda reservado aunque se oculte: así no hay saltos */
+  body.has-bbar main { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
+  /* se oculta con el teclado abierto o con un detalle a la vista */
+  body.kb .bbar, body.det-vis .bbar { transform: translateY(110%); visibility: hidden; }
+  .nextpend {
+    flex: 1; min-height: 56px; display: flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--accent-edge);
+    border-radius: var(--r-md); background: var(--accent); color: var(--on-accent); font-size: 17px; font-weight: 700;
+  }
+  .nextpend .cnt { min-width: 28px; padding: 2px 8px; border-radius: var(--r-pill); background: rgba(26, 19, 0, .14); font-size: 15px; font-variant-numeric: tabular-nums; }
+  .done-sum { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  /* ---------- Aviso (§4.11): informativos arriba, bajo el header; con acción («Deshacer»), abajo, sobre la barra ---------- */
+  .toast {
+    --k: var(--k-info);
+    position: fixed; z-index: 60; left: var(--gutter); right: var(--gutter); margin: 0 auto; max-width: 520px; top: calc(var(--hdr-h) + 8px);
+    display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 10px 14px; border-radius: var(--r-md);
+    background: var(--toast-bg); color: var(--toast-ink); border: 1px solid var(--toast-edge); border-left: 4px solid var(--k); box-shadow: var(--sh-pop);
+    font-size: 16px; line-height: 1.35; opacity: 0; visibility: hidden; transform: translateY(-8px);
+    transition: opacity .18s, transform .18s, visibility .18s; pointer-events: none;
+  }
+  .toast.bottom { top: auto; bottom: calc(var(--toast-b, 16px) + env(safe-area-inset-bottom)); transform: translateY(8px); }
+  .toast.show { opacity: 1; visibility: visible; transform: none; }
+  .toast .ic { color: var(--k); }
   .toast .msg { flex: 1; }
-  .toast .act { pointer-events: auto; flex: none; min-height: 44px; margin: -8px -8px -8px 0; padding: 0 10px; border: 0; background: none; color: var(--toast-act); font-weight: 700; }
+  .toast .act {
+    pointer-events: auto; min-height: 48px; margin: -10px -8px -10px 0; padding: 0 12px; border: 0; background: none; color: var(--toast-act);
+    font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 6px;
+  }
+  .toast .act[hidden] { display: none; }
+  .toast.k-ok { --k: var(--k-ok); } .toast.k-err { --k: var(--k-err); } .toast.k-warn { --k: var(--k-warn); } .toast.k-info { --k: var(--k-info); }
+  body.has-bbar:not(.kb):not(.det-vis) { --toast-b: 84px; }
+  /* con una hoja abierta el aviso va arriba, sobre el fondo oscurecido: nunca encima de los botones de la hoja */
+  body.modal-open .toast { top: calc(env(safe-area-inset-top) + 8px); bottom: auto; }
+
+  /* ---------- Hojas: confirmación ask() (§4.12) y selector de planos (se rehace en §4.13) ---------- */
   .modal { position: fixed; inset: 0; z-index: 50; background: var(--scrim); display: flex; align-items: flex-end; justify-content: center; }
-  .modal .panel {
+  body.modal-open { overflow: hidden; }
+  .sheet .panel {
+    width: 100%; max-width: 560px; max-height: 88vh; max-height: 88dvh; overflow: auto; background: var(--surface);
+    border-radius: var(--r-lg) var(--r-lg) 0 0; padding: 20px var(--gutter) max(16px, env(safe-area-inset-bottom)); box-shadow: var(--sh-pop);
+  }
+  .sheet h2 { margin: 0 0 8px; font-size: 20px; line-height: 1.25; font-weight: 700; outline: none; }
+  .sheet p { margin: 0 0 16px; font-size: 16px; line-height: 1.45; white-space: pre-line; }
+  .ask-btns { display: flex; flex-direction: column; gap: 8px; }
+  #modal .panel {
     background: var(--surface); width: 100%; max-width: 760px; height: 88vh; border-radius: var(--r-lg) var(--r-lg) 0 0;
     display: flex; flex-direction: column; padding-bottom: env(safe-area-inset-bottom); box-shadow: var(--sh-pop);
   }
-  .modal .ph { padding: 12px 14px 8px; border-bottom: 1px solid var(--line); }
-  .modal .ph .search { margin-top: 8px; }
-  .modal .pb { overflow-y: auto; flex: 1; -webkit-overflow-scrolling: touch; }
+  #modal .ph { padding: 12px 14px 8px; border-bottom: 1px solid var(--line); }
+  #modal .ph .search { margin-top: 8px; }
+  #modal .pb { overflow-y: auto; flex: 1; -webkit-overflow-scrolling: touch; }
   .doc { display: block; width: 100%; text-align: left; border: 0; border-top: 1px solid var(--line); background: transparent; padding: 10px 14px; color: var(--ink); }
   .doc:first-child { border-top: 0; }
   .doc:active { background: var(--surface-2); }
   .doc .code { font: 700 14px/1.35 var(--mono); overflow-wrap: anywhere; }
 
   @media (prefers-reduced-motion: reduce) {
-    .net.busy i { animation: none; }
-    .toast, .more .ic, .fold .chev, details.hid > summary .chev { transition: none; }
+    .net.busy .ic { animation: none; }
+    .toast, .bbar, .more .ic, .fold .chev, details.hid > summary .chev { transition: none; }
     button:active, .btn:active, .row:active { transform: none; }
-    .nextpend:active { transform: translateX(-50%); }
   }
 </style>
 </head>
@@ -394,7 +432,7 @@
 </svg>
 <header class="top" id="top"></header>
 <main id="view"></main>
-<div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true"><span class="msg"></span><button class="act" type="button" hidden></button></div>
+<div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-info"/></svg><span class="msg"></span><button class="act" type="button" hidden></button></div>
 <script>/*PIE_BOOT*/</script>
 <script>
 (function () {
@@ -522,8 +560,10 @@
     resolved: {},           // id de alta local -> {sheet, h}
     settings: LS.get('settings', { apiUrl: '', token: '', inspector: '' }),
     syncing: false,
+    syncSince: 0,           // cuándo empezó el envío en curso (para «Señal débil»)
     lastSync: LS.get('lastSync', 0),
     lastError: '',
+    lastErrorCode: '',      // code del último error de envío ('auth', 'config', 'network'…)
     route: '/',
     stack: [],
     scroll: {},             // ruta -> desplazamiento, para volver atrás al mismo lugar
@@ -634,17 +674,19 @@
     return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
   }
   /*
-   * Aviso breve. opts: milisegundos, u {kind: 'ok'|'info'|'warn'|'err', ms, action: {label, fn}}.
+   * Aviso breve (§4.11). opts: milisegundos (como en la v1.5), u {kind: 'ok'|'info'|'warn'|'err', ms,
+   * action: {label, icon, fn}}. Sin acción va arriba, bajo el header; con acción, abajo, al alcance del pulgar.
    * Un aviso de error, de advertencia o con acción no se pisa: los nuevos esperan su turno
    * (hasta 2, sin repetir). Uno con acción sí se muestra enseguida (el Deshacer vigente es el último).
    */
+  var TOAST_IC = { ok: 'check-circle', info: 'info', warn: 'alert', err: 'alert' };
   var toastT, toastCur = null, toastQ = [];
   function toast(msg, opts) {
     var o = opts && typeof opts === 'object' ? opts : { ms: opts };
-    o = { msg: msg, kind: o.kind || 'info', ms: o.ms, action: o.action || null };
+    o = { msg: String(msg), kind: TOAST_IC[o.kind] ? o.kind : 'info', ms: o.ms, action: o.action || null };
     var sticky = function (x) { return !!(x && (x.action || x.kind === 'err' || x.kind === 'warn')); };
     if (sticky(toastCur) && !o.action) {
-      if (toastQ.length < 2 && toastCur.msg !== msg && !toastQ.some(function (x) { return x.msg === msg; })) toastQ.push(o);
+      if (toastQ.length < 2 && toastCur.msg !== o.msg && !toastQ.some(function (x) { return x.msg === o.msg; })) toastQ.push(o);
       return;
     }
     if (sticky(toastCur) && !toastCur.action) toastQ.unshift(toastCur);   // el error vuelve después
@@ -654,24 +696,94 @@
   function showToast(o) {
     var el = document.getElementById('toast');
     var act = el.querySelector('.act');
+    // si ya se ve en el mismo lugar sólo cambia el texto; si no, entra desde su borde
+    var same = !!toastCur && el.classList.contains('show') && el.classList.contains('bottom') === !!o.action;
     toastCur = o;
+    el.className = 'toast k-' + o.kind + (o.action ? ' bottom' : '') + (same ? ' show' : '');
+    el.querySelector('use').setAttribute('href', '#i-' + TOAST_IC[o.kind]);
     el.querySelector('.msg').textContent = o.msg;
     act.hidden = !o.action;
-    act.textContent = o.action ? o.action.label : '';
+    act.innerHTML = o.action ? (o.action.icon ? ic(o.action.icon) : '') + esc(o.action.label) : '';
     act.onclick = o.action ? function () { hideToast(); o.action.fn(); } : null;
-    el.classList.add('show');
+    if (!same) { void el.offsetWidth; el.classList.add('show'); }
     clearTimeout(toastT);
-    toastT = setTimeout(hideToast, o.ms || (o.action || o.kind === 'err' || o.kind === 'warn' ? 6000 : 2600));
+    // ok / info: 4 s (6 s si es largo); advertencias, errores y con acción: 6 s
+    toastT = setTimeout(hideToast, o.ms || (o.action || o.kind === 'err' || o.kind === 'warn' ? 6000 : o.msg.length > 40 ? 6000 : 4000));
   }
   function hideToast() {
     var el = document.getElementById('toast');
     clearTimeout(toastT);
     toastCur = null;
-    el.classList.remove('show');
+    el.classList.remove('show');   // se va desde donde estaba (arriba o abajo)
     var act = el.querySelector('.act');
     act.hidden = true;
     act.onclick = null;
     if (toastQ.length) toastT = setTimeout(function () { if (!toastCur && toastQ.length) showToast(toastQ.shift()); }, 250);
+  }
+
+  /*
+   * Hoja de confirmación (§4.12): reemplaza al diálogo nativo, con botones que dicen qué pasa y hasta tres
+   * salidas. o = {title, body, ok: {label, tone: 'primary'|'ap'|'danger'}, alt: {label}, cancel}.
+   * Devuelve Promise<'ok'|'alt'|null>; el fondo, Escape y «Cancelar» dan null.
+   * Sus clicks no pasan por el manejador global de data-act.
+   */
+  var askCur = null;
+  function ask(o) {
+    if (askCur) askCur(null);   // nunca dos hojas a la vez
+    return new Promise(function (res) {
+      var prev = document.activeElement;
+      var m = document.createElement('div');
+      m.className = 'modal sheet';
+      m.id = 'ask';
+      var tone = { primary: 'primary', ap: 'ap', danger: 'danger' }[o.ok && o.ok.tone] || 'primary';
+      m.innerHTML = '<div class="panel" role="alertdialog" aria-modal="true" aria-labelledby="ask-t" aria-describedby="ask-b">' +
+        '<h2 id="ask-t" tabindex="-1">' + esc(o.title) + '</h2>' +
+        '<p id="ask-b">' + esc(o.body || '') + '</p>' +
+        '<div class="ask-btns"><button class="btn lg block ' + tone + '" type="button" data-ans="ok">' + esc(o.ok.label) + '</button>' +
+        (o.alt ? '<button class="btn lg block" type="button" data-ans="alt">' + esc(o.alt.label) + '</button>' : '') +
+        '<button class="btn lg block ghost" type="button" data-ans="cancel">' + esc(o.cancel || 'Cancelar') + '</button></div></div>';
+      var onKey = function (e) { if (e.key === 'Escape') { e.preventDefault(); close(null); } };
+      var close = function (ans) {
+        if (askCur !== close) return;
+        askCur = null;
+        document.removeEventListener('keydown', onKey, true);
+        m.remove();
+        setModalOpen(false);
+        if (prev && prev.focus && document.contains(prev)) { try { prev.focus({ preventScroll: true }); } catch (e) { /* noop */ } }
+        res(ans);
+      };
+      askCur = close;
+      m.addEventListener('click', function (e) {
+        e.stopPropagation();   // no pasa por el manejador global de data-act
+        if (e.target === m) return close(null);
+        var b = e.target.closest('[data-ans]');
+        if (b) close(b.dataset.ans === 'cancel' ? null : b.dataset.ans);
+      });
+      document.addEventListener('keydown', onKey, true);
+      document.body.appendChild(m);
+      setModalOpen(true);
+      try { m.querySelector('#ask-t').focus({ preventScroll: true }); } catch (e) { /* noop */ }
+    });
+  }
+  /** Con una hoja abierta, lo de atrás no responde (inert) y la página no se desplaza. */
+  function setModalOpen(on) {
+    ['top', 'view'].forEach(function (id) {
+      var e = document.getElementById(id);
+      if (on) e.setAttribute('inert', ''); else e.removeAttribute('inert');
+    });
+    document.body.classList.toggle('modal-open', on);
+  }
+  /** Revisión como en los códigos de plano (§4.5): '' → 'Sin rev.', '7' → 'R07', 'A' → 'RA'. */
+  function revLabel(rev) {
+    var t = String(rev == null ? '' : rev).trim();
+    return t === '' ? 'Sin rev.' : /^\d$/.test(t) ? 'R0' + t : 'R' + t;
+  }
+  /** Corta un texto en la última palabra completa antes de 40 caracteres y agrega «…» (§7.7). */
+  function recorte(s) {
+    s = String(s || '').replace(/\s+/g, ' ').trim();
+    if (s.length <= 40) return s;
+    var c = s.slice(0, 40), i = c.lastIndexOf(' ');
+    return (i > 0 ? c.slice(0, i) : c).replace(/[\s,.;:·-]+$/, '') + '…';
   }
   function datos() { return (S.catalog && S.catalog.datos) || { responsables: [], obra: '' }; }
   function abrevOf(nombre) {
@@ -773,6 +885,8 @@
       if (it) applyPatch(it, op.items[off]);
     });
   }
+  function itemOf(reg, off) { return reg.items.filter(function (x) { return x.off === off; })[0] || null; }
+  var EST = { ap: 'AP', rz: 'RZ', na: 'N/A' };
   function itemState(it) {
     var e = String(it.estado || '').toUpperCase();
     if (e === 'AP') return 'ap';
@@ -1223,8 +1337,8 @@
     return Math.round((new Date(today() + 'T00:00:00') - new Date(d + 'T00:00:00')) / 86400000);
   }
   function renderFum() {
-    renderTop('Rechazos · FUM', 'No conformidades de los controles');
     var open = openFums().sort(function (a, b) { return String(a.apertura || '9').localeCompare(String(b.apertura || '9')); });
+    renderTop('FUM', open.length === 0 ? 'Ninguna abierta' : open.length === 1 ? '1 abierta' : open.length + ' abiertas');
     var t = today();
     var row = function (f) {
       var cat = category(f.sheet);
@@ -1391,17 +1505,26 @@
     });
     return c;
   }
+  /** Aviso del PIE en palabras de obra (§7.8). */
+  function warnText(w) {
+    var m = /No se encontró el criterio "(.+)"/.exec(String(w));
+    return m ? 'El control «' + m[1] + '» ya no está en la planilla; el resto se guardó.' : 'Aviso del PIE: ' + w;
+  }
+  /*
+   * Resultado de un envío (§6.12): lo que sale bien no genera aviso (la confirmación es el indicador
+   * «Al día»). Sí avisan los errores, los avisos del PIE y el número de una FUM nueva.
+   */
   function handleResults(res) {
-    var created = [];
     var errors = [];
-    var photos = 0;
+    var fumNums = [];
     res.results.forEach(function (r) {
       var op = S.queue.filter(function (o) { return o.id === r.id; })[0];
       if (!op) return;
       if (r.ok) {
-        if (op.op === 'create') { S.resolved[op.id] = { sheet: r.sheet || op.sheet, h: r.h }; created.push(op.id); }
-        if (op.op === 'photo') { photos++; KV.del(op.img); delete S.thumbs[op.id]; }
-        if (r.warnings && r.warnings.length) toast('Aviso: ' + r.warnings[0], 5000);
+        if (op.op === 'create') S.resolved[op.id] = { sheet: r.sheet || op.sheet, h: r.h };
+        if (op.op === 'photo') { KV.del(op.img); delete S.thumbs[op.id]; }
+        (r.warnings || []).forEach(function (w) { toast(warnText(w), { kind: 'warn' }); });
+        if (op.op === 'fum' && op.accion === 'abrir' && r.fum != null && !r.dup) fumNums.push(r.fum);
         S.queue.splice(S.queue.indexOf(op), 1);
       } else if (['retry', 'busy', 'network'].indexOf(r.code) >= 0) {
         op.status = 'pending';
@@ -1413,13 +1536,12 @@
     });
     LS.set('resolved', S.resolved);
     if (res.fums && S.catalog) S.catalog.fums = res.fums;
-    var nuevas = res.results.filter(function (r) { return r.ok && !r.dup && r.fum != null; }).length;
     mergeCategories(res.categorias);
     saveQueue();
-    if (errors.length) toast('No se pudo guardar: ' + errors[0], 6000);
-    else if (created.length) toast(created.length === 1 ? 'Registro creado en la planilla' : created.length + ' registros creados');
-    else if (photos) toast(photos === 1 ? 'Foto subida' : photos + ' fotos subidas');
-    else if (nuevas) toast('FUM actualizada en la planilla');
+    fumNums.forEach(function (n) { toast('FUM N° ' + n + ' abierta en el FOG 01', { kind: 'ok' }); });
+    if (errors.length) {
+      toast('No se pudo enviar: ' + String(errors[0] || 'error').replace(/[\s.]+$/, '') + '. Queda guardado en el celular; revisalo en Ajustes.', { kind: 'err' });
+    }
   }
   /** Sube las fotos pendientes de a una (cada una es una request chica). */
   function sendPhotos() {
@@ -1444,12 +1566,18 @@
   }
 
   var syncWaiters = [];
+  var weakT = null;
   function sync(opts) {
     opts = opts || {};
     if (S.syncing) return new Promise(function (r) { syncWaiters.push(r); });
     if (!navigator.onLine && !IN_GAS) { renderTop(); return Promise.resolve(false); }
     S.syncing = true;
+    S.syncSince = Date.now();
     S.lastError = '';
+    S.lastErrorCode = '';
+    // si a los 15 s sigue enviando, el indicador pasa a «Señal débil»
+    clearTimeout(weakT);
+    weakT = setTimeout(function () { if (S.syncing) renderTop(); }, 15100);
     renderTop();
     var t0 = Date.now();
     // primero altas y cambios en un solo lote; las fotos van después, de a una. Lo retenido espera.
@@ -1477,14 +1605,12 @@
       return true;
     }).catch(function (e) {
       S.lastError = e.message;
-      if (e.code === 'auth' || e.code === 'config') {
-        toast(e.message, 5000);
-      } else if (opts.manual) {
-        toast(e.message);
-      }
+      S.lastErrorCode = e.code || '';   // sólo en memoria: decide el estado del indicador
+      if (e.code === 'auth' || e.code === 'config' || opts.manual) toast(e.message, { kind: 'err' });
       return false;
     }).then(function (ok) {
       S.syncing = false;
+      clearTimeout(weakT);
       // altas confirmadas: las claves 'p' + id pasan a 'h' + fila (lo abierto, el filtro, el plano…)
       migrateResolved();
       // si el usuario estaba viendo un alta que ya se creó, la ruta pasa al registro real sin
@@ -1544,6 +1670,7 @@
     return '/';
   }
   window.addEventListener('popstate', function () {
+    if (askCur) askCur(null);   // volver atrás con una hoja abierta = Cancelar
     if (picker) { closeModal(); }
     S.scroll[S.route] = window.scrollY;
     S.stack.pop();
@@ -1557,24 +1684,121 @@
    * ================================================================ */
   var view = document.getElementById('view');
 
-  function pendingCount() { return S.queue.length; }
+  /*
+   * Cambios guardados sólo en el celular (§4.2): cuenta cambios, no operaciones de la cola.
+   * Las operaciones con error no cuentan acá (tienen su propio estado). Lo retenido sí cuenta.
+   */
+  function pendingChanges() {
+    return S.queue.reduce(function (n, o) {
+      if (o.status === 'error') return n;
+      if (o.op === 'create') {
+        return n + 1 + Object.keys(o.items || {}).filter(function (off) {
+          return Object.keys(o.items[off]).some(function (k) { return FIELDS.indexOf(k) >= 0 && k !== 'documento'; });
+        }).length;
+      }
+      if (o.op === 'update') return n + (Object.keys(o.items || {}).length || 1);
+      return n + 1;   // foto o FUM
+    }, 0);
+  }
+  /** Estado del indicador de envíos (§4.2): gana la primera condición que se cumple. */
+  function netState() {
+    var n = pendingChanges();
+    var nErr = S.queue.filter(function (o) { return o.status === 'error'; }).length;
+    var online = IN_GAS || navigator.onLine;
+    var q = n ? ' q' : '';
+    var s;
+    if (S.syncing) {
+      var slow = Date.now() - S.syncSince >= 15000;
+      s = n ? { lbl: (slow ? 'Señal débil' : 'Enviando…') + ' · ', cnt: n } : { lbl: 'Actualizando…', cnt: '' };
+      s.cls = 'busy' + q; s.icon = 'sync'; s.act = '';
+    } else if (S.lastErrorCode === 'auth' || S.lastErrorCode === 'config') {
+      s = { cls: 'fix', icon: 'alert', lbl: 'Revisar conexión', cnt: '', act: 'conexion' };
+    } else if (nErr) {
+      s = { cls: 'err', icon: 'alert', lbl: 'Con error · ', cnt: nErr, act: 'envios' };
+    } else if (!online) {
+      s = { cls: 'off' + q, icon: 'cloud-off', lbl: n ? 'Sin señal · ' : 'Sin señal', cnt: n || '', act: 'offline' };
+    } else if (S.lastError) {
+      s = { cls: 'weak' + q, icon: 'cloud-off', lbl: n ? 'No conecta · ' : 'No conecta', cnt: n || '', act: 'send' };
+    } else if (n) {
+      s = { cls: 'pend q', icon: 'cloud-up', lbl: 'Sin enviar · ', cnt: n, act: 'send' };
+    } else {
+      s = { cls: 'ok', icon: 'cloud-ok', lbl: 'Al día', cnt: '', act: 'full' };
+    }
+    s.n = n;
+    // el nombre accesible contiene el texto visible (WCAG 2.5.3)
+    var unit = function (k, one, many) { return k + (k === 1 ? one : many); };
+    s.aria = 'Envíos: ' + s.lbl + (s.cnt === '' ? (n ? ' · ' + unit(n, ' cambio', ' cambios') + ' sin enviar' : '')
+      : s.cls === 'err' ? unit(s.cnt, ' envío', ' envíos') : unit(s.cnt, ' cambio', ' cambios'));
+    return s;
+  }
+  /** Tocar el indicador: lleva a lo que hay que resolver, explica que no hay señal o envía ahora. */
+  function netTap() {
+    var s = netState();
+    if (!s.act) return;   // ya está enviando
+    if (s.act === 'conexion' || s.act === 'envios') { nav('/ajustes'); scrollToId(s.act); return; }
+    if (s.act === 'offline') {
+      toast(!s.n ? 'Sin señal. Lo que cargues queda en el celular.'
+        : s.n === 1 ? 'Sin señal. Tu cambio queda en el celular y se envía solo al volver la señal.'
+        : 'Sin señal. Tus ' + s.n + ' cambios quedan en el celular y se envían solos al volver la señal.', { kind: 'info' });
+      return;
+    }
+    sync(s.act === 'full' ? { full: true, manual: true } : { manual: true });
+  }
+  /** Desplaza hasta una sección dejándola justo debajo del header fijo. */
+  function scrollToId(id) {
+    var t = document.getElementById(id);
+    if (!t) return;
+    var lim = document.getElementById('top').getBoundingClientRect().bottom + 8;
+    window.scrollTo(0, Math.max(0, window.scrollY + t.getBoundingClientRect().top - lim));
+  }
 
+  /*
+   * Header (§4.1). Volver: en todas las pantallas salvo Inicio y «Sin datos». Engranaje: sólo en
+   * Inicio, «Sin datos» y FUM; en el resto el lugar es del título (Ajustes también se abre desde el
+   * indicador cuando hay que revisar algo).
+   */
   function renderTop(title, sub) {
     var top = document.getElementById('top');
     if (title !== undefined) { top.dataset.title = title; top.dataset.sub = sub || ''; }
-    var online = IN_GAS || navigator.onLine;
-    var n = pendingCount();
-    var cls = S.syncing ? 'busy' : (online ? 'on' : 'off');
-    var label = S.syncing ? 'Sincronizando…' : (!online ? 'Sin conexión' : (n ? n + ' sin enviar' : 'Al día'));
-    if (!S.syncing && online && S.queue.some(function (o) { return o.status === 'error'; })) { cls = 'off'; label = 'Revisar envíos'; }
-    if (online && !S.syncing && n === 0 && S.lastError) { cls = 'off'; label = 'Sin conexión'; }
-    if (!online && n) label = 'Offline · ' + n + ' sin enviar';
-    var isRoot = S.route === '/';
+    var noData = !S.catalog && S.route !== '/ajustes';
+    var root = S.route === '/' || noData;
+    var gear = root || S.route === '/fum';
+    var s = netState();
     top.innerHTML =
-      (isRoot ? '' : '<button class="back" data-act="back" aria-label="Volver">' + ic('back', 'ic-24') + '</button>') +
-      '<div class="ttl"><b>' + esc(top.dataset.title || 'PIE') + '</b><small>' + esc(top.dataset.sub || '') + '</small></div>' +
-      '<button class="net ' + cls + '" data-act="sync" title="Sincronizar"><i></i>' + esc(label) + '</button>' +
-      (S.route === '/ajustes' ? '' : '<button class="icon-btn" data-act="go" data-to="/ajustes" aria-label="Ajustes">' + ic('settings', 'ic-24') + '</button>');
+      (root ? '' : '<button class="back" data-act="back" aria-label="Volver">' + ic('back', 'ic-24') + '</button>') +
+      '<div class="ttl"><b>' + esc(top.dataset.title || 'PIE · Carga') + '</b><small>' + esc(top.dataset.sub || '') + '</small></div>' +
+      '<button class="net ' + s.cls + '" data-act="net" aria-label="' + esc(s.aria) + '">' + ic(s.icon) +
+      '<span class="lbl">' + esc(s.lbl) + '</span>' + (s.cnt === '' ? '' : '<span class="cnt">' + s.cnt + '</span>') + '</button>' +
+      (gear ? '<button class="icon-btn" data-act="go" data-to="/ajustes" aria-label="Ajustes">' + ic('settings', 'ic-24') + '</button>' : '');
+  }
+
+  /** Barra inferior acoplada (§4.10): va dentro de #view, como último hijo. */
+  function bbar(inner) { return '<div class="bbar"><div class="bbar-in">' + inner + '</div></div>'; }
+
+  /*
+   * La barra se oculta con el teclado (visualViewport: en iOS el teclado achica sólo la vista
+   * visible; con focusin se ocultaría también al enfocar sin teclado) y mientras un detalle
+   * de control está a la vista (no alcanza con «hay uno abierto»: tras un RZ queda abierto).
+   */
+  var vv = window.visualViewport;
+  function kbCheck() { document.body.classList.toggle('kb', !!vv && (window.innerHeight - vv.height * vv.scale) > 150); }
+  if (vv) vv.addEventListener('resize', kbCheck);
+  var detIO = ('IntersectionObserver' in window) ? new IntersectionObserver(function (es) {
+    es.forEach(function (e) { e.target._vis = e.isIntersecting; });
+    document.body.classList.toggle('det-vis', [].some.call(view.querySelectorAll('.det'), function (d) { return d._vis; }));
+  }) : null;
+  function watchDets() {
+    if (!detIO) return;
+    detIO.disconnect();
+    var dets = view.querySelectorAll('.det');
+    // si hay detalles, la clase la corrige el primer aviso del observador (así la barra no parpadea)
+    if (!dets.length) { document.body.classList.remove('det-vis'); return; }
+    [].forEach.call(dets, function (d) { detIO.observe(d); });
+  }
+  /** Después de cada render(): reserva el lugar de la barra y vigila los detalles abiertos. */
+  function afterRender() {
+    document.body.classList.toggle('has-bbar', !!view.querySelector('.bbar'));
+    watchDets();
   }
 
   function render(o) {
@@ -1590,6 +1814,7 @@
           (S.lastError ? '<p class="note err">' + esc(S.lastError) + '</p>' : '') +
           '<p><button class="btn primary" data-act="sync" data-full="1">Descargar planillas</button></p>' +
           (MODE === 'pwa' ? '<p><button class="btn" data-act="go" data-to="/ajustes">Configurar conexión</button></p>' : '') + '</div>';
+      afterRender();
       return;
     }
     if (r === '/') renderHome();
@@ -1600,13 +1825,14 @@
     else if ((m = /^\/c\/([^/]+)\/nuevo$/.exec(r))) renderNew(m[1]);
     else if ((m = /^\/c\/([^/]+)\/r\/([ph].+)$/.exec(r))) renderReg(m[1], m[2]);
     else { S.route = '/'; renderHome(); }
+    afterRender();
     if (o.keepScroll) window.scrollTo(0, y);
   }
 
   /* ---------- Inicio: categorías por rubro ---------- */
   function renderHome() {
     var d = datos();
-    renderTop('PIE · ' + (d.obra || 'Obra'), 'FOP 01 · ' + (d.direccion || ''));
+    renderTop(d.obra || 'PIE · Carga', 'PIE · FOP 01');
     var q = norm(S.ui.search);
     var groups = {};
     var order = [];
@@ -1670,12 +1896,13 @@
   function renderCategory(sheet) {
     var cat = category(sheet);
     if (!cat) { nav('/', { replace: true }); return; }
-    renderTop(cat.sheet + ' · ' + cat.titulo, cat.rubro);
+    renderTop(cat.titulo, 'Planilla ' + cat.sheet + (cat.rubro ? ' · ' + cat.rubro : ''));
     var tab = S.ui.tab[sheet] || 'reg';
     var html = '<div class="seg"><button class="' + (tab === 'reg' ? 'on' : '') + '" data-act="tab" data-sheet="' + esc(sheet) + '" data-tab="reg">Registros</button>' +
       '<button class="' + (tab === 'req' ? 'on' : '') + '" data-act="tab" data-sheet="' + esc(sheet) + '" data-tab="req">Requisitos</button></div>';
     html += tab === 'reg' ? regList(sheet) : reqList(sheet);
-    html += '<button class="fab" data-act="go" data-to="/c/' + esc(sheet) + '/nuevo">' + ic('plus') + 'Nuevo registro</button>';
+    // sin registros no hay modelo para copiar: sin barra (.fab se conserva como gancho; ya no flota)
+    if (cat.registros.length) html += bbar('<button class="fab btn primary lg block" data-act="go" data-to="/c/' + esc(sheet) + '/nuevo">' + ic('plus') + 'Nuevo registro</button>');
     view.innerHTML = html;
   }
   function regList(sheet) {
@@ -1747,7 +1974,7 @@
   function renderNew(sheet) {
     var cat = category(sheet);
     if (!cat) { nav('/', { replace: true }); return; }
-    renderTop('Nuevo registro', cat.sheet + ' · ' + cat.titulo);
+    renderTop('Nuevo registro', 'Planilla ' + cat.sheet + ' · ' + cat.titulo);
     if (!cat.registros.length) { view.innerHTML = '<div class="empty">La planilla no tiene un bloque modelo para copiar.</div>'; return; }
     // un modelo por cada estructura distinta de criterios (la más reciente)
     var models = [];
@@ -1789,7 +2016,9 @@
         return '<option value="' + r.h + '">' + esc((i === 0 ? 'Último registro' : 'Modelo') + ' · ' + (r.elemento || 'sin elemento') + (r.piso ? ' (' + r.piso + ')' : '') + ' · ' + r.items.length + ' controles') + '</option>';
       }).join('') + '</select></label>' +
       '<p class="help" style="margin:-4px 0 12px">Se agrega debajo del último registro de la planilla con el mismo formato. Las columnas de carga arrancan vacías.</p>' +
-      '<button class="btn primary block" type="submit">Crear registro</button></form>';
+      '</form>' +
+      // el único botón de enviar de la pantalla: en la barra, asociado al formulario con form=
+      bbar('<button type="submit" form="newForm" class="btn primary lg block">Crear registro</button>');
     view.innerHTML = html;
     var form = document.getElementById('newForm');
     var drawResp = function () {
@@ -1833,7 +2062,7 @@
       }
       S.queue.push(op);
       queueChanged();
-      toast(navigator.onLine || IN_GAS ? 'Registro guardado · enviando…' : 'Guardado en el celular · se envía al tener señal');
+      toast(navigator.onLine || IN_GAS ? 'Registro guardado · enviando…' : 'Guardado en el celular · se envía al tener señal', { kind: 'ok' });
       nav('/c/' + sheet + '/r/p' + op.id, { replace: true });
     });
   }
@@ -1853,8 +2082,9 @@
       S.route = '/c/' + sheet + '/r/' + reg.key;
       if (!IN_GAS) { try { history.replaceState(null, '', '#' + S.route); } catch (e) { /* iframe */ } }
     }
-    renderTop(reg.elemento || 'Registro', cat.sheet + ' · ' + cat.titulo);
     var s = stats(reg.items);
+    renderTop(reg.elemento || 'Registro',
+      [reg.piso, 'Planilla ' + cat.sheet, (s.total - s.pend) + '/' + s.total, s.rz ? s.rz + ' RZ' : ''].filter(Boolean).join(' · '));
     var filter = S.ui.filter[reg.key] || 'all';
     var editing = S.ui.open['hdr:' + reg.key];
     var html = storageNote() + '<div class="card pad" id="hdr">';
@@ -1916,10 +2146,13 @@
       });
       html += '</div>';
     });
-    if (s.pend) {
-      html += '<button class="nextpend" data-act="nextpend" aria-label="Ir al siguiente control pendiente (quedan ' + s.pend + ')">' +
-        ic('arrow-d') + 'Siguiente pendiente<span class="cnt">' + s.pend + '</span></button>';
-    }
+    html += s.pend
+      ? bbar('<button class="nextpend" data-act="nextpend" aria-label="Ir al siguiente control pendiente (quedan ' + s.pend + ')">' +
+        ic('arrow-d') + 'Siguiente pendiente<span class="cnt">' + s.pend + '</span></button>')
+      // sin pendientes: el resumen y la vuelta a la planilla (FLOW-11)
+      : bbar('<div class="done-sum">' + ic('check-circle', 't-ap') + '<span>' +
+        esc((s.rz ? 'Sin pendientes' : 'Completo') + ' · ' + s.ap + ' AP · ' + s.na + ' N/A · ' + s.rz + ' RZ') + '</span></div>' +
+        '<button class="btn" data-act="go" data-to="/c/' + esc(sheet) + '">Planilla ' + esc(sheet) + '</button>');
     view.innerHTML = html;
     if (S.ui.focus != null) {
       var fe = document.getElementById('it-' + S.ui.focus);
@@ -2026,14 +2259,21 @@
     var tmp = document.createElement('div');
     tmp.innerHTML = itemCard(reg, it);
     el.replaceWith(tmp.firstChild);
+    watchDets();
   }
 
-  /** Texto de la confirmación de «Borrar carga» (en la etapa 3 pasa a la hoja ask()). */
+  /** Hoja de «Borrar carga» (§7.9), según haya FUM nueva, FUM ya enviada o ninguna. */
   function clearQuestion(f) {
     var num = f.server ? f.server[0] : null;
-    return '¿Borrar la carga de este control?\n\nVuelve a pendiente y se borran fecha, responsable y observaciones. Las fotos quedan.' +
-      (!f.open ? '' : f.pend && f.pend.status === 'pending' ? '\n\nLa FUM nueva se descarta (todavía no se envió).'
-        : '\n\nLa ' + (num ? 'FUM N° ' + num : 'FUM') + ' queda ANULADA en el FOG 01. Si ya se corrigió, cancelá y marcá AP.');
+    var discard = f.open && f.pend && f.pend.status === 'pending';   // misma condición que clearItem
+    var annul = f.open && !discard;
+    return {
+      title: '¿Borrar la carga de este control?',
+      body: 'Vuelve a pendiente y se borran fecha, responsable y observaciones. Las fotos quedan.' +
+        (discard ? '\n\nLa FUM nueva se descarta (todavía no se envió).'
+          : annul ? '\n\nLa ' + (num ? 'FUM N° ' + num : 'FUM') + ' queda ANULADA en el FOG 01. Si ya se corrigió, cancelá y marcá AP.' : ''),
+      ok: { label: annul ? 'Borrar y anular FUM' : 'Borrar carga', tone: 'danger' }
+    };
   }
   /**
    * «Borrar carga»: el control vuelve a pendiente (las fotos quedan). La FUM nueva sin enviar se
@@ -2059,13 +2299,14 @@
       }
     }
     editItem(reg, it.off, { estado: '', fecha: '', resp: '', fum: '', obs: '' });
-    refreshItem(reg, it.off);
+    // dibujo completo: el subtítulo, el contador de la etapa y la barra («Siguiente pendiente») quedan al día
+    render({ keepScroll: true });
     offerUndo('Carga borrada', u);
   }
   /** Deshacer (6 s): u = {patches: [{sheet, key, off, prev}], drop: [ops creadas], restore: [ops descartadas]}. */
   function offerUndo(msg, u) {
     S.undo = u;
-    toast(msg, { kind: 'ok', ms: 6000, action: { label: 'Deshacer', fn: function () { doUndo(u); } } });
+    toast(msg, { kind: 'ok', ms: 6000, action: { label: 'Deshacer', icon: 'undo', fn: function () { doUndo(u); } } });
   }
   function doUndo(u) {
     if (S.undo !== u) return;
@@ -2084,64 +2325,119 @@
     toast('Listo, se deshizo', { kind: 'info' });
   }
 
-  /** Devuelve false si el usuario canceló. */
-  function markItem(reg, off, st, opts) {
-    opts = opts || {};
-    var it = reg.items.filter(function (x) { return x.off === off; })[0];
-    var cur = itemState(it);
+  /*
+   * Marcar un control. Las preguntas van con ask(), nunca con el diálogo nativo: primero se decide
+   * (decideMark, puede preguntar) y después se aplica sin preguntar (applyMark).
+   * Tocar el estado que ya tiene no lo borra: para eso está «Borrar carga» en el detalle.
+   */
+  /** AP / N/A sobre una FUM abierta que ya está numerada o ya salió del celular: se pregunta antes de cerrarla. */
+  function fumNeedsAsk(f, st) {
+    return st !== 'rz' && f.open && !(f.pend && f.pend.status === 'pending' && !f.server);
+  }
+  function askFumClose(f, st) {
+    var la = 'La ' + (f.server ? 'FUM N° ' + f.server[0] : 'FUM');
+    return ask(st === 'ap'
+      ? { title: '¿Pasó la reinspección?', body: la + ' se cierra como aprobada, con fecha de hoy.', ok: { label: 'Cerrar FUM y marcar AP', tone: 'ap' } }
+      : { title: '¿El control no aplica?', body: la + ' se anula en el FOG 01 y el control queda N/A.', ok: { label: 'Anular FUM y marcar N/A', tone: 'danger' } });
+  }
+  /*
+   * Plano superado al marcar AP o RZ (C10): tres salidas y una sola pregunta por registro y revisión.
+   * Devuelve Promise<'ok' (pasar a la vigente) | 'alt' (marcar con la vieja) | 'none' (no hace falta) | null (no marcar)>.
+   */
+  function askPlano(reg, it) {
+    var doc = docDefault(reg) || it.documento;
+    var ds = doc && docStatus({ documento: doc, estado: '', fecha: '' });
+    if (!ds || ds.level !== 'old') return Promise.resolve('none');
+    var kk = 'docKeep.' + reg.sheet + '.' + reg.key, kv = ds.code + '|' + ds.latest;
+    if (LS.get(kk, null) === kv) return Promise.resolve('alt');   // ya eligió seguir con la vieja para esta revisión
+    return ask({
+      title: 'Plano superado',
+      body: 'Este registro usa ' + ds.code + ' en ' + revLabel(ds.used) + ' y rige la ' + revLabel(ds.latest) +
+        (ds.fecha ? ' (desde ' + fmtDate(ds.fecha) + ')' : '') + '.\nElegí con cuál marcar este control y los siguientes de este registro.',
+      ok: { label: 'Pasar a ' + revLabel(ds.latest) + ' y marcar', tone: 'primary' },
+      alt: { label: 'Marcar con ' + revLabel(ds.used) },
+      cancel: 'No marcar'
+    }).then(function (r) { if (r === 'alt') LS.set(kk, kv); return r; });
+  }
+  /** Preguntas antes de marcar. Devuelve Promise<plan | null>; null = no marcar. */
+  function decideMark(reg, it, st) {
+    var plan = { closeOk: false, upgrade: false };
+    var p = Promise.resolve(plan);
+    if (fumNeedsAsk(itemFum(reg, it), st)) {
+      p = askFumClose(itemFum(reg, it), st).then(function (r) { if (r !== 'ok') return null; plan.closeOk = true; return plan; });
+    }
+    if (st === 'ap' || st === 'rz') {
+      p = p.then(function (pl) {
+        if (!pl) return null;
+        return askPlano(reg, it).then(function (r) { if (r === null) return null; pl.upgrade = r === 'ok'; return pl; });
+      });
+    }
+    return p;
+  }
+  /** Aplica la marca sin preguntar (plan de decideMark, o {} en «Pendientes → AP»). */
+  function applyMark(reg, off, st, plan) {
+    var it = itemOf(reg, off);
+    if (!it) return;
     var me = S.settings.inspector;
     var f = itemFum(reg, it);
     var fumNum = f.server ? f.server[0] : null;
     var patch;
-    if (cur === st) {
-      // desmarcar un RZ: la FUM sin enviar se descarta; la ya creada se anula
-      if (cur === 'rz' && f.open) {
-        if (f.pend && f.pend.status === 'pending') dropOp(f.pend);
-        else {
-          if (!opts.silent && !confirm('¿Anular la ' + (fumNum ? 'FUM N° ' + fumNum : 'FUM') + ' de este control?')) return false;
-          queueFum(reg, it, fumNum ? { accion: 'cerrar', num: fumNum, resultado: 'Anulada', fecha: today() } : { accion: 'cerrar', ref: f.pend.id, resultado: 'Anulada', fecha: today() });
-        }
-      }
-      patch = { estado: '', fecha: '', resp: '' };
-    } else {
-      if (st === 'rz') {
-        if (!f.open && !it.fum) queueFum(reg, it, { accion: 'abrir', obs: it.obs || '', accionInmediata: 'Reparar' });
-        S.ui.open[reg.key + ':' + off] = true;
-      } else if (f.open) {
-        // reinspección: AP / N/A sobre un control con FUM abierta la cierra
-        if (f.pend && f.pend.status === 'pending' && !fumNum) dropOp(f.pend);
-        else {
-          if (!opts.silent && !confirm('¿El control pasó la reinspección? Se cierra la ' + (fumNum ? 'FUM N° ' + fumNum : 'FUM') + '.')) return false;
-          var res = st === 'ap' ? 'Reinspección AP' : 'No aplica';
-          queueFum(reg, it, fumNum ? { accion: 'cerrar', num: fumNum, resultado: res, fecha: today() } : { accion: 'cerrar', ref: f.pend.id, resultado: res, fecha: today() });
-        }
-      }
-      if (st === 'na') {
-        patch = { estado: '', fecha: 'NA', resp: it.resp || me };
-      } else {
-        patch = { estado: st.toUpperCase(), resp: it.resp || me };
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(it.fecha)) patch.fecha = today();
-        var doc = docDefault(reg) || it.documento;
-        if (doc) {
-          var ds = docStatus({ documento: doc, estado: '', fecha: '' });
-          if (ds && ds.level === 'old' && !opts.silent &&
-              confirm('El plano ' + ds.code + ' R' + ds.used + ' está superado: rige la R' + ds.latest +
-                (ds.fecha ? ' (recibida el ' + fmtDate(ds.fecha) + ')' : '') + '.\n\n¿Actualizar el plano del registro a la revisión vigente? Se aplica a todos los controles pendientes.')) {
-            doc = docUpgrade(doc);
-            setRegDoc(reg, doc);
-          }
-          if (doc !== it.documento) patch.documento = doc;
-        }
-        if (needsSerial(it.instrumento) && instrMemo(it.instrumento)) patch.instrumento = instrMemo(it.instrumento);
+    if (st === 'rz') {
+      if (!f.open && !it.fum) queueFum(reg, it, { accion: 'abrir', obs: it.obs || '', accionInmediata: 'Reparar' });
+      S.ui.open[reg.key + ':' + off] = true;
+    } else if (f.open) {
+      // AP / N/A sobre un control con FUM abierta: la FUM nueva sin enviar se descarta; la ya enviada se
+      // cierra (AP = reinspección aprobada; N/A = anulada, así el FOG 01 queda coherente)
+      if (f.pend && f.pend.status === 'pending' && !fumNum) dropOp(f.pend);
+      else {
+        var res = st === 'ap' ? 'Reinspección AP' : 'Anulada';
+        queueFum(reg, it, fumNum ? { accion: 'cerrar', num: fumNum, resultado: res, fecha: today() } : { accion: 'cerrar', ref: f.pend.id, resultado: res, fecha: today() });
       }
     }
+    if (st === 'na') {
+      patch = { estado: '', fecha: 'NA', resp: it.resp || me };
+    } else {
+      patch = { estado: st.toUpperCase(), resp: it.resp || me };
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(it.fecha)) patch.fecha = today();
+      var doc = docDefault(reg) || it.documento;
+      if (doc) {
+        if (plan.upgrade) { doc = docUpgrade(doc); setRegDoc(reg, doc); }
+        if (doc !== it.documento) patch.documento = doc;
+      }
+      if (needsSerial(it.instrumento) && instrMemo(it.instrumento)) patch.instrumento = instrMemo(it.instrumento);
+    }
     editItem(reg, off, patch);
-    return true;
+  }
+  /** Marca un control preguntando lo que haga falta. Devuelve Promise<boolean> (false = no se marcó). */
+  function markItem(reg, off, st) {
+    var it = itemOf(reg, off);
+    if (!it) return Promise.resolve(false);
+    if (itemState(it) === st) {
+      toast('Ya está en ' + EST[st] + '. Para borrarlo: Detalle › Borrar carga.', { kind: 'info' });
+      return Promise.resolve(false);
+    }
+    return decideMark(reg, it, st).then(function (plan) {
+      if (!plan) return false;
+      // mientras se preguntaba pudo terminar un envío: se vuelve a leer el registro
+      var r = getReg(reg.sheet, reg.key), it2 = r && itemOf(r, off);
+      if (!it2 || itemState(it2) === st) return false;
+      if (!plan.closeOk && fumNeedsAsk(itemFum(r, it2), st)) {
+        // la FUM salió del celular en ese rato: ya no se descarta sin preguntar
+        return askFumClose(itemFum(r, it2), st).then(function (a) {
+          var r3 = a === 'ok' && getReg(reg.sheet, reg.key);
+          if (!r3 || !itemOf(r3, off)) return false;
+          applyMark(r3, off, st, plan);
+          return true;
+        });
+      }
+      applyMark(r, off, st, plan);
+      return true;
+    });
   }
 
   /* ---------- Ajustes ---------- */
   function renderWho() {
-    renderTop('¿Quién sos?', 'Se usa para completar RESP.');
+    renderTop('¿Quién sos?', '');
     var rs = datos().responsables;
     view.innerHTML = '<div class="list">' + rs.map(function (r) {
       return '<button class="row" data-act="who" data-abrev="' + esc(r.abrev) + '"><span class="num">' + esc(r.abrev) + '</span><span class="grow"><b>' + esc(r.nombre) + '</b></span>' +
@@ -2150,13 +2446,13 @@
   }
 
   function renderSettings() {
-    renderTop('Ajustes', 'Conexión, usuario y envíos pendientes');
+    renderTop('Ajustes', '');
     var me = datos().responsables.filter(function (r) { return r.abrev === S.settings.inspector; })[0];
     var html = '';
     html += '<h2 class="sec">Usuario</h2><button class="row" data-act="go" data-to="/quien"><span class="num">' + esc(S.settings.inspector || '?') + '</span><span class="grow"><b>' +
       esc(me ? me.nombre : 'Elegir responsable') + '</b><span class="meta">Se completa en la columna RESP. al marcar</span></span>' + ic('chev-r', 'chev') + '</button>';
 
-    html += '<h2 class="sec">Envíos pendientes · ' + S.queue.length + '</h2>';
+    html += '<h2 class="sec" id="envios">Envíos pendientes · ' + S.queue.length + '</h2>';
     if (!S.queue.length) {
       html += '<div class="card pad muted">No hay cambios sin enviar.</div>';
     } else {
@@ -2180,7 +2476,7 @@
       '<button class="btn primary block" data-act="sync" data-full="1">Sincronizar y descargar todo</button></div>';
 
     if (MODE === 'pwa') {
-      html += '<h2 class="sec">Conexión con la planilla</h2><form id="cfgForm" class="card pad">' +
+      html += '<h2 class="sec" id="conexion">Conexión con la planilla</h2><form id="cfgForm" class="card pad">' +
         '<label class="f"><span>URL de la API (web app de Apps Script)</span><input class="in" name="apiUrl" type="url" placeholder="https://script.google.com/macros/s/…/exec" value="' + esc(S.settings.apiUrl) + '"></label>' +
         '<label class="f"><span>Clave de acceso</span><input class="in" name="token" type="password" value="' + esc(S.settings.token) + '"></label>' +
         '<button class="btn primary block" type="submit">Guardar y probar</button></form>';
@@ -2192,7 +2488,7 @@
         (MODE === 'sidebar' ? 'Estás en el panel de la planilla.' : 'Estás usando la web app de Apps Script: si perdés señal podés seguir cargando mientras la página quede abierta y se envía sola al volver la conexión.') +
         ' Para abrir la app <b>sin señal desde cero</b>, usá la versión instalable (PWA) — ver README.</div>';
       if (MODE === 'webapp') {
-        html += '<h2 class="sec">Clave de acceso</h2><form id="cfgForm" class="card pad"><label class="f"><span>Clave</span><input class="in" name="token" type="password" value="' + esc(S.settings.token) + '"></label>' +
+        html += '<h2 class="sec" id="conexion">Clave de acceso</h2><form id="cfgForm" class="card pad"><label class="f"><span>Clave</span><input class="in" name="token" type="password" value="' + esc(S.settings.token) + '"></label>' +
           '<button class="btn primary block" type="submit">Guardar</button></form>';
       }
     }
@@ -2219,22 +2515,28 @@
     var reg;
     if (a === 'back') return back();
     if (a === 'go') return nav(el.dataset.to);
-    if (a === 'sync') return sync({ full: true, manual: true }).then(function (ok) { if (ok) toast('Sincronizado'); });
+    if (a === 'net') return netTap();
+    if (a === 'sync') return sync({ full: true, manual: true }).then(function (ok) { if (ok) toast('Todo enviado y actualizado', { kind: 'ok' }); });
     if (a === 'tab') { S.ui.tab[el.dataset.sheet] = el.dataset.tab; return render(); }
     if (a === 'who') {
       S.settings.inspector = el.dataset.abrev; saveSettings();
-      toast('Listo: ' + el.dataset.abrev);
+      toast('Listo: ' + el.dataset.abrev, { kind: 'ok' });
       return back();
     }
     if (a === 'install' && window.__piePrompt) { window.__piePrompt.prompt(); window.__piePrompt = null; return; }
     if (a === 'discard') {
-      if (!confirm('¿Descartar este cambio sin enviarlo a la planilla?')) return;
-      S.queue = S.queue.filter(function (o) {
-        var drop = o.id === el.dataset.id || o.ref === el.dataset.id;
-        if (drop && o.img) { KV.del(o.img); delete S.thumbs[o.id]; }
-        return !drop;
+      var did = el.dataset.id;
+      var dop = S.queue.filter(function (o) { return o.id === did; })[0];
+      if (!dop) return;
+      return ask(discardQuestion(dop)).then(function (r) {
+        if (r !== 'ok') return;
+        S.queue = S.queue.filter(function (o) {
+          var drop = o.id === did || o.ref === did;
+          if (drop && o.img) { KV.del(o.img); delete S.thumbs[o.id]; }
+          return !drop;
+        });
+        saveQueue(); render();
       });
-      saveQueue(); return render();
     }
     if (a === 'retry') {
       S.queue.forEach(function (o) { if (o.id === el.dataset.id) { o.status = 'pending'; o.error = ''; } });
@@ -2253,13 +2555,18 @@
       return cb(val);
     }
     if (a === 'rmphoto') {
-      var po = S.queue.filter(function (o) { return o.id === el.dataset.id; })[0];
+      var pid = el.dataset.id;
+      var findPhoto = function () { return S.queue.filter(function (o) { return o.id === pid; })[0]; };
+      var po = findPhoto();
       if (!po || po.status === 'sending') return;
-      if (!confirm('¿Quitar esta foto? Todavía no se subió.')) return;
-      S.queue.splice(S.queue.indexOf(po), 1);
-      KV.del(po.img); delete S.thumbs[po.id];
-      saveQueue();
-      return render({ keepScroll: true });
+      return ask({ title: '¿Quitar esta foto?', body: 'Todavía no se envió; se borra del celular.', ok: { label: 'Quitar foto', tone: 'danger' } }).then(function (r) {
+        po = findPhoto();
+        if (r !== 'ok' || !po || po.status === 'sending') return;   // si ya se está enviando, queda
+        S.queue.splice(S.queue.indexOf(po), 1);
+        KV.del(po.img); delete S.thumbs[po.id];
+        saveQueue();
+        render({ keepScroll: true });
+      });
     }
     if (a === 'docpick') {
       var target = el.dataset.target;
@@ -2275,14 +2582,14 @@
             var nv = target === 'defaultAdd' && cur0 ? cur0 + ' // ' + val : val;
             var n0 = setRegDoc(rg0, nv);
             render({ keepScroll: true });
-            toast('Plano del registro: ' + nv + (n0 ? ' · aplicado a ' + n0 + ' control' + (n0 === 1 ? '' : 'es') : ''), 4000);
+            toast('Plano del registro: ' + nv + (n0 ? ' · aplicado a ' + n0 + ' control' + (n0 === 1 ? '' : 'es') : ''), { kind: 'ok' });
           }
           return;
         } else {
           var rg = getReg(mm[1], el.dataset.key);
           if (rg) { editItem(rg, Number(el.dataset.off), { documento: val }); refreshItem(rg, Number(el.dataset.off)); }
         }
-        toast('Documento: ' + val);
+        toast('Documento: ' + val, { kind: 'ok' });
       });
     }
     if (a === 'fold') {
@@ -2327,40 +2634,64 @@
     if (!reg) return;
     var off = Number(el.dataset.off);
     if (a === 'mark') {
-      if (!S.settings.inspector) { toast('Primero elegí quién sos'); return nav('/quien'); }
-      if (markItem(reg, off, el.dataset.st) === false) return;
-      if (S.ui.filter[reg.key] && S.ui.filter[reg.key] !== 'all') return render({ keepScroll: true });
-      refreshItem(reg, off);
-      updateStageChips(reg);
-      return;
+      if (!S.settings.inspector) { toast('Primero elegí quién sos', { kind: 'info' }); return nav('/quien'); }
+      // render completo: contadores, etapa, subtítulo y barra quedan al día (el desplazamiento se conserva)
+      return markItem(reg, off, el.dataset.st).then(function (ok) { if (ok) render({ keepScroll: true }); });
     }
     if (a === 'more') { var k = reg.key + ':' + off; S.ui.open[k] = !S.ui.open[k]; return refreshItem(reg, off); }
     if (a === 'clear') {
-      var cit = reg.items.filter(function (x) { return x.off === off; })[0];
+      var cit = itemOf(reg, off);
       if (!cit) return;
-      if (!confirm(clearQuestion(itemFum(reg, cit)))) return;   // transitorio: en la etapa 3 pasa a ask()
-      return clearItem(reg, off);
+      return ask(clearQuestion(itemFum(reg, cit))).then(function (r) {
+        if (r !== 'ok') return;
+        var cr = getReg(reg.sheet, reg.key);   // pudo terminar un envío mientras se preguntaba
+        if (cr) clearItem(cr, off);           // clearItem vuelve a mirar el estado de la FUM
+      });
     }
     if (a === 'docupdall') {
       var nd = docUpgrade(docDefault(reg) || '');
       var n = setRegDoc(reg, nd);
-      toast('Plano actualizado a ' + nd + (n ? ' en ' + n + ' control' + (n === 1 ? '' : 'es') + ' pendiente' + (n === 1 ? '' : 's') : ''), 4000);
+      toast('Plano actualizado a ' + nd + (n ? ' en ' + n + ' control' + (n === 1 ? '' : 'es') + ' pendiente' + (n === 1 ? '' : 's') : ''), { kind: 'ok' });
       return render({ keepScroll: true });
     }
     if (a === 'bulk') {
-      var pend = reg.items.filter(function (it) { return it.etapa === el.dataset.stage && itemState(it) === 'pend'; });
-      if (!S.settings.inspector) { toast('Primero elegí quién sos'); return nav('/quien'); }
-      if (!confirm('¿Marcar ' + pend.length + ' controles pendientes de ' + el.dataset.stage + ' como AP con fecha de hoy?')) return;
-      pend.forEach(function (it) { markItem(getReg(reg.sheet, reg.key), it.off, 'ap', { silent: true }); });
-      return render({ keepScroll: true });
+      if (!S.settings.inspector) { toast('Primero elegí quién sos', { kind: 'info' }); return nav('/quien'); }
+      var bst = el.dataset.stage;
+      var pendOf = function (r) { return r.items.filter(function (it) { return it.etapa === bst && itemState(it) === 'pend'; }); };
+      var nb = pendOf(reg).length;
+      if (!nb) return;
+      return ask({
+        title: nb === 1 ? '¿Aprobar el control pendiente de ' + bst + '?' : '¿Aprobar los ' + nb + ' controles pendientes de ' + bst + '?',
+        body: 'Quedan AP con fecha de hoy y RESP. ' + S.settings.inspector + '.',
+        ok: { label: 'Aprobar ' + nb, tone: 'ap' }
+      }).then(function (r) {
+        if (r !== 'ok') return;
+        // se vuelve a leer: sólo lo que sigue pendiente al confirmar
+        var br = getReg(reg.sheet, reg.key);
+        if (!br) return;
+        pendOf(br).forEach(function (it) { applyMark(getReg(reg.sheet, reg.key), it.off, 'ap', {}); });
+        render({ keepScroll: true });
+      });
     }
   });
 
-  function updateStageChips(reg) {
-    // refresco liviano: re-render completo pero conservando scroll
-    var y = window.scrollY;
-    render();
-    window.scrollTo(0, y);
+  /** Hoja de «Descartar» en Ajustes › Envíos (§7.9), según el tipo de envío. */
+  function discardQuestion(o) {
+    var ok = { label: 'Descartar', tone: 'danger' };
+    if (o.op === 'create') {
+      return { title: '¿Descartar el registro nuevo «' + (o.header.elemento || 'sin elemento') + '»?',
+        body: 'Se borra del celular con todo lo cargado (controles, fotos y FUM). No se puede deshacer.', ok: ok };
+    }
+    if (o.op === 'update') {
+      var n = Object.keys(o.items || {}).length;
+      var c = o.ref && pendingCreate(o.ref);
+      var el = o.elemento || (c ? c.header.elemento : '') || (o.h ? 'fila ' + o.h : 'registro nuevo');
+      return { title: '¿Descartar los cambios en «' + el + '»?',
+        body: (n ? n + (n === 1 ? ' control' : ' controles') + '. ' : '') + 'Vuelven a como están en el PIE.', ok: ok };
+    }
+    if (o.op === 'photo') return { title: '¿Descartar esta foto?', body: 'Todavía no se envió.', ok: ok };
+    if (o.accion === 'abrir') return { title: '¿Descartar la FUM de «' + recorte(o.criterio) + '»?', body: 'El control queda en RZ sin FUM.', ok: ok };
+    return { title: '¿Descartar este cambio de la ' + (o.num ? 'FUM N° ' + o.num : 'FUM') + '?', body: 'La FUM queda como está en el FOG 01.', ok: ok };
   }
 
   document.addEventListener('input', function (ev) {
@@ -2386,7 +2717,7 @@
       var rr = rm && getReg(rm[1], el.dataset.key);
       if (rr) {
         var cnt = setRegDoc(rr, el.value);
-        if (cnt) toast('Plano aplicado a ' + cnt + ' control' + (cnt === 1 ? '' : 'es'));
+        if (cnt) toast('Plano aplicado a ' + cnt + ' control' + (cnt === 1 ? '' : 'es'), { kind: 'ok' });
         render({ keepScroll: true });
       }
       return;
@@ -2432,7 +2763,7 @@
         responsables: [].slice.call(f.querySelectorAll('select[name=resp]')).map(function (s) { return s.value; })
       });
       S.ui.open['hdr:' + reg.key] = false;
-      toast('Encabezado guardado');
+      toast('Encabezado guardado', { kind: 'ok' });
       render({ keepScroll: true });
     }
     if (f.id === 'cfgForm') {
@@ -2442,7 +2773,7 @@
         if (u && !/^https:\/\/script\.google\.com\/.*\/exec(\?.*)?$/.test(u)) {
           toast(/docs\.google\.com\/spreadsheets/.test(u)
             ? 'Ese es el enlace de la planilla. Va el de la web app: Apps Script › Implementar › Administrar implementaciones (termina en /exec)'
-            : 'La URL tiene que ser la de la web app de Apps Script y terminar en /exec', 7000);
+            : 'La URL tiene que ser la de la web app de Apps Script y terminar en /exec', { kind: 'err', ms: 7000 });
           return;
         }
         S.settings.apiUrl = u;
@@ -2450,7 +2781,7 @@
       S.settings.token = f.token.value.trim();
       saveSettings();
       toast('Probando conexión…');
-      sync({ full: true, manual: true }).then(function (ok) { if (ok) { toast('Conectado'); render(); } });
+      sync({ full: true, manual: true }).then(function (ok) { if (ok) { toast('Conectado', { kind: 'ok' }); render(); } });
     }
   });
 
