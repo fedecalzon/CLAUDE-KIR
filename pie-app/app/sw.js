@@ -1,6 +1,6 @@
 // Service worker: guarda la app en el celular para abrirla sin señal.
 // Los datos de las planillas y la cola de envíos viven en IndexedDB (index.html).
-var CACHE = 'pie-carga-v1.5.1';
+var CACHE = 'pie-carga-v1.6.0';
 var ASSETS = ['./', './index.html', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', function (e) {
@@ -24,7 +24,10 @@ self.addEventListener('fetch', function (e) {
       var net = fetch(req).then(function (res) {
         if (res && res.ok) cache.put(key, res.clone());
         return res;
-      }).catch(function () { return hit; });
+      }).catch(function () {
+        return hit || new Response('<meta name="viewport" content="width=device-width"><h1>Sin señal</h1><p>Abrí la app una vez con conexión.</p>',
+          { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+      });
       return hit || net;
     });
   }));

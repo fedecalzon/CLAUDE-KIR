@@ -248,6 +248,11 @@ const sheetRows = (name, from, to, book) => fetch(`http://localhost:8081/__sheet
   assert.ok(!(await page.$eval('#toast', e => e.classList.contains('show') && e.textContent.includes('Ya está en'))), 'el segundo toque se ignora sin aviso');
   await page.click('.item >> nth=6 >> button[data-st=rz]');
   await page.waitForSelector('.item >> nth=6 >> .fumbox');
+  // atajo de fecha de reinspección: «+3 días» completa el campo
+  await page.click('.item >> nth=6 >> button[data-act=plazo][data-d="3"]');
+  const plazo3 = await page.evaluate(() => { const d = new Date(); d.setDate(d.getDate() + 3); return d.toLocaleDateString('sv'); });
+  assert.strictEqual(await page.inputValue('.item >> nth=6 >> [data-fum=plazo]'), plazo3, 'fecha de reinspección +3 días');
+  assert.ok(await page.$eval('.item >> nth=6 >> [data-sinfecha]', e => e.hidden), 'ya no dice «Sin fecha de reinspección»');
   await page.waitForTimeout(800);                                   // pasa el bloqueo de 700 ms del control
   await page.click('.item >> nth=6 >> button[data-st=na]');         // FUM retenida → se descarta sin preguntar
   assert.strictEqual(await page.$$eval('.item >> nth=6 >> .fumbox', n => n.length), 0, 'sin FUM');
@@ -260,6 +265,22 @@ const sheetRows = (name, from, to, book) => fetch(`http://localhost:8081/__sheet
   await page.click('button[data-f=all]');
   await page.waitForFunction(() => document.querySelector('.net').textContent.includes('Al día'), null, { timeout: 20000 });
 
+  // 6f. «N/A a la tarea»: marca sólo los pendientes de esa tarea, con pregunta y Deshacer
+  const taskCard = page.locator('.card.task:has(button[data-act=taskna])').first();
+  const tPend = await taskCard.locator('.item.pend').count();
+  const tTotal = await taskCard.locator('.item').count();
+  assert.ok(tPend >= 2, 'tarea con 2 o más pendientes: ' + tPend);
+  const pendTotal0 = await page.$$eval('.item.pend', n => n.length);
+  await taskCard.locator('button[data-act=taskna]').click();
+  await page.waitForSelector('#ask:has-text("¿Marcar N/A los ' + tPend + ' pendientes")');
+  await page.click('#ask [data-ans=ok]');
+  await page.waitForSelector('#toast.show:has-text("controles en N/A")');
+  assert.strictEqual(await page.$$eval('.item.pend', n => n.length), pendTotal0 - tPend, 'sólo los de esa tarea');
+  await page.click('#toast .act');                                   // Deshacer
+  await page.waitForFunction((n) => document.querySelectorAll('.item.pend').length === n, pendTotal0);
+  assert.ok(tTotal >= tPend);
+  await page.waitForFunction(() => document.querySelector('.net').textContent.includes('Al día') && !document.getElementById('hdr').textContent.includes('cambios sin enviar'), null, { timeout: 20000 });
+
   // 7. Filtro de pendientes y vista de registro existente con datos
   await page.click('button[data-f=ap]');
   assert.strictEqual(await page.$$eval('.item', n => n.length), 4);
@@ -268,6 +289,13 @@ const sheetRows = (name, from, to, book) => fetch(`http://localhost:8081/__sheet
   await page.waitForSelector('text=Abiertas · 0');
   await page.waitForSelector('text=Cerradas / anuladas · 1');
   await shot('11-fum');
+  // Inicio: «Seguir» lleva directo al registro trabajado, sin repetir el título de la planilla
+  await page.evaluate(() => { location.hash = '#/'; });
+  await page.waitForSelector('.row.recent:has-text("Losa prueba offline L1")');
+  assert.strictEqual(await page.locator('.row.recent:has-text("HORMIGON")').count(), 0, 'la fila de «Seguir» no repite el título de la planilla');
+  assert.strictEqual(await page.locator('.row:has-text("HORMIGON ARMADO") >> nth=0').getAttribute('data-to'), '/c/6', 'el primer «HORMIGON ARMADO» sigue siendo la planilla 6');
+  await page.evaluate(() => { location.hash = '#/fum'; });
+  await page.waitForSelector('text=Abiertas · 0');
 
   // 8. Ajustes
   await page.click('[data-to="/ajustes"]');

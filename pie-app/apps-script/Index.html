@@ -217,6 +217,7 @@
     background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--sh-1);
   }
   .row .grow { flex: 1; min-width: 0; }
+  .row.recent .ttl2 { -webkit-line-clamp: 1; }
   .row .ttl2 {
     display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
     font-size: 16px; font-weight: 700; line-height: 1.3; overflow-wrap: anywhere;
@@ -475,6 +476,9 @@
   .fumbox label.f + .chips { margin: -4px 0 12px; }
   .fumbox .help { margin: 0; }
   .quick { display: flex; gap: 8px; flex-wrap: wrap; margin-top: -4px; }
+  .fumbox .quick { margin: -4px 0 12px; }
+  .fumbox .quick + .chips { margin: -4px 0 12px; }
+  .na-task { color: var(--na); margin-left: auto; }
   .det-foot { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-top: 16px; }
   .det-foot .primary { flex: 0 1 60%; min-height: 56px; font-size: 17px; font-weight: 700; margin-left: auto; }
   .hl { outline: 3px solid var(--hl-ring); outline-offset: -3px; }
@@ -607,7 +611,7 @@
   var BOOT = window.PIE_BOOT || {};
   var IN_GAS = !!(window.google && google.script && google.script.run);
   var MODE = IN_GAS ? (BOOT.mode || 'webapp') : 'pwa';
-  var APP_VERSION = '1.5.1';
+  var APP_VERSION = '1.6.0';
   var ETAPAS = ['PRE', 'DURANTE', 'POST', 'DOC'];
   var FIELDS = ['documento', 'fecha', 'resp', 'estado', 'fum', 'obs', 'instrumento'];
   // movimiento reducido (iPhone › Accesibilidad › Movimiento): los desplazamientos van sin animación
@@ -811,8 +815,9 @@
     var p = function (n) { return (n < 10 ? '0' : '') + n; };
     return today() + 'T' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
   }
-  function today() {
-    var d = new Date();
+  function today() { return ymd(new Date()); }
+  /** Fecha local como AAAA-MM-DD (la de los input type=date). */
+  function ymd(d) {
     var p = function (n) { return (n < 10 ? '0' : '') + n; };
     return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
   }
@@ -1538,6 +1543,9 @@
         '<label class="f"><span>Detalle de la acción inmediata</span><input class="in" data-fum="accionCorrectiva" value="' + esc(v.accionCorrectiva) + '"' +
         ' placeholder="Ej.: rehacer recubrimiento" autocapitalize="sentences" enterkeyhint="done"></label>' +
         '<label class="f"><span>Fecha de reinspección</span><input class="in" type="date" data-fum="plazo" value="' + esc(plazo) + '"></label>' +
+        '<div class="quick" role="group" aria-label="Fecha de reinspección rápida">' + [[1, 'Mañana'], [3, '+3 días'], [7, '+1 semana']].map(function (q) {
+          return '<button type="button" class="btn sm" data-act="plazo" data-d="' + q[0] + '">' + q[1] + '</button>';
+        }).join('') + '</div>' +
         '<div class="chips"' + (plazo ? ' hidden' : '') + ' data-sinfecha="1"><span class="chip pend">Sin fecha de reinspección</span></div>' +
         '<p class="help">Se cierra sola cuando marques AP en la reinspección.</p>';
     }
@@ -2224,7 +2232,7 @@
       groups[c.rubro].push(c);
     });
     // mientras se busca, la lista arranca directo con las planillas
-    var html = terms.length ? '' : fumStatusRow();
+    var html = terms.length ? '' : recentHtml() + fumStatusRow();
     order.forEach(function (g) {
       html += '<h2 class="sec">' + esc(g) + '</h2><div class="list">' + groups[g].map(catRow).join('') + '</div>';
     });
@@ -2238,6 +2246,29 @@
     var s = ago(S.lastSync);
     html += '<p class="help center foot">' + esc((s === 'nunca' ? 'Sin actualizar' : 'Actualizado ' + (/^(hace|recién)/.test(s) ? s : 'el ' + s)) + ' · v' + APP_VERSION) + '</p>';
     return html;
+  }
+  /** «Seguir» (P2): los últimos registros abiertos, para volver directo desde Inicio. */
+  function touchRecent(sheet, key) {
+    var rec = (LS.get('recent', []) || []).filter(function (x) { return !(x.s === sheet && x.k === key); });
+    rec.unshift({ s: sheet, k: key, t: Date.now() });
+    LS.set('recent', rec.slice(0, 8));
+  }
+  function recentHtml() {
+    var rows = [];
+    (LS.get('recent', []) || []).forEach(function (x) {
+      if (rows.length >= 5) return;
+      var reg = category(x.s) && getReg(x.s, x.k);
+      if (!reg) return;   // ya no existe (descartado o fuera del catálogo)
+      var s = stats(reg.items);
+      // nunca el título de la planilla: sólo elemento, piso y número
+      var chips = (s.pend ? chipHtml('pend', 'faltan ' + s.pend) : '') + (s.rz ? chipHtml('rz', s.rz + ' RZ') : '') +
+        (!s.pend && !s.rz ? chipHtml('ap', 'Completo') : '');
+      rows.push('<button class="row recent" data-act="go" data-to="/c/' + esc(x.s) + '/r/' + esc(reg.key) + '"><span class="grow">' +
+        '<span class="ttl2">' + esc(reg.elemento || 'Registro sin elemento') + '</span>' +
+        '<span class="meta">' + esc([reg.piso, 'Planilla ' + x.s, ago(x.t)].filter(Boolean).join(' · ')) + '</span>' +
+        '<span class="chips">' + chips + '</span>' + barHtml(s) + '</span>' + ic('chev-r', 'chev') + '</button>');
+    });
+    return rows.length ? '<h2 class="sec">Seguir</h2><div class="list">' + rows.join('') + '</div>' : '';
   }
   /** Estado de las FUM (V15, FLOW-17): una línea discreta si no hay abiertas; roja si hay. Siempre lleva a /fum. */
   function fumStatusRow() {
@@ -2340,9 +2371,11 @@
     return '<span class="bar' + (cls ? ' ' + cls : '') + '" aria-hidden="true">' + seg + '</span>';
   }
   /** Cabecera de tarea: el nombre tal cual viene del PIE y la muestra como texto. */
-  function taskHead(tk) {
+  function taskHead(tk, na) {
     return '<div class="task-h"><h3>' + esc(tk.name) + '</h3>' +
-      (tk.muestra !== '' && tk.muestra != null ? '<span class="meta">Muestra ' + esc(fmtMuestra(tk.muestra)) + '</span>' : '') + '</div>';
+      (tk.muestra !== '' && tk.muestra != null ? '<span class="meta">Muestra ' + esc(fmtMuestra(tk.muestra)) + '</span>' : '') +
+      (na ? '<button type="button" class="btn sm na-task" data-act="taskna" data-key="' + na.key + '" data-stage="' + esc(na.stage) + '" data-task="' + esc(tk.name) + '">' +
+        ic('minus') + 'N/A a la tarea</button>' : '') + '</div>';
   }
   function groupItems(items) {
     var stages = [];
@@ -2523,6 +2556,7 @@
       if (!IN_GAS) { try { history.replaceState(null, '', '#' + S.route); } catch (e) { /* iframe */ } }
     }
     var s = stats(reg.items);
+    touchRecent(sheet, reg.key);
     renderTop(reg.elemento || 'Registro',
       [reg.piso, 'Planilla ' + cat.sheet, (s.total - s.pend) + '/' + s.total, s.rz ? s.rz + ' RZ' : ''].filter(Boolean).join(' · '));
     // filtro inicial (§6.1): «Pend.» si el registro ya tiene avance y le quedan pendientes; si no, «Todos».
@@ -2551,7 +2585,10 @@
         '<span class="st-name">' + esc(g.name) + '</span><span class="st-cnt">' + (gs.total - gs.pend) + '/' + gs.total + '</span>' + barHtml(gs, 'mini') + '</button></div>';
       if (folded) { html += '</div>'; return; }
       visibleTasks.forEach(function (tk) {
-        html += '<div class="card task">' + taskHead(tk) + tk.items.map(function (it) { return itemCard(reg, it); }).join('') + '</div>';
+        // «N/A a la tarea» sólo con 2 o más pendientes a la vista (filtro Todos o Pend.)
+        var tpend = tk.items.filter(function (it) { return itemState(it) === 'pend'; }).length;
+        var tna = tpend >= 2 && (filter === 'all' || filter === 'pend') ? { key: reg.key, stage: g.name } : null;
+        html += '<div class="card task">' + taskHead(tk, tna) + tk.items.map(function (it) { return itemCard(reg, it); }).join('') + '</div>';
       });
       // al final de la etapa, después de mirar los controles; con el filtro AP, RZ o N/A no se ofrece:
       // aprobaría pendientes que no están en pantalla (C17)
@@ -3197,6 +3234,16 @@
       toast('Vas a firmar como ' + el.dataset.abrev + (wr ? ' (' + wr.nombre + ')' : ''), { kind: 'ok' });
       return back();
     }
+    if (a === 'plazo') {
+      // atajo de fecha de reinspección: completa el campo y lo guarda como si se hubiera elegido a mano
+      var pin = el.closest('.det') && el.closest('.det').querySelector('[data-fum=plazo]');
+      if (!pin) return;
+      var pd = new Date();
+      pd.setDate(pd.getDate() + Number(el.dataset.d));
+      pin.value = ymd(pd);
+      pin.dispatchEvent(new Event('change', { bubbles: true }));
+      return;
+    }
     if (a === 'theme') { applyTheme(el.dataset.theme); return render({ keepScroll: true }); }
     if (a === 'reload') { location.reload(); return; }
     if (a === 'install' && window.__piePrompt) { window.__piePrompt.prompt(); window.__piePrompt = null; return; }
@@ -3438,6 +3485,47 @@
         });
       });
     }
+    if (a === 'taskna') {
+      // §6.5 P2: los pendientes de una tarea pasan a N/A (sin pregunta de plano), con Deshacer
+      if (!S.settings.inspector) { toast('Primero elegí quién sos', { kind: 'info' }); return nav('/quien'); }
+      var tst = el.dataset.stage, ttk = el.dataset.task;
+      var tpendOf = function (r) {
+        return r.items.filter(function (it) { return (it.etapa || '—') === tst && (it.tarea || '—') === ttk && itemState(it) === 'pend'; });
+      };
+      var tn = tpendOf(reg).length;
+      if (!tn) return;
+      return ask({
+        title: '¿Marcar N/A los ' + tn + ' pendientes de «' + ttk + '»?',
+        body: 'Quedan N/A con RESP. ' + S.settings.inspector + '.',
+        ok: { label: 'Marcar ' + tn + ' N/A', tone: 'primary' }
+      }).then(function (r) {
+        if (r !== 'ok') return;
+        var tr = getReg(reg.sheet, reg.key);
+        if (!tr) return;
+        var u = { patches: [], drop: [], restore: [] }, n = 0;
+        var chain = Promise.resolve();
+        // se vuelve a leer: sólo lo que sigue pendiente al confirmar
+        tpendOf(tr).forEach(function (tit) {
+          chain = chain.then(function () {
+            var r0 = getReg(reg.sheet, reg.key), i0 = r0 && itemOf(r0, tit.off);
+            if (!i0) return;
+            return decideMark(r0, i0, 'na', { silent: true }).then(function (plan) {
+              var uu = plan && applyMark(plan.reg, tit.off, 'na', plan);
+              if (!uu) return;
+              u.patches = u.patches.concat(uu.patches);
+              u.drop = u.drop.concat(uu.drop);
+              u.restore = u.restore.concat(uu.restore);
+              keepItem(plan.reg, tit.off);
+              n++;
+            });
+          });
+        });
+        return chain.then(function () {
+          render({ keepScroll: true });
+          if (n) offerUndo(n === 1 ? '1 control en N/A' : n + ' controles en N/A', u);
+        });
+      });
+    }
   });
 
   /** Hoja de «Descartar» en Ajustes › Envíos (§7.9), según el tipo de envío. */
@@ -3601,7 +3689,21 @@
         try { history.replaceState(null, '', location.pathname + location.hash); } catch (e) { /* noop */ }
       }
       if ('serviceWorker' in navigator && /^https:|^http:\/\/localhost/.test(location.href)) {
-        navigator.serviceWorker.register('sw.js').then(function (reg) { swReg = reg; }, function () { /* sin SW */ });
+        navigator.serviceWorker.register('sw.js').then(function (reg) {
+          swReg = reg;
+          if (!reg) return;
+          // versión nueva instalada en segundo plano: se avisa y se ofrece recargar (§6.11)
+          reg.addEventListener('updatefound', function () {
+            var w = reg.installing;
+            if (!w) return;
+            w.addEventListener('statechange', function () {
+              if (w.state === 'activated' && navigator.serviceWorker.controller) {
+                S.updateReady = true;
+                toast('Hay una versión nueva de la app', { kind: 'info', action: { label: 'Recargar', fn: function () { location.reload(); } } });
+              }
+            });
+          });
+        }, function () { /* sin SW */ });
       }
       var link = document.createElement('link');
       link.rel = 'manifest';

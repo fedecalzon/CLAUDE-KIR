@@ -10,9 +10,13 @@ App para cargar los **Planes de Inspección y Ensayo** de la planilla `PIE - COR
 - **FUM (rechazos) en el FOG 01**: al marcar **RZ** se abre una FUM. Si el **FOG 01 (Formulario Único de Mejoras)** está vinculado (menú **PIE › Vincular FOG 01**), se agrega una fila con el formato de las anteriores y el número correlativo del FOG (sigue después del último), con Origen “Inspección Interna”, Procesos “Producción”, fecha, descripción del desvío (planilla, elemento, piso, criterio y observación), quién lo registró, acción inmediata (Reparar / Recambio / Recalificar / Dejar como está), descripción y plazo en días. Si la tabla llega a la leyenda de abajo, inserta filas en vez de pisarla. El número se escribe en la columna FUM N° del PIE. Al marcar **AP** en la reinspección se completa “Cierre de la Acción Inmediata” y su fecha; desmarcar el RZ la anula. El análisis de causa, la acción de mejora y la verificación de eficacia se siguen completando en el FOG 01. Si alguien cierra la acción inmediata a mano en el FOG 01, la app lo toma. Pantalla **Rechazos · FUM** con las abiertas, días abiertas y reinspecciones vencidas. Funciona sin señal (se numera al sincronizar). La relación FUM ↔ control del PIE se guarda en la hoja oculta `_PIE_FUM`.
 - **Instrumento con N° de serie**: en el detalle del control se elige el instrumento de la lista de **DATOS (columna INSTRUMENTO)**, primero los del mismo tipo (p. ej. `NIVEL LASER (1167)`), y se escribe en la columna INSTRUMENTO en lugar de “INDIQUE NO. SERIAL”. La app recuerda tu elección y la completa sola en los próximos controles de ese tipo; si falta, avisa “Indicar N° de serie”. Para que aparezcan tus equipos, agregalos con su número en DATOS › INSTRUMENTO.
 - **Fotos rastreables**: cada foto se guarda en `PIE - Fotos de control › <planilla> › Fila <fila del registro> - <elemento> - <piso>` con nombre `PIE-<planilla>_F<fila del control>_<elemento>_<tarea>_<fecha>_<hora>_<inspector>_<nn>.jpg` (ej. `PIE-6_F780_Bajo-recorrido-TN1-TN2-LN3-LN2_Encofrados_2026-10-18_0941_FC_01.jpg`), con la descripción completa del control en el archivo. Sólo se aceptan imágenes de hasta ~10 MB.
-- **Siguiente pendiente**: botón flotante que lleva al próximo control sin marcar; las etapas PRE / DURANTE / POST / DOC se pliegan tocando su título. Botones de 48 px y colores con contraste AA para usar al sol y con guantes.
+- **Siguiente pendiente**: barra inferior que lleva al próximo control sin marcar (se esconde con el teclado o con un detalle abierto); las etapas PRE / DURANTE / POST / DOC se pliegan tocando su banda, que queda fija arriba mientras se recorre. Botones AP / RZ / N/A de 56 px con ícono, color y texto (no dependen sólo del color) y contraste AA en modo claro y oscuro, para usar al sol y con guantes.
 - **Plano único por registro**: el plano (FOD 02) se elige una sola vez arriba del registro y se aplica a todos los controles pendientes; se pueden sumar más planos (“＋ Otro plano”, quedan separados por `//`). Si se cambia, se actualizan los pendientes y los ya controlados conservan el plano con el que se hicieron (trazabilidad). Los controles ya no tienen campo de documento propio; sólo muestran “Plano: …” cuando difiere del del registro.
 - **Checklist**: botones AP / RZ / N/A por criterio. AP/RZ completan solos FECHA (hoy), RESP. (tus iniciales) y DOCUMENTO; RZ abre FUM N° y observaciones. N/A escribe `NA` en FECHA, como se viene haciendo.
+- **Marcado seguro (v1.6)**: un doble toque no desmarca; una RZ por error corregida con el detalle abierto no llega al FOG 01; **Borrar carga** pregunta y ofrece **Deshacer**; con un filtro activo, lo recién marcado no desaparece bajo el dedo. Las preguntas usan una hoja propia con botones que dicen qué pasa (no los cuadros del navegador). El plano superado se pregunta una sola vez por registro.
+- **Atajos (v1.6)**: «Aprobar los N pendientes» al final de cada etapa, **N/A a la tarea** (con Deshacer), fecha de reinspección de un toque (Mañana / +3 días / +1 semana) y **Seguir** en Inicio con los últimos registros abiertos.
+- **Indicador de envíos**: «Al día» (todo en el PIE), «Sin enviar · n» (hay cambios sólo en el celular), «Sin señal · n» y «Revisar» en rojo si un envío falló; tocándolo se envía o se va a Ajustes › Envíos pendientes. **Apariencia** Automático / Claro / Oscuro en Ajustes.
+- **Glosario de la app**: *enviar* = del celular al PIE; *actualizar* = del PIE al celular; *plano* = el documento del FOD 02; *planilla* = la hoja numerada; *control* = cada línea con AP / RZ / N/A.
 - **Sin señal**: todo queda guardado en el celular y se envía solo al volver la conexión. Los envíos no se duplican aunque se corte a mitad de camino (cada operación tiene un id registrado en la hoja oculta `_PIE_LOG`).
 
 ## Contenido
@@ -59,13 +63,15 @@ Copiá la URL que termina en `/exec`.
 Abrís la URL `/exec` en el celular y la agregás a la pantalla de inicio. Si se corta la señal **con la app abierta**, seguís cargando y se envía al volver. Lo que no puede es *abrirse* sin señal (Google no permite service workers en Apps Script).
 
 ### Opción B — PWA instalable (abre sin señal desde cero)  ✅ recomendada para obra
-1. Publicá la carpeta `app/` en cualquier hosting HTTPS estático, por ejemplo:
+1. Publicá la carpeta `app/` en cualquier hosting HTTPS estático (al actualizar, volvé a subir la carpeta entera), por ejemplo:
    - **Netlify Drop** (app.netlify.com/drop): arrastrás la carpeta `app` y te da una URL.
    - **GitHub Pages** en un repo público con la carpeta `app/`.
 2. Abrí una vez en el celular: `https://TU-HOSTING/index.html?api=URL_EXEC&token=TU_CLAVE`
    (la app guarda la conexión y borra los parámetros de la barra). Ese enlace podés mandárselo al resto del equipo.
-3. Chrome Android: menú ⋮ › **Instalar app**. iPhone/Safari: compartir › **Agregar a inicio**.
-4. Con señal, tocá **Sincronizar y descargar todo** en Ajustes: a partir de ahí abre y carga sin conexión.
+3. iPhone/Safari: compartir › **Agregar a inicio** (abrí siempre la app desde ese ícono: así iOS no borra lo cargado sin señal). Chrome Android: menú ⋮ › **Instalar app**.
+4. Con señal, tocá **Enviar y actualizar ahora** en Ajustes: a partir de ahí abre y carga sin conexión.
+
+**Al pasar a la v1.6 en el iPhone**: antes de borrar el ícono, abrí la app con señal y esperá «Al día» (que no quede nada sin enviar). Después borrá el ícono y volvé a hacer **Agregar a inicio**: iOS fija los colores de la barra de estado al instalar. Cuando hay una versión nueva, la app avisa «Hay una versión nueva de la app» con el botón **Recargar**.
 
 Cada vez que publiques una nueva versión del script, usá **Implementar › Administrar implementaciones › editar › Nueva versión** para conservar la misma URL.
 
@@ -93,6 +99,8 @@ python3 test/export_xlsx.py "PIE - CORE.xlsx" wb.json
 python3 test/export_xlsx.py "FOD-02 Rev. 3 Registro de Control y Distribución de Documentos.xlsx" fod.json
 python3 test/export_xlsx.py "FOG 01 - FORM. DE MEJORAS.xlsx" fog.json
 node test/backend.test.js wb.json fod.json fog.json
+# pruebas estáticas: copia para Apps Script, versión del service worker, sin confirm() ni recursos externos
+node test/static.test.js
 # servidor local que simula la web app + prueba E2E en celular emulado (Playwright)
 node test/server.js wb.json 8080 fod.json fog.json &
 node test/e2e.test.js capturas/
