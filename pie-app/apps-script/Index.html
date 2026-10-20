@@ -250,6 +250,8 @@
   .user { display: flex; align-items: center; gap: 12px; }
   .user .grow { flex: 1; min-width: 0; }
   .ok-line { display: flex; align-items: center; gap: 8px; margin: 0; }
+  [hidden] { display: none !important; }
+  .row .chips .chip, .fumrow .chip { white-space: normal; }
   .chips, .warn { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-top: 8px; }
   .chip {
     display: inline-flex; align-items: center; gap: 4px; max-width: 100%; padding: 3px 10px; border-radius: var(--r-pill); font-size: 14px; font-weight: 600; line-height: 1.3;
@@ -268,8 +270,8 @@
     display: inline-flex; align-items: center; justify-content: center; flex: none; padding: 2px 6px; border-radius: var(--r-sm);
     font: 700 14px/1.3 var(--mono); border: 1.5px solid currentColor; color: var(--brand);
   }
-  :root[data-theme="dark"] .tag { color: var(--sync); }
-  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .tag { color: var(--sync); } }
+  :root[data-theme="dark"] .tag:not(.solid):not(.fum) { color: var(--sync); }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .tag:not(.solid):not(.fum) { color: var(--sync); } }
   .tag.solid { min-width: 36px; min-height: 28px; border: 0; background: var(--tag); color: var(--on-tag); }
   .tag.fum { border: 0; background: var(--rz-fill); color: var(--on-state); font-family: var(--font); }
   .tag.fum.new { background: var(--sync-bg); color: var(--sync); }
@@ -682,7 +684,7 @@
     }
     var mem = {};
     return {
-      get: function (k) {
+      get: function (k, strict) {
         var ts = LS.get('kvlocal.' + k, null);
         var lv = ts != null ? LS.get('kv.' + k, undefined) : undefined;
         if (lv !== undefined) {
@@ -697,7 +699,11 @@
           return Promise.resolve(lv);
         }
         return tx('readonly', function (st) { return st.get(k); })
-          .catch(function () { return LS.get('kv.' + k, mem[k]); });
+          .catch(function (e) {
+            var fb = LS.get('kv.' + k, mem[k]);
+            if (fb === undefined && strict) throw e;   // strict: un fallo al leer no se confunde con «no está»
+            return fb;
+          });
       },
       /** Rechaza sólo si no se pudo guardar ni en IndexedDB ni en localStorage. */
       set: function (k, v) {
@@ -879,6 +885,11 @@
     clearTimeout(toastT);
     // ok / info: 4 s (6 s si es largo); advertencias, errores y con acción: 6 s
     toastT = setTimeout(hideToast, o.ms || (o.action || o.kind === 'err' || o.kind === 'warn' ? 6000 : o.msg.length > 40 ? 6000 : 4000));
+  }
+  /** El usuario empieza algo nuevo (probar conexión, reintentar, enviar): los errores viejos se van. */
+  function clearOldErrors() {
+    toastQ = toastQ.filter(function (x) { return x.kind !== 'err' && x.kind !== 'warn'; });
+    if (toastCur && (toastCur.kind === 'err' || toastCur.kind === 'warn') && !toastCur.action) hideToast();
   }
   function hideToast() {
     var el = document.getElementById('toast');
@@ -1122,6 +1133,19 @@
         .map(function (x) { return x.s === sheet && x.k === pk ? { s: x.s, k: hk, t: x.t } : x; }));
     }
   }
+  /*
+   * Altas confirmadas: las claves 'p' + id pasan a 'h' + fila (lo abierto, el filtro, el plano, la retención…)
+   * y, si se estaba viendo el alta, la ruta pasa al registro real sin volver a dibujar desde arriba
+   * (nunca nav() ni scrollTo(0, 0)). Se llama apenas el PIE confirma el alta y al terminar cada envío.
+   */
+  function adoptResolved() {
+    migrateResolved();
+    var m = /^\/c\/([^/]+)\/r\/p(.+)$/.exec(S.route);
+    if (m && S.resolved[m[2]] && !pendingCreate(m[2])) {
+      S.route = '/c/' + m[1] + '/r/h' + S.resolved[m[2]].h;
+      if (!IN_GAS) { try { history.replaceState(null, '', '#' + S.route); } catch (e) { /* iframe */ } }
+    }
+  }
   function migrateResolved() {
     Object.keys(S.resolved).forEach(function (id) {
       var r = S.resolved[id];
@@ -1143,7 +1167,9 @@
     var target = null;
     if (reg.pending) {
       var op = pendingCreate(reg.opId);
-      if (op && op.status !== 'sending') target = op;
+      // un alta que ya salió (aunque su respuesta se haya perdido) no se modifica: el PIE la contestaría
+      // como repetida sin leer lo agregado; los cambios van aparte, referidos al alta
+      if (op && op.status !== 'sending' && !op.sent) target = op;
       else target = openUpdate({ ref: reg.opId, sheet: reg.sheet });
     } else {
       target = openUpdate({ h: reg.h, sheet: reg.sheet, sig: reg.sig, elemento: reg.elemento });
@@ -1153,15 +1179,40 @@
     cur.criterio = it.criterio;
     cur.tarea = it.tarea;
     target.items[off] = cur;
+    supersede(reg, target, function (o) {
+      var oi = o.items && o.items[off];
+      if (!oi) return;
+      Object.keys(patch).forEach(function (k) { delete oi[k]; });
+      if (Object.keys(oi).every(function (k) { return k === 'criterio' || k === 'tarea'; })) delete o.items[off];
+    });
     applyPatch(it, patch);
     queueChanged();
+  }
+  /**
+   * El cambio más nuevo de cada campo es el único que viaja: se saca ese campo de los otros envíos del
+   * mismo registro (en error o ya intentados) para que un «Reintentar» no pise la corrección en el PIE.
+   */
+  function supersede(reg, target, strip) {
+    S.queue = S.queue.filter(function (o) {
+      if (o === target || o.op !== 'update' || o.status === 'sending' || !opTargets(o, reg)) return true;
+      strip(o);
+      return Object.keys(o.items || {}).length > 0 || Object.keys(o.header || {}).length > 0;
+    });
+  }
+  function stripHeader(header) {
+    return function (o) {
+      if (!o.header) return;
+      Object.keys(header).forEach(function (k) { delete o.header[k]; });
+      if (!Object.keys(o.header).length) delete o.header;
+    };
   }
   function editHeader(reg, header) {
     var target;
     if (reg.pending) {
       var op = pendingCreate(reg.opId);
-      if (op && op.status !== 'sending') {
+      if (op && op.status !== 'sending' && !op.sent) {
         Object.keys(header).forEach(function (k) { op.header[k] = header[k]; });
+        supersede(reg, op, stripHeader(header));
         queueChanged();
         return;
       }
@@ -1171,11 +1222,12 @@
     }
     target.header = target.header || {};
     Object.keys(header).forEach(function (k) { target.header[k] = header[k]; });
+    supersede(reg, target, stripHeader(header));
     queueChanged();
   }
   function openUpdate(key) {
     var op = S.queue.filter(function (o) {
-      return o.op === 'update' && o.status === 'pending' && o.sheet === key.sheet &&
+      return o.op === 'update' && o.status === 'pending' && !o.sent && o.sheet === key.sheet &&
         (key.ref ? o.ref === key.ref : o.h === key.h);
     })[0];
     if (op) return op;
@@ -1482,12 +1534,12 @@
   /** Cambios de acción correctiva / plazo / observación de la FUM del control. */
   function editFum(reg, it, fields) {
     var f = itemFum(reg, it);
-    if (f.pend && f.pend.status === 'pending') {
+    if (f.pend && f.pend.status === 'pending' && !f.pend.sent) {
       Object.keys(fields).forEach(function (k) { f.pend[k] = fields[k]; });
     } else if (f.server || f.pend) {
       var key = f.server ? { num: f.server[0] } : { ref: f.pend.id };
       var op = S.queue.filter(function (o) {
-        return o.op === 'fum' && o.accion === 'editar' && o.status === 'pending' && (key.num ? o.num === key.num : o.ref === key.ref);
+        return o.op === 'fum' && o.accion === 'editar' && o.status === 'pending' && !o.sent && (key.num ? o.num === key.num : o.ref === key.ref);
       })[0];
       if (!op) {
         op = { id: uid(), op: 'fum', accion: 'editar', sheet: reg.sheet, status: 'pending', createdAt: Date.now(), by: S.settings.inspector };
@@ -1792,7 +1844,7 @@
   function stripOp(o) {
     var c = {};
     Object.keys(o).forEach(function (k) {
-      if (['snapshot', 'status', 'error', 'createdAt', 'slots', 'docDefault', 'img'].indexOf(k) < 0) c[k] = o[k];
+      if (['snapshot', 'status', 'error', 'createdAt', 'slots', 'docDefault', 'img', 'sent'].indexOf(k) < 0) c[k] = o[k];
     });
     return c;
   }
@@ -1819,8 +1871,10 @@
         S.queue.splice(S.queue.indexOf(op), 1);
       } else if (['retry', 'busy', 'network'].indexOf(r.code) >= 0) {
         op.status = 'pending';
+        delete op.sent;   // el PIE la rechazó sin aplicarla: se puede volver a completar
       } else {
         op.status = 'error';
+        delete op.sent;
         var known = opErrText(r, op);
         op.error = known || r.error || ERR.server;
         // un texto ya traducido se muestra tal cual; el del PIE va dentro de «No se pudo enviar: …»
@@ -1828,6 +1882,7 @@
       }
     });
     LS.set('resolved', S.resolved);
+    adoptResolved();   // ya: la retención de la FUM, lo abierto y la ruta siguen al registro real
     if (res.fums && S.catalog) S.catalog.fums = res.fums;
     mergeCategories(res.categorias);
     saveQueue();
@@ -1840,9 +1895,11 @@
     return list.reduce(function (p, o) {
       return p.then(function () {
         if (o.ref && pendingCreate(o.ref)) return; // espera a que exista el registro
-        return KV.get(o.img).then(function (data) {
+        return KV.get(o.img, true).then(function (data) {
+          data = data || S.thumbs[o.id];
           if (!data) { o.status = 'error'; o.error = ERR.photoLost; saveQueue(); return; }
           o.status = 'sending';
+          o.sent = true;
           renderTop();
           var payload = stripOp(o);
           payload.data = String(data).split(',')[1];
@@ -1851,6 +1908,9 @@
             saveQueue();
             throw e;
           });
+        }, function () {
+          // no se pudo leer (no es que falte): la foto queda en la cola y se reintenta
+          throw apiError('No se pudo leer una foto guardada en el celular. Cerrá y abrí la app para enviarla.', 'storage');
         });
       });
     }, Promise.resolve());
@@ -1877,7 +1937,8 @@
     var sending = S.queue.filter(function (o) { return o.status === 'pending' && o.op !== 'photo' && !isHeld(o); });
     var chain = Promise.resolve();
     if (sending.length) {
-      sending.forEach(function (o) { o.status = 'sending'; });
+      // sent: ya salió al menos una vez (se guarda con la cola y sobrevive a un cierre de la app)
+      sending.forEach(function (o) { o.status = 'sending'; o.sent = true; });
       saveQueue();
       chain = callApi({ action: 'batch', ops: sending.map(stripOp) }).then(handleResults, function (e) {
         sending.forEach(function (o) { if (o.status === 'sending') o.status = 'pending'; });
@@ -1904,15 +1965,7 @@
     }).then(function (ok) {
       S.syncing = false;
       clearTimeout(weakT);
-      // altas confirmadas: las claves 'p' + id pasan a 'h' + fila (lo abierto, el filtro, el plano…)
-      migrateResolved();
-      // si el usuario estaba viendo un alta que ya se creó, la ruta pasa al registro real sin
-      // volver a dibujar desde arriba (nunca nav() ni scrollTo(0, 0))
-      var m = /^\/c\/([^/]+)\/r\/p(.+)$/.exec(S.route);
-      if (m && S.resolved[m[2]] && !pendingCreate(m[2])) {
-        S.route = '/c/' + m[1] + '/r/h' + S.resolved[m[2]].h;
-        if (!IN_GAS) { try { history.replaceState(null, '', '#' + S.route); } catch (e) { /* iframe */ } }
-      }
+      adoptResolved();
       finishRender();   // no pisa lo que se está escribiendo ni corta un desplazamiento
       // lo que entró (o se liberó) mientras se enviaba sale enseguida, sin esperar otro aviso
       if (ok && S.queue.some(function (o) {
@@ -2684,6 +2737,13 @@
       }).join('') + '</div>';
   }
   function headerForm(reg) {
+    var old = document.getElementById('hdrForm'), dr = null;
+    if (old && old.dataset.key === reg.key) {
+      dr = {};
+      ['elemento', 'piso', 'sector', 'etapa'].forEach(function (k) { if (old[k]) dr[k] = old[k].value; });
+      dr.resp = [].map.call(old.querySelectorAll('select[name=resp]'), function (x) { return x.value; });
+      reg = Object.assign({}, reg, dr);
+    }
     var names = datos().responsables.map(function (x) { return x.nombre; }).concat(['N/A']);
     var opts = function (sel) {
       var n = names.slice();
@@ -2843,8 +2903,9 @@
 
   /** Hoja de «Borrar carga» (§7.9), según haya FUM nueva, FUM ya enviada o ninguna. */
   function clearQuestion(f) {
+    if (f.closing && f.closing.status !== 'sending' && !f.closing.sent) f = { pend: f.pend, server: f.server, closing: null, open: true };
     var num = fumOpenNum(f);
-    var discard = f.open && f.pend && f.pend.status === 'pending';   // misma condición que clearItem
+    var discard = f.open && f.pend && f.pend.status === 'pending' && !f.pend.sent;   // misma condición que clearItem
     var annul = f.open && !discard;
     return {
       title: '¿Borrar la carga de este control?',
@@ -2861,11 +2922,19 @@
   function clearItem(reg, off) {
     var it = itemOf(reg, off);
     if (!it) return;
-    var f = itemFum(reg, it);   // se vuelve a mirar al confirmar: pudo haber llegado un envío
+    voidUndo(reg, off);
     var u = { patches: [{ sheet: reg.sheet, key: reg.key, off: it.off, prev: prevOf(it) }], drop: [], restore: [] };
+    var f0 = itemFum(reg, it);
+    if (f0.closing && f0.closing.status !== 'sending' && !f0.closing.sent) {
+      // el cierre que no salió se cancela: la FUM se anula (o se descarta) como si siguiera abierta
+      u.restore.push(f0.closing);
+      dropOp(f0.closing);
+      delete S.hold[f0.closing.id];
+    }
+    var f = itemFum(reg, it);   // se vuelve a mirar al confirmar: pudo haber llegado un envío
     if (f.open) {
-      if (f.pend && f.pend.status === 'pending') {
-        u.restore = S.queue.filter(function (o) { return o === f.pend || o.ref === f.pend.id; });
+      if (f.pend && f.pend.status === 'pending' && !f.pend.sent) {
+        u.restore = u.restore.concat(S.queue.filter(function (o) { return o === f.pend || o.ref === f.pend.id; }));
         dropOp(f.pend);
       } else {
         var cf = closeFields(f, 'Anulada');
@@ -2887,8 +2956,16 @@
     S.undo = u;
     toast(msg, { kind: kind || 'ok', ms: 6000, action: { label: 'Deshacer', icon: 'undo', fn: function () { doUndo(u); } } });
   }
+  /** Una marca nueva sobre un control incluido en el último Deshacer lo anula (no se repone a ciegas). */
+  function voidUndo(reg, off) {
+    var u = S.undo;
+    if (u && u.patches.some(function (p) { return p.sheet === reg.sheet && p.off === off && liveKey(p.key) === liveKey(reg.key); })) {
+      S.undo = null;
+      if (toastCur && toastCur.action) hideToast();
+    }
+  }
   function doUndo(u) {
-    if (S.undo !== u) return;
+    if (S.undo !== u) { toast('Ya no se puede deshacer: el control cambió después.', { kind: 'info' }); return; }
     S.undo = null;
     // lo creado tiene que seguir sin enviar (la retención de 6 s lo asegura); si ya salió, no se toca nada
     var sent = u.drop.filter(function (o) { return S.queue.indexOf(o) < 0 || (o.status !== 'pending' && o.status !== 'error'); });
@@ -2898,7 +2975,11 @@
     u.restore.forEach(function (o) { o.status = 'pending'; if (S.queue.indexOf(o) < 0) S.queue.push(o); });
     u.patches.forEach(function (p) {
       var r = getReg(p.sheet, p.key);
-      if (r && r.items.some(function (x) { return x.off === p.off; })) editItem(r, p.off, p.prev);
+      if (!r || !r.items.some(function (x) { return x.off === p.off; })) return;
+      // un N° de FUM vacío no se repone: la FUM pudo numerarse mientras tanto
+      var prev = {};
+      Object.keys(p.prev).forEach(function (k) { if (k !== 'fum' || p.prev.fum) prev[k] = p.prev[k]; });
+      editItem(r, p.off, prev);
     });
     queueChanged();
     render({ keepScroll: true });
@@ -2920,7 +3001,7 @@
    */
   function fumAction(f, st) {
     if (st === 'rz' || !f.open) return 'none';
-    return f.pend && f.pend.status === 'pending' && isHeld(f.pend) ? 'drop' : 'ask';
+    return f.pend && f.pend.status === 'pending' && !f.pend.sent && isHeld(f.pend) ? 'drop' : 'ask';
   }
   function askFumClose(f, st) {
     var num = fumOpenNum(f), la = 'La ' + (num ? 'FUM N° ' + num : 'FUM');
@@ -2981,9 +3062,17 @@
       if (!pl) return null;
       var r = getReg(reg.sheet, reg.key), it2 = r && itemOf(r, off);
       if (!it2 || itemState(it2) === st) return null;
-      var f = itemFum(r, it2), fa = fumAction(f, st);
+      var f = itemFum(r, it2);
+      pl.cancelClose = null;
+      if (f.closing && f.closing.status !== 'sending' && !f.closing.sent) {
+        // el cierre (o la anulación) sigue en el celular: se cancela y la FUM cuenta como abierta
+        pl.cancelClose = f.closing;
+        f = { pend: f.pend, server: f.server, closing: null, open: true };
+      }
+      var fa = fumAction(f, st);
       pl.reg = r;
-      pl.openFum = st === 'rz' && !f.open && !it2.fum;
+      // un N° cargado a mano sin FUM conocida no abre otra; una FUM cerrada o anulada sí
+      pl.openFum = st === 'rz' && !f.open && !(it2.fum && !f.server && !f.pend);
       pl.dropFum = fa === 'drop' ? f.pend : null;
       pl.closeFum = null;
       if (fa !== 'ask') return pl;
@@ -3012,12 +3101,18 @@
   function applyMark(reg, off, st, plan) {
     var it = itemOf(reg, off);
     if (!it) return null;
+    voidUndo(reg, off);
     var me = S.settings.inspector;
-    var f = itemFum(reg, it);
     var u = { patches: [{ sheet: reg.sheet, key: reg.key, off: off, prev: prevOf(it) }], drop: [], restore: [] };
+    if (plan.cancelClose && S.queue.indexOf(plan.cancelClose) >= 0) {
+      u.restore.push(plan.cancelClose);
+      dropOp(plan.cancelClose);
+      delete S.hold[plan.cancelClose.id];
+    }
+    var f = itemFum(reg, it);
     if (plan.dropFum) {
       // RZ por error corregido con el detalle abierto: la FUM nueva (retenida) se descarta y no llega al FOG 01
-      u.restore = S.queue.filter(function (o) { return o === plan.dropFum || o.ref === plan.dropFum.id; });
+      u.restore = u.restore.concat(S.queue.filter(function (o) { return o === plan.dropFum || o.ref === plan.dropFum.id; }));
       dropOp(plan.dropFum);
     }
     if (plan.closeFum) {
@@ -3124,7 +3219,7 @@
       // dónde y cuándo, y a la derecha los botones (Descartar separado 16 px de Reintentar)
       '<div class="op-foot"><p class="meta">' + esc('Planilla ' + o.sheet + ' · ' + ago(o.createdAt)) + '</p>' +
       '<div class="op-btns">' + (o.status === 'error' ? '<button type="button" class="btn sm" data-act="retry" data-id="' + esc(o.id) + '">Reintentar</button>' : '') +
-      '<button type="button" class="btn sm ghost danger" data-act="discard" data-id="' + esc(o.id) + '">Descartar</button></div></div></div>';
+      (o.status === 'sending' || o.sent ? '' : '<button type="button" class="btn sm ghost danger" data-act="discard" data-id="' + esc(o.id) + '">Descartar</button>') + '</div></div></div>';
   }
   /** El formulario de conexión tiene algo escrito y sin guardar (un dibujo de fondo no lo pisa). */
   function cfgDirty() {
@@ -3208,6 +3303,24 @@
   /* ================================================================
    *  Eventos
    * ================================================================ */
+  /*
+   * Doble toque con guante (touch-action:manipulation lo convierte en dos clicks): si el primero cambió la
+   * pantalla (abrió una hoja, cerró un detalle), el segundo cae en el mismo lugar sobre otra cosa. Un click a
+   * menos de 350 ms y 24 px del anterior, sobre un elemento distinto, se descarta antes de que llegue a nadie.
+   */
+  var lastTap = null;
+  document.addEventListener('click', function (ev) {
+    if (!ev.detail) return;   // teclado o lector de pantalla: no es un toque
+    var now = Date.now();
+    if (lastTap && now - lastTap.t < 350 && Math.abs(ev.clientX - lastTap.x) < 24 && Math.abs(ev.clientY - lastTap.y) < 24 &&
+        ev.target !== lastTap.el && !(lastTap.el.isConnected && lastTap.el.contains(ev.target))) {
+      ev.stopPropagation();
+      ev.preventDefault();
+      return;
+    }
+    lastTap = { t: now, x: ev.clientX, y: ev.clientY, el: ev.target };
+  }, true);
+
   document.addEventListener('click', function (ev) {
     if (ev.target.id === 'modal') return closeModal();
     var el = ev.target.closest('[data-act]');
@@ -3218,6 +3331,7 @@
     if (a === 'go') return nav(el.dataset.to);
     if (a === 'net') return netTap();
     if (a === 'sync') {
+      clearOldErrors();
       // «Enviar ahora» sólo envía; «Enviar y actualizar ahora» y «Descargar el PIE» también actualizan
       var sfull = !!el.dataset.full;
       return sync(sfull ? { full: true, manual: true } : { manual: true }).then(function (ok) {
@@ -3250,7 +3364,7 @@
     if (a === 'discard') {
       var did = el.dataset.id;
       var dop = S.queue.filter(function (o) { return o.id === did; })[0];
-      if (!dop) return;
+      if (!dop || dop.status === 'sending' || dop.sent) return;
       return ask(discardQuestion(dop)).then(function (r) {
         if (r !== 'ok') return;
         // también lo que depende de lo descartado (p. ej. la FUM de un registro nuevo y su cierre)
@@ -3270,8 +3384,9 @@
       });
     }
     if (a === 'retry') {
+      clearOldErrors();
       var rids = String(el.dataset.id || '').split(',');
-      S.queue.forEach(function (o) { if (rids.indexOf(o.id) >= 0) { o.status = 'pending'; o.error = ''; } });
+      S.queue.forEach(function (o) { if (rids.indexOf(o.id) >= 0 && o.status === 'error') { o.status = 'pending'; o.error = ''; } });
       saveQueue(); return sync({ manual: true });
     }
     if (a === 'closemodal' || (a === 'modalbg')) return closeModal();
@@ -3363,6 +3478,7 @@
       S.ui.open[gk + ':' + el.dataset.off] = true;
       S.ui.focus = Number(el.dataset.off);
       S.ui.filter[gk] = 'all';   // el control de la FUM tiene que estar en la lista
+      Object.keys(S.ui.folded).forEach(function (k) { if (k.indexOf(gk + '|') === 0) delete S.ui.folded[k]; });
       return nav('/c/' + el.dataset.sheet + '/r/' + gk);
     }
     if (a === 'goto') {
@@ -3631,6 +3747,7 @@
       S.settings.token = f.token.value.trim();
       saveSettings();
       render({ keepScroll: true });   // saca el error anterior; el formulario ya coincide con lo guardado
+      clearOldErrors();
       toast('Probando conexión…');
       sync({ full: true, manual: true }).then(function (ok) { if (ok) { toast('Conectado al PIE', { kind: 'ok' }); render({ keepScroll: true }); } });
     }
@@ -3689,6 +3806,7 @@
         try { history.replaceState(null, '', location.pathname + location.hash); } catch (e) { /* noop */ }
       }
       if ('serviceWorker' in navigator && /^https:|^http:\/\/localhost/.test(location.href)) {
+        var hadCtrl = !!navigator.serviceWorker.controller;   // primera instalación: no hay «versión nueva»
         navigator.serviceWorker.register('sw.js').then(function (reg) {
           swReg = reg;
           if (!reg) return;
@@ -3697,7 +3815,7 @@
             var w = reg.installing;
             if (!w) return;
             w.addEventListener('statechange', function () {
-              if (w.state === 'activated' && navigator.serviceWorker.controller) {
+              if (w.state === 'activated' && hadCtrl) {
                 S.updateReady = true;
                 toast('Hay una versión nueva de la app', { kind: 'info', action: { label: 'Recargar', fn: function () { location.reload(); } } });
               }
