@@ -234,12 +234,32 @@
   .chip.pend { background: var(--pend-bg); color: var(--pend); }
   .chip.sync { background: var(--sync-bg); color: var(--sync); }
   .warn .chip { white-space: normal; }
-  .bar { height: 6px; border-radius: 3px; overflow: hidden; display: flex; background: var(--na-bg); margin-top: 8px; }
-  .bar span { display: block; height: 100%; }
-  .bar .ap { background: var(--ap-fill); } .bar .rz { background: var(--rz-fill); } .bar .na { background: var(--na-fill); }
+  /* chip que se toca (p. ej. «Falta N° de serie»): abre lo que falta completar */
+  button.chip { min-height: 44px; padding: 0 12px; border: 1.5px solid currentColor; }
+  /* etiqueta rectangular = identificador (revisión del plano, planilla, FUM); pastilla = estado */
+  .tag {
+    display: inline-flex; align-items: center; justify-content: center; flex: none; padding: 2px 6px; border-radius: var(--r-sm);
+    font: 700 14px/1.3 var(--mono); border: 1.5px solid currentColor; color: var(--brand);
+  }
+  :root[data-theme="dark"] .tag { color: var(--sync); }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .tag { color: var(--sync); } }
+  .tag.solid { min-width: 36px; min-height: 28px; border: 0; background: var(--tag); color: var(--on-tag); }
+  .tag.fum { border: 0; background: var(--rz-fill); color: var(--on-state); font-family: var(--font); }
+  .tag.fum.new { background: var(--sync-bg); color: var(--sync); }
+  .avatar { width: 40px; height: 40px; flex: none; border-radius: 50%; display: grid; place-items: center; background: var(--na-bg); color: var(--ink); font-size: 14px; font-weight: 700; }
+  /* barra de avance (§4.5): RZ, AP y N/A rayado; lo pendiente queda como hueco */
+  .bar { display: flex; gap: 2px; height: 8px; border-radius: 4px; overflow: hidden; background: var(--surface); box-shadow: inset 0 0 0 1px var(--border-strong); }
+  .bar i { display: block; height: 100%; flex: none; }
+  .bar .rz { background: var(--rz-fill); }
+  .bar .ap { background: var(--ap-fill); }
+  .bar .na { background: repeating-linear-gradient(135deg, var(--na-fill) 0 3px, transparent 3px 6px); box-shadow: inset 0 0 0 1px var(--na-fill); }
+  .bar.mini { width: 48px; height: 4px; gap: 1px; box-shadow: none; background: var(--line); }
+  .bar-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+  .bar-row .bar { flex: 1; }
+  .bar-row .n { font-size: 14px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; }
   .seg { display: flex; background: var(--na-bg); border-radius: 12px; padding: 4px; gap: 4px; margin-bottom: 12px; }
   .seg button { flex: 1; min-height: 48px; border: 0; background: transparent; border-radius: var(--r-md); font-weight: 600; color: var(--ink); }
-  .seg button.on { background: var(--primary); color: var(--on-primary); }
+  .seg button.on, .seg button[aria-selected=true], .seg button[aria-pressed=true] { background: var(--primary); color: var(--on-primary); }
   .note {
     border-radius: var(--r-md); padding: 12px 14px; margin: 12px 0; font-size: 14px; line-height: 1.4; color: var(--ink);
     background: var(--pend-bg); border-left: 4px solid var(--accent-edge);
@@ -247,6 +267,13 @@
   .note b { display: block; font-size: 16px; }
   .note.info { background: var(--sync-bg); border-left-color: var(--sync); }
   .note.err { background: var(--rz-bg); border-left-color: var(--rz); }
+  /* nota con ícono a la izquierda y el texto en un bloque aparte (en el resto de las notas llega en §4.14) */
+  .note.ic-l { display: flex; gap: 10px; align-items: flex-start; }
+  .note.ic-l > .ic { margin-top: 1px; }
+  .note.err.ic-l > .ic { color: var(--rz); }
+  .note.ic-l > div { flex: 1; min-width: 0; }
+  .note p { margin: 2px 0 0; }
+  .note .btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
   .empty { text-align: center; padding: 32px 16px; color: var(--muted); }
   .empty p { margin: 0 0 12px; font-size: 16px; }
   details.hid > summary { list-style: none; }
@@ -260,58 +287,124 @@
   .flex { display: flex; gap: 8px; align-items: center; }
   .flex .grow { flex: 1; }
 
-  /* ---------- Registro (se rehace en §4.5-4.9) ---------- */
-  .stage { margin-top: 14px; }
-  .stage-h { display: flex; align-items: center; gap: 8px; margin: 0 4px 8px; }
-  .stage-h .fold { border: 0; background: transparent; display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0; color: inherit; }
-  .stage-h b { font-size: 13px; letter-spacing: .06em; }
-  .stage-h .sp { flex: 1; }
+  /* ---------- Registro: resumen y plano (§5.6) ---------- */
+  .sum { padding: 12px var(--gutter); }
+  .sum h1.sum-el { margin: 0 0 6px; font-size: 20px; line-height: 1.25; font-weight: 700; overflow-wrap: anywhere; }
+  .sum-row { display: flex; align-items: flex-start; gap: 4px; }
+  .sum-row .grow { flex: 1; min-width: 0; }
+  .sum-meta, .sum-foot { margin: 0; font-size: 14px; line-height: 1.4; color: var(--muted); }
+  .sum-meta { color: var(--ink); font-weight: 600; overflow-wrap: anywhere; }
+  .sum-row .icon-btn { margin: -8px -8px 0 0; }
+  .docrow {
+    display: flex; align-items: center; gap: 8px; width: 100%; min-height: 48px; margin: 10px 0 0; padding: 8px 0 0; border: 0; border-top: 1px solid var(--line);
+    background: none; color: var(--ink); text-align: left;
+  }
+  .docrow > .ic { color: var(--muted); }
+  .docrow-codes { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+  /* código y chip en el mismo renglón de texto: si el código corta, el chip sigue a continuación */
+  .docrow .dr { display: block; }
+  .docrow .code { font: 600 14px/1.35 var(--mono); overflow-wrap: anywhere; }
+  .docrow .dr .chip { vertical-align: 1px; margin-left: 2px; padding-top: 1px; padding-bottom: 1px; }
+  .docrow .code.missing { font-family: var(--font); color: var(--pend); }
+  .sum .bar { margin-top: 10px; }
+  .btns { display: flex; flex-wrap: wrap; gap: 8px; }
+  .btns .btn { flex: 1 1 auto; }
+
+  /* ---------- Filtros (§4.8): 5 celdas iguales, sin desplazamiento ---------- */
+  .filters { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; margin: 12px 0 8px; }
+  .filters button {
+    min-height: 56px; padding: 4px 2px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    border: 1.5px solid var(--border-strong); border-radius: var(--r-md); background: var(--surface); min-width: 0;
+  }
+  .filters b { font-size: 20px; line-height: 1.1; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .filters span { font-size: 14px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+  .f-all b { color: var(--ink); } .f-pend b { color: var(--pend); } .f-ap b { color: var(--ap); } .f-rz b { color: var(--rz); } .f-na b { color: var(--na); }
+  .filters .zero b { color: var(--muted); }
+  .filters .on b, .filters .on span { color: inherit; }
+  .f-all.on { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+  .f-pend.on { background: var(--accent); border-color: var(--accent-edge); color: var(--on-accent); }
+  .f-ap.on { background: var(--ap-fill); border-color: var(--ap-fill); color: var(--on-state); }
+  .f-rz.on { background: var(--rz-fill); border-color: var(--rz-fill); color: var(--on-state); }
+  .f-na.on { background: var(--na-fill); border-color: var(--na-fill); color: var(--on-state); }
+
+  /* ---------- Banda de etapa, tarea y aprobación masiva (§4.9) ---------- */
+  .stage { margin-top: 8px; }
+  .stage-h {
+    position: sticky; top: var(--hdr-h); z-index: 10; margin: 0 calc(-1 * var(--gutter)) 8px; padding: 0 var(--gutter);
+    background: var(--bg); border-bottom: 1px solid var(--line);
+  }
+  .stage-h.static { position: static; display: flex; align-items: center; gap: 8px; min-height: 48px; }
+  .stage-h.static .st-cnt { color: var(--muted); }
+  .stage-h .fold { width: 100%; min-height: 48px; display: flex; align-items: center; gap: 8px; border: 0; background: transparent; color: var(--ink); padding: 0; }
   .fold .chev { transition: transform .15s; }
   .fold[aria-expanded=false] .chev { transform: rotate(-90deg); }
+  .st-name { font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+  .st-cnt { font-size: 14px; font-weight: 600; color: var(--pend); font-variant-numeric: tabular-nums; }
+  .stage.done .st-cnt { color: var(--ap); }
   .t-ap { color: var(--ap); } .t-rz { color: var(--rz); } .t-na { color: var(--na); } .t-sync { color: var(--sync); }
-  .task { margin-bottom: 10px; overflow: hidden; }
-  .task-h { font-weight: 600; font-size: 14px; padding: 10px 14px 6px; display: flex; gap: 8px; align-items: baseline; }
-  .task-h .mu { margin-left: auto; }
-  .item { border-top: 1px solid var(--line); padding: 10px 14px 12px; }
-  .item:first-of-type { border-top: 0; }
-  .item.ap { box-shadow: inset 4px 0 0 var(--ap-fill); }
-  .item.rz { box-shadow: inset 4px 0 0 var(--rz-fill); }
-  .item.na { box-shadow: inset 4px 0 0 var(--na-fill); }
-  .item .crit { font-size: 16px; line-height: 1.35; white-space: pre-line; }
-  .acts { display: flex; gap: 6px; margin-top: 8px; align-items: center; }
-  .acts .st {
-    flex: 1; min-width: 0; min-height: 48px; border: 1.5px solid var(--border-strong); background: var(--surface); border-radius: var(--r-md);
-    font-weight: 800; font-size: 15px;
+  .task { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--sh-1); margin-bottom: 12px; overflow: hidden; }
+  .task-h { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 12px 12px 8px 16px; background: var(--surface-2); border-bottom: 1px solid var(--line); }
+  .task-h h3 { margin: 0; flex: 1 1 60%; min-width: 0; font-size: 17px; font-weight: 700; line-height: 1.3; overflow-wrap: anywhere; }
+  .task-h .meta { margin: 0; }
+  .bulk { margin: 0 0 16px; }
+
+  /* ---------- Tarjeta de control (§4.6): todo lo que aparece al marcar va debajo de los botones ---------- */
+  .item { position: relative; padding: 12px 12px 14px 16px; border-top: 1px solid var(--line); scroll-margin-top: calc(var(--hdr-h) + 56px); }
+  .task-h + .item { border-top: 0; }
+  .item::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 0; }
+  /* la forma de la franja también distingue el estado: lisa (AP), ancha con tinte (RZ), punteada (N/A) */
+  .item.ap::before { width: 4px; background: var(--ap-fill); }
+  .item.rz { background: var(--rz-tint); }
+  .item.rz::before { width: 8px; background: var(--rz-fill); }
+  .item.na::before { width: 4px; background: repeating-linear-gradient(180deg, var(--na-fill) 0 4px, transparent 4px 8px); }
+  .item.kept .crit, .item.kept .meta { opacity: .6; }
+  .crit { margin: 0; font-size: 17px; line-height: 1.4; white-space: pre-line; overflow-wrap: anywhere; }
+  .acts { display: flex; gap: 12px; margin-top: 12px; }
+  .st {
+    flex: 1; min-width: 0; min-height: 56px; display: flex; align-items: center; justify-content: center; gap: 6px; border: 1.5px solid var(--border-strong);
+    border-radius: var(--r-md); background: var(--surface); font-size: 17px; font-weight: 700;
   }
-  .acts .st.ap { color: var(--ap); }
-  .acts .st.rz { color: var(--rz); }
-  .acts .st.na { color: var(--na); }
-  .acts .st.on { color: var(--on-state); }
-  .acts .st.ap.on { background: var(--ap-fill); border-color: var(--ap-fill); }
-  .acts .st.rz.on { background: var(--rz-fill); border-color: var(--rz-fill); }
-  .acts .st.na.on { background: var(--na-fill); border-color: var(--na-fill); }
-  .acts .more {
-    flex: none; width: 52px; min-height: 48px; display: grid; place-items: center; border: 1.5px solid var(--border-strong);
-    background: var(--surface); border-radius: var(--r-md); color: var(--muted);
+  .st .ic { width: 18px; height: 18px; }
+  .st.ap { color: var(--ap); }
+  .st.rz { color: var(--rz); }
+  .st.na { color: var(--na); }
+  .st.on { color: var(--on-state); }
+  .st.ap.on { background: var(--ap-fill); border-color: var(--ap-fill); }
+  .st.rz.on { background: var(--rz-fill); border-color: var(--rz-fill); }
+  .st.na.on { background: var(--na-fill); border-color: var(--na-fill); }
+  .acts.set .st:not(.on) { color: var(--muted); }
+  .more {
+    flex: none; width: 52px; min-height: 56px; margin-left: 4px; position: relative; display: grid; place-items: center; border: 1.5px solid var(--border-strong);
+    border-radius: var(--r-md); background: var(--surface); color: var(--muted);
   }
   .more .ic { transition: transform .15s; }
   .more[aria-expanded=true] { border-color: var(--focus); color: var(--ink); }
   .more[aria-expanded=true] .ic { transform: rotate(180deg); }
-  .filled { font-size: 14px; line-height: 1.4; color: var(--muted); margin-top: 6px; }
-  .det { margin-top: 10px; padding: 10px; border-radius: var(--r-md); background: var(--surface-2); border: 1px dashed var(--line); }
-  .det .grid2 label.f, .det label.f { margin-bottom: 8px; }
-  .kv { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 14px; }
-  .kv dt { color: var(--muted); }
-  .kv dd { margin: 0; overflow-wrap: anywhere; }
-  .req-crit { padding: 8px 14px; border-top: 1px solid var(--line); font-size: 14px; }
-  .req-crit:first-of-type { border-top: 0; }
-  .filters { display: flex; gap: 6px; overflow-x: auto; margin: 10px 0 2px; padding-bottom: 2px; }
-  .filters button {
-    border: 1.5px solid var(--border-strong); background: var(--surface); border-radius: var(--r-pill); padding: 6px 14px; min-height: 44px;
-    font-size: 14px; white-space: nowrap; font-variant-numeric: tabular-nums;
+  /* punto: el control tiene fotos u observación (se ven al abrir el detalle) */
+  .more.has::after { content: ""; position: absolute; top: 6px; right: 6px; width: 8px; height: 8px; border-radius: 50%; background: var(--sync); }
+  .filled {
+    margin: 10px 0 0; font-size: 14px; line-height: 1.4; color: var(--muted); overflow-wrap: anywhere;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
   }
-  .filters button.on { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
+  .warn .help { margin: 0; }
+  @media (max-width: 359px) {
+    .acts { gap: 8px; }
+    .more { width: 48px; margin-left: 2px; }
+    .st .ic { display: none; }
+    .item { padding: 12px 10px 14px 14px; }
+  }
+
+  /* ---------- Detalle del control y FUM (§4.7): secciones planas, de borde a borde de la tarjeta ---------- */
+  .det { margin: 12px -12px -14px -16px; padding: 16px 12px 16px 16px; background: var(--surface-2); border-top: 1px solid var(--line); }
+  @media (max-width: 359px) { .det { margin: 12px -10px -14px -14px; padding: 16px 10px 16px 14px; } }
+  .det .sec + .sec { margin-top: 16px; }
+  .det label.f > span.help { display: block; margin: 4px 0 0; font-weight: 400; }
+  .det .sec > .help { margin: -4px 0 12px; }
+  .req-crit { padding: 10px 16px; border-top: 1px solid var(--line); }
+  .req-crit .txt { margin: 0; white-space: pre-line; overflow-wrap: anywhere; }
+  .task-h + .req-crit { border-top: 0; }
   .thumbs { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 8px; }
+  .thumbs:empty { display: none; }
   .thumbs .t {
     position: relative; width: 64px; height: 64px; border-radius: var(--r-sm); overflow: hidden; background: var(--na-bg);
     display: grid; place-items: center; border: 0; padding: 0; color: var(--muted); text-decoration: none;
@@ -324,10 +417,17 @@
   .thumbs .t i .ic { width: 14px; height: 14px; }
   .file-btn { position: relative; overflow: hidden; }
   .file-btn input { position: absolute; inset: 0; opacity: 0; width: 100%; cursor: pointer; }
-  .fumbox { margin: 4px 0 10px; padding: 10px; border-radius: var(--r-md); background: var(--rz-bg); }
-  .fumbox b { color: var(--rz); }
-  .fumbox.ok { background: var(--ap-bg); }
-  .fumbox.ok b { color: var(--ap); }
+  /* FUM: sección con regla izquierda (roja abierta, verde cerrada), sin caja dentro de la caja */
+  .fumbox { border-left: 3px solid var(--rz); padding-left: 12px; }
+  .fumbox.ok { border-left-color: var(--ap); }
+  .fum-h { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .fum-h b { font-size: 17px; font-weight: 700; }
+  .fumbox > .meta { margin: -4px 0 12px; }
+  .fumbox label.f + .chips { margin: -4px 0 12px; }
+  .fumbox .help { margin: 0; }
+  .quick { display: flex; gap: 8px; flex-wrap: wrap; margin-top: -4px; }
+  .det-foot { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-top: 16px; }
+  .det-foot .primary { flex: 0 1 60%; min-height: 56px; font-size: 17px; font-weight: 700; margin-left: auto; }
   .fumrow .late { color: var(--rz); font-weight: 700; }
   .hl { outline: 3px solid var(--hl-ring); outline-offset: -3px; }
 
@@ -372,7 +472,7 @@
   /* con una hoja abierta el aviso va arriba, sobre el fondo oscurecido: nunca encima de los botones de la hoja */
   body.modal-open .toast { top: calc(env(safe-area-inset-top) + 8px); bottom: auto; }
 
-  /* ---------- Hojas: confirmación ask() (§4.12) y selector de planos (se rehace en §4.13) ---------- */
+  /* ---------- Hojas: confirmación ask() (§4.12) y selector de planos (§4.13) ---------- */
   .modal { position: fixed; inset: 0; z-index: 50; background: var(--scrim); display: flex; align-items: flex-end; justify-content: center; }
   body.modal-open { overflow: hidden; }
   .sheet .panel {
@@ -382,17 +482,31 @@
   .sheet h2 { margin: 0 0 8px; font-size: 20px; line-height: 1.25; font-weight: 700; outline: none; }
   .sheet p { margin: 0 0 16px; font-size: 16px; line-height: 1.45; white-space: pre-line; }
   .ask-btns { display: flex; flex-direction: column; gap: 8px; }
-  #modal .panel {
-    background: var(--surface); width: 100%; max-width: 760px; height: 88vh; border-radius: var(--r-lg) var(--r-lg) 0 0;
-    display: flex; flex-direction: column; padding-bottom: env(safe-area-inset-bottom); box-shadow: var(--sh-pop);
+  .picker {
+    width: 100%; max-width: 760px; height: 88vh; height: 88dvh; display: flex; flex-direction: column; background: var(--surface);
+    border-radius: var(--r-lg) var(--r-lg) 0 0; box-shadow: var(--sh-pop);
   }
-  #modal .ph { padding: 12px 14px 8px; border-bottom: 1px solid var(--line); }
-  #modal .ph .search { margin-top: 8px; }
-  #modal .pb { overflow-y: auto; flex: 1; -webkit-overflow-scrolling: touch; }
-  .doc { display: block; width: 100%; text-align: left; border: 0; border-top: 1px solid var(--line); background: transparent; padding: 10px 14px; color: var(--ink); }
+  .picker .ph { padding: 12px 16px 8px; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; }
+  .ph-row { display: flex; align-items: flex-start; gap: 8px; }
+  .ph-row .grow { flex: 1; min-width: 0; padding-top: 6px; }
+  .picker h2 { margin: 0; font-size: 20px; line-height: 1.25; font-weight: 700; }
+  .ph-row .icon-btn { margin: 0 -8px 0 0; }
+  .picker .seg { margin: 0; }
+  .picker .pb { flex: 1; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+  .picker .pf { padding: 8px 16px max(8px, env(safe-area-inset-bottom)); border-top: 1px solid var(--line); }
+  .search-box { position: relative; display: block; }
+  .search-box .ic { position: absolute; left: 14px; top: 14px; color: var(--muted); pointer-events: none; }
+  .search-box .search { padding-left: 44px; }
+  .doc { display: block; width: 100%; text-align: left; border: 0; border-top: 1px solid var(--line); background: transparent; padding: 12px 16px; min-height: 56px; color: var(--ink); }
   .doc:first-child { border-top: 0; }
   .doc:active { background: var(--surface-2); }
-  .doc .code { font: 700 14px/1.35 var(--mono); overflow-wrap: anywhere; }
+  .doc-l1 { display: flex; align-items: flex-start; gap: 8px; }
+  .doc-l1 > .ic { margin-top: 1px; color: var(--muted); }
+  .doc .code { flex: 1; min-width: 0; font: 700 15px/1.35 var(--mono); overflow-wrap: anywhere; }
+  .doc .free { font-family: var(--font); font-size: 16px; }
+  .doc-l2 { display: block; font-size: 14px; line-height: 1.4; margin-top: 2px; }
+  .doc .meta { display: block; }
+  .pb .empty p, .pb .note { margin: 0; }
 
   @media (prefers-reduced-motion: reduce) {
     .net.busy .ic { animation: none; }
@@ -1064,59 +1178,96 @@
     return code + '-R' + (/^\d$/.test(rev) ? '0' + rev : rev);
   }
   function isNo(v) { return /^no$/i.test(String(v || '').trim()); }
+  /*
+   * Selector de plano del FOD 02 (§4.13). o = {title, sub, modes: muestra «Reemplazar / Agregar otro plano»,
+   * onPick(valor, modo)}. Mientras está abierto lo de atrás no responde (inert); Escape o el fondo lo cierran
+   * y el foco vuelve al botón que lo abrió.
+   */
   var picker = null;
-  function openDocPicker(onPick) {
-    picker = { onPick: onPick, q: '', cat: '' };
+  function openDocPicker(o) {
+    closeModal();
+    picker = { onPick: o.onPick, q: '', cat: '', mode: 'replace', prev: document.activeElement };
     var m = document.createElement('div');
     m.className = 'modal';
     m.id = 'modal';
     var d = fodDocs();
     var cats = {};
     d.forEach(function (x) { if (x[3]) cats[x[3]] = (cats[x[3]] || 0) + 1; });
-    var top = Object.keys(cats).sort(function (a, b) { return cats[b] - cats[a]; }).slice(0, 12);
-    m.innerHTML = '<div class="panel" role="dialog" aria-label="Documentos FOD 02"><div class="ph">' +
-      '<div class="flex"><b class="grow">Documentos FOD 02 · última revisión</b><button class="icon-btn" data-act="closemodal" aria-label="Cerrar">' + ic('x', 'ic-24') + '</button></div>' +
-      '<input class="search" type="search" data-input="docq" placeholder="Buscar código, detalle, piso…">' +
-      '<div class="filters"><button class="on" data-act="doccat" data-cat="">Todas</button>' +
-      top.map(function (c) { return '<button data-act="doccat" data-cat="' + esc(c) + '">' + esc(c) + '</button>'; }).join('') + '</div></div>' +
-      '<div class="pb" id="docList"></div></div>';
+    var catList = Object.keys(cats).sort(function (a, b) { return a.localeCompare(b, 'es'); });
+    var tab = function (mode, label) {
+      return '<button type="button" role="tab" aria-selected="' + (mode === 'replace') + '" data-act="pkmode" data-mode="' + mode + '">' + label + '</button>';
+    };
+    m.innerHTML = '<div class="panel picker" role="dialog" aria-modal="true" aria-labelledby="pk-t"><div class="ph">' +
+      '<div class="ph-row"><div class="grow"><h2 id="pk-t">' + esc(o.title) + '</h2><p class="meta">' + esc(o.sub) + '</p></div>' +
+      '<button class="icon-btn" type="button" data-act="closemodal" aria-label="Cerrar">' + ic('x', 'ic-24') + '</button></div>' +
+      (o.modes ? '<div class="seg" role="tablist" aria-label="Qué hacer con el plano que elijas">' + tab('replace', 'Reemplazar') + tab('add', 'Agregar otro plano') + '</div>' : '') +
+      '<label class="search-box">' + ic('search') + '<input class="search" type="search" data-input="docq" aria-label="Buscar plano del FOD 02" placeholder="Código, detalle o piso"' +
+      ' autocapitalize="characters" autocorrect="off" spellcheck="false" autocomplete="off" enterkeyhint="search"></label>' +
+      (catList.length ? '<select class="in" data-input="doccat" aria-label="Rubro"><option value="">Todos los rubros (' + d.length + ')</option>' +
+        catList.map(function (c) { return '<option value="' + esc(c) + '">' + esc(c) + ' (' + cats[c] + ')</option>'; }).join('') + '</select>' : '') +
+      '</div><div class="pb" id="docList"></div>' +
+      '<div class="pf"><button class="btn lg block" type="button" data-act="closemodal">Cancelar</button></div></div>';
     document.body.appendChild(m);
+    setModalOpen(true);
+    document.addEventListener('keydown', pickerKey, true);
+    fitPicker();
     renderDocList();
-    var q = m.querySelector('[data-input=docq]');
-    setTimeout(function () { q.focus(); }, 50);
+    // en el celular no se enfoca solo: el teclado taparía la lista antes de elegir el rubro
+    var coarse = false;
+    try { coarse = matchMedia('(pointer: coarse)').matches; } catch (e) { /* noop */ }
+    if (!coarse) { try { m.querySelector('[data-input=docq]').focus({ preventScroll: true }); } catch (e) { /* noop */ } }
+  }
+  function pickerKey(e) {
+    if (e.key === 'Escape' && picker) { e.preventDefault(); closeModal(); }
+  }
+  /** Con el teclado abierto, el selector se achica a lo que queda visible. */
+  function fitPicker() {
+    var p = document.querySelector('#modal .picker');
+    if (p) p.style.maxHeight = vv ? Math.round(vv.height - 12) + 'px' : '';
   }
   function closeModal() {
     var m = document.getElementById('modal');
-    if (m) m.remove();
+    var prev = picker && picker.prev;
     picker = null;
+    document.removeEventListener('keydown', pickerKey, true);
+    if (!m) return;
+    m.remove();
+    setModalOpen(false);
+    if (prev && prev.focus && document.contains(prev)) { try { prev.focus({ preventScroll: true }); } catch (e) { /* noop */ } }
   }
   function renderDocList() {
     var box = document.getElementById('docList');
     if (!box || !picker) return;
     var d = fodDocs();
     var aviso = S.catalog && S.catalog.fod && S.catalog.fod.aviso;
-    var terms = norm(picker.q).split(/\s+/).filter(Boolean);
+    var q = picker.q.trim();
+    var terms = norm(q).split(/\s+/).filter(Boolean);
     var res = d.filter(function (x) {
       if (picker.cat && x[3] !== picker.cat) return false;
       if (!terms.length) return true;
-      var hay = norm([x[0], x[2], x[3], x[4], 'rev ' + x[1]].join(' '));
+      var hay = norm([x[0], x[2], x[3], x[4], 'rev ' + x[1], revLabel(x[1])].join(' '));
       return terms.every(function (t) { return hay.indexOf(t) >= 0; });
     });
     var html = '';
     if (aviso && !d.length) html += '<div class="pad"><div class="note">' + esc(aviso) + '</div></div>';
-    if (picker.q.trim()) {
-      html += '<button class="doc" data-act="pickfree"><span class="code">Usar “' + esc(picker.q.trim()) + '”</span><div class="meta">Texto libre (no figura en el FOD 02)</div></button>';
+    if (q) {
+      // texto libre: siempre primero, para un plano que todavía no está en el FOD 02
+      html += '<button class="doc" type="button" data-act="pickfree"><span class="doc-l1">' + ic('pencil') + '<span class="code free">Usar «' + esc(q) + '»</span></span>' +
+        '<span class="meta">No está en el FOD 02: se usa tal cual</span></button>';
     }
     html += res.slice(0, 120).map(function (x) {
       var i = d.indexOf(x);
-      var est = x[6] ? '<span class="chip ' + (/^no/i.test(x[6]) ? 'rz' : 'ap') + '">' + esc(x[6]) + '</span>' : '';
-      return '<button class="doc" data-act="pickdoc" data-i="' + i + '"><div class="flex"><span class="code grow">' + esc(x[0]) + '</span><span class="chip">Rev ' + esc(x[1] === '' ? '—' : x[1]) + '</span></div>' +
-        (x[2] ? '<div class="meta">' + esc(x[2]) + '</div>' : '') +
-        '<div class="chips">' + (x[4] ? '<span class="chip">' + esc(x[4]) + '</span>' : '') + (x[3] ? '<span class="chip">' + esc(x[3]) + '</span>' : '') +
-        (x[5] ? '<span class="chip">' + esc(fmtDate(x[5])) + '</span>' : '') + est + (isNo(x[7]) ? '<span class="chip rz">No vigente</span>' : '') + '</div></button>';
+      var meta = [x[4], x[3], fmtDate(x[5])].filter(Boolean).join(' · ');
+      var chips = (x[6] ? '<span class="chip ' + (/^no/i.test(x[6]) ? 'rz' : 'ap') + '">' + esc(x[6]) + '</span>' : '') +
+        (isNo(x[7]) ? '<span class="chip rz">No vigente</span>' : '');
+      return '<button class="doc" type="button" data-act="pickdoc" data-i="' + i + '"><span class="doc-l1"><span class="code">' + esc(x[0]) + '</span>' +
+        '<span class="tag">' + esc(revLabel(x[1])) + '</span></span>' +
+        (x[2] ? '<span class="doc-l2">' + esc(x[2]) + '</span>' : '') +
+        (meta ? '<span class="meta">' + esc(meta) + '</span>' : '') +
+        (chips ? '<span class="chips">' + chips + '</span>' : '') + '</button>';
     }).join('');
-    if (!res.length && d.length) html += '<div class="empty">Sin documentos que coincidan.</div>';
-    if (res.length > 120) html += '<div class="empty">Mostrando 120 de ' + res.length + '. Escribí más para filtrar.</div>';
+    if (!res.length && d.length) html += '<div class="empty"><p>Ningún plano del FOD 02 coincide' + (q ? ' con «' + esc(q) + '»' : '') + '.</p></div>';
+    if (res.length > 120) html += '<div class="empty"><p>Se ven 120 de ' + res.length + '. Escribí más para filtrar.</p></div>';
     box.innerHTML = html;
   }
 
@@ -1202,12 +1353,13 @@
       return r && r.used != null && revCmp(r.used, r.doc[1]) < 0 ? docRef(r.doc) : part.trim();
     }).join(' // ');
   }
+  /** Aviso del plano en un control ya marcado (va dentro de .warn, debajo de los botones). */
   function docWarnHtml(reg, it) {
     var d = docStatus(it);
     if (!d) return '';
-    if (d.level === 'bad') return '<div class="warn"><span class="chip rz">' + ic('alert', 'ic-16') + 'Controlado con R' + esc(d.used) + ' cuando ya regía la R' + esc(d.latest) + '</span></div>';
+    if (d.level === 'bad') return '<span class="chip rz">' + ic('alert', 'ic-16') + 'Marcado con ' + esc(revLabel(d.used)) + '; ya regía ' + esc(revLabel(d.latest)) + '</span>';
     if (d.level === 'old') return '';   // lo resuelve el plano del registro (banner de arriba)
-    return '<div class="warn help">Hay una revisión posterior al control: R' + esc(d.latest) + '</div>';
+    return '<p class="help">Después de este control salió la ' + esc(revLabel(d.latest)) + '</p>';
   }
   function regDocAlerts(items) {
     var n = { bad: 0, old: 0 };
@@ -1287,31 +1439,53 @@
     }
     queueChanged();
   }
+  var FUM_ACC = [['Reparar', 'Reparar'], ['Recambio', 'Recambio'], ['Recalificar', 'Recalificar'], ['Dejar como esta', 'Dejar como está']];
+  /** Datos de la FUM del control tal como quedan con lo que todavía está en la cola (alta o «editar»). */
+  function fumValues(f) {
+    var s = f.server, num = s ? s[0] : null;
+    var v = { accionCorrectiva: s ? s[7] || '' : '', accionInmediata: s ? s[15] || '' : 'Reparar', plazo: s ? s[6] || '' : '' };
+    var take = function (o) { ['accionCorrectiva', 'accionInmediata', 'plazo'].forEach(function (k) { if (o[k] != null) v[k] = o[k]; }); };
+    if (f.pend) take(f.pend);
+    S.queue.forEach(function (o) {
+      if (o.op === 'fum' && o.accion === 'editar' && ((num && o.num === num) || (f.pend && o.ref === f.pend.id))) take(o);
+    });
+    return v;
+  }
+  /*
+   * FUM del control (§4.7): sección con regla izquierda, encabezado con el número (o «FUM nueva») y
+   * un chip con su situación. Mientras está abierta se cargan la acción inmediata y la reinspección.
+   */
   function fumBox(reg, it) {
     var f = itemFum(reg, it);
     if (!f.pend && !f.server) return '';
     var s = f.server;
     var num = s ? s[0] : null;
-    var estado = f.closing ? (f.closing.resultado === 'Anulada' ? 'Anulándose (sin enviar)' : 'Cerrándose (sin enviar)') : (s ? s[5] : 'Abierta');
-    var src = f.pend || {};
-    var accion = src.accionCorrectiva != null ? src.accionCorrectiva : (s ? s[7] : '');
-    var inm = src.accionInmediata != null ? src.accionInmediata : (s ? s[15] || '' : 'Reparar');
-    var plazo = src.plazo != null ? src.plazo : (s ? s[6] : '');
-    var ok = !f.open;
-    var h = '<div class="fumbox' + (ok ? ' ok' : '') + '"><div class="flex"><b class="grow">' +
-      (num ? 'FUM N° ' + num : 'FUM (se numera al sincronizar)') + '</b><span class="chip">' + esc(estado) + '</span></div>' +
-      (s && s[4] ? '<div class="meta">Abierta el ' + esc(fmtDate(s[4])) + (s[11] ? ' · cerrada el ' + esc(fmtDate(s[11])) : '') + (s[12] ? ' · ' + esc(s[12]) : '') + '</div>' : '');
+    var chip = f.closing ? ['pend', f.closing.resultado === 'Anulada' ? 'Se anula al enviar' : 'Se cierra al enviar']
+      : f.open ? (num ? ['rz', 'Abierta'] : ['sync', 'N° al enviar'])
+      : s && s[5] === 'Cerrada' ? ['ap', 'Cerrada']
+      : ['', s ? s[5] || 'Cerrada' : 'Cerrada'];
+    var v = fumValues(f);
+    var h = '<section class="sec fumbox' + (f.open ? '' : ' ok') + '"><div class="fum-h"><b>' + (num ? 'FUM N° ' + esc(num) : 'FUM nueva') + '</b>' +
+      '<span class="chip ' + chip[0] + '">' + esc(chip[1]) + '</span></div>' +
+      (s && s[4] ? '<p class="meta">Abierta el ' + esc(fmtDate(s[4])) + (s[11] ? ' · cerrada el ' + esc(fmtDate(s[11])) : '') + (s[12] ? ' · ' + esc(s[12]) : '') + '</p>' : '');
     if (f.open) {
-      h += '<label class="f" style="margin-top:8px"><span>Acción inmediata</span><select class="in" data-fum="accionInmediata">' +
-        (inm ? '' : '<option value="" selected>— elegir —</option>') +
-        ['Reparar', 'Recambio', 'Recalificar', 'Dejar como esta'].map(function (x) {
-          return '<option' + (x === inm ? ' selected' : '') + '>' + esc(x) + '</option>';
+      var inm = v.accionInmediata;
+      var known = FUM_ACC.some(function (x) { return x[0] === inm; });
+      var plazo = /^\d{4}-\d{2}-\d{2}$/.test(v.plazo) ? v.plazo : '';
+      h += '<label class="f"><span>Acción inmediata</span><select class="in" data-fum="accionInmediata">' +
+        (inm ? '' : '<option value="" selected>Elegí una</option>') +
+        // un valor que no está en la lista (cargado en el FOG 01) se conserva tal cual
+        (inm && !known ? '<option value="' + esc(inm) + '" selected>' + esc(inm) + '</option>' : '') +
+        FUM_ACC.map(function (x) {
+          return '<option value="' + esc(x[0]) + '"' + (x[0] === inm ? ' selected' : '') + '>' + esc(x[1]) + '</option>';
         }).join('') + '</select></label>' +
-        '<label class="f"><span>Descripción de la acción</span><input class="in" data-fum="accionCorrectiva" value="' + esc(accion) + '" placeholder="Qué se hace para corregirlo"></label>' +
-        '<label class="f"><span>Reinspección prevista</span><input class="in" type="date" data-fum="plazo" value="' + esc(/^\d{4}-\d{2}-\d{2}$/.test(plazo) ? plazo : '') + '"></label>' +
-        '<p class="help">Al marcar AP en la reinspección se cierra la FUM.</p>';
+        '<label class="f"><span>Detalle de la acción inmediata</span><input class="in" data-fum="accionCorrectiva" value="' + esc(v.accionCorrectiva) + '"' +
+        ' placeholder="Ej.: rehacer recubrimiento" autocapitalize="sentences" enterkeyhint="done"></label>' +
+        '<label class="f"><span>Fecha de reinspección</span><input class="in" type="date" data-fum="plazo" value="' + esc(plazo) + '"></label>' +
+        '<div class="chips"' + (plazo ? ' hidden' : '') + ' data-sinfecha="1"><span class="chip pend">Sin fecha de reinspección</span></div>' +
+        '<p class="help">Se cierra sola cuando marques AP en la reinspección.</p>';
     }
-    return h + '</div>';
+    return h + '</section>';
   }
   /** FUM abiertas (servidor + pendientes de enviar) para el seguimiento. */
   function openFums() {
@@ -1429,8 +1603,9 @@
     var server = (reg.fotos && reg.fotos[it.off]) || [];
     var local = (reg.localFotos && reg.localFotos[it.off]) || [];
     return server.map(function (f) {
+      // sin señal la miniatura de Drive no carga: queda el ícono
       return '<a class="t" href="' + esc(f[1]) + '" target="_blank" rel="noopener" aria-label="Ver foto en Drive">' + ic('image') +
-        '<img src="https://drive.google.com/thumbnail?id=' + encodeURIComponent(f[0]) + '&sz=w200" alt="" onerror="this.remove()"></a>';
+        (navigator.onLine || IN_GAS ? '<img src="https://drive.google.com/thumbnail?id=' + encodeURIComponent(f[0]) + '&sz=w200" alt="" onerror="this.remove()">' : '') + '</a>';
     }).concat(local.map(function (o) {
       return '<button class="t" data-act="rmphoto" data-id="' + esc(o.id) + '" aria-label="Foto sin enviar. Tocá para quitarla.">' +
         (S.thumbs[o.id] ? '<img src="' + S.thumbs[o.id] + '" alt="">' : ic('image')) +
@@ -1782,7 +1957,7 @@
    */
   var vv = window.visualViewport;
   function kbCheck() { document.body.classList.toggle('kb', !!vv && (window.innerHeight - vv.height * vv.scale) > 150); }
-  if (vv) vv.addEventListener('resize', kbCheck);
+  if (vv) vv.addEventListener('resize', function () { kbCheck(); fitPicker(); });
   var detIO = ('IntersectionObserver' in window) ? new IntersectionObserver(function (es) {
     es.forEach(function (e) { e.target._vis = e.isIntersecting; });
     document.body.classList.toggle('det-vis', [].some.call(view.querySelectorAll('.det'), function (d) { return d._vis; }));
@@ -1918,7 +2093,6 @@
     html += '<div class="list">' + shown.map(function (r) {
       var s = stats(r.items);
       var lb = regLabel(s);
-      var w = function (n) { return s.total ? (100 * n / s.total).toFixed(1) + '%' : '0'; };
       var where = [r.piso && 'Piso ' + r.piso, r.sector, r.etapa && 'Etapa ' + r.etapa].filter(Boolean).join(' · ');
       return '<button class="row" data-act="go" data-to="/c/' + esc(sheet) + '/r/' + r.key + '"><span class="grow">' +
         '<b>' + esc(r.elemento || 'Sin elemento') + '</b>' +
@@ -1928,10 +2102,22 @@
         (s.na ? '<span class="chip">' + s.na + ' N/A</span>' : '') +
         (r.pending ? '<span class="chip sync">Nuevo · sin enviar</span>' : (r.dirty ? '<span class="chip sync">Cambios sin enviar</span>' : '')) +
         (function () { var n = regDocAlerts(r.items); return n.bad || n.old ? '<span class="chip rz">' + ic('alert', 'ic-16') + 'Doc. superado</span>' : ''; })() +
-        '</span><span class="bar"><span class="ap" style="width:' + w(s.ap) + '"></span><span class="na" style="width:' + w(s.na) + '"></span><span class="rz" style="width:' + w(s.rz) + '"></span></span>' +
+        '</span><span class="bar-row">' + barHtml(s) + '<span class="n">' + (s.total - s.pend) + '/' + s.total + '</span></span>' +
         '</span>' + ic('chev-r', 'chev') + '</button>';
     }).join('') + '</div>';
     return html;
+  }
+  /** Barra de avance (§4.5): RZ, AP y N/A, en ese orden; lo pendiente queda como hueco. */
+  function barHtml(s, cls) {
+    var seg = s.total ? ['rz', 'ap', 'na'].filter(function (k) { return s[k]; }).map(function (k) {
+      return '<i class="' + k + '" style="width:' + (100 * s[k] / s.total).toFixed(1) + '%"></i>';
+    }).join('') : '';
+    return '<span class="bar' + (cls ? ' ' + cls : '') + '" aria-hidden="true">' + seg + '</span>';
+  }
+  /** Cabecera de tarea: el nombre tal cual viene del PIE y la muestra como texto. */
+  function taskHead(tk) {
+    return '<div class="task-h"><h3>' + esc(tk.name) + '</h3>' +
+      (tk.muestra !== '' && tk.muestra != null ? '<span class="meta">Muestra ' + esc(fmtMuestra(tk.muestra)) + '</span>' : '') + '</div>';
   }
   function groupItems(items) {
     var stages = [];
@@ -1952,12 +2138,14 @@
     if (!t) return '<div class="empty">La planilla no tiene un bloque modelo.</div>';
     var html = '<p class="help" style="margin:0 4px 6px">Controles del último registro (' + t.items.length + ' criterios). Método: IV = inspección visual · ID = inspección dimensional.</p>';
     groupItems(t.items).forEach(function (g) {
-      html += '<div class="stage"><div class="stage-h"><b>' + esc(g.name) + '</b><span class="chip">' + g.tasks.reduce(function (a, x) { return a + x.items.length; }, 0) + '</span></div>';
+      // misma banda que en el registro, pero fija en su lugar y sin plegar
+      html += '<div class="stage"><div class="stage-h static"><span class="st-name">' + esc(g.name) + '</span><span class="st-cnt">' +
+        g.tasks.reduce(function (a, x) { return a + x.items.length; }, 0) + '</span></div>';
       g.tasks.forEach(function (tk) {
-        html += '<div class="card task"><div class="task-h">' + esc(tk.name) + (tk.muestra !== '' ? '<span class="mu chip">Muestra ' + esc(fmtMuestra(tk.muestra)) + '</span>' : '') + '</div>' +
+        html += '<div class="task">' + taskHead(tk) +
           tk.items.map(function (it) {
-            return '<div class="req-crit"><div style="white-space:pre-line">' + esc(it.criterio) + '</div><div class="meta">' +
-              esc([it.metodo, it.instrumento && it.instrumento !== 'NA' ? it.instrumento : ''].filter(Boolean).join(' · ')) + '</div></div>';
+            return '<div class="req-crit"><p class="txt">' + esc(it.criterio) + '</p><p class="meta">' +
+              esc([it.metodo, it.instrumento && it.instrumento !== 'NA' ? it.instrumento : ''].filter(Boolean).join(' · ')) + '</p></div>';
           }).join('') + '</div>';
       });
       html += '</div>';
@@ -2086,48 +2274,12 @@
     renderTop(reg.elemento || 'Registro',
       [reg.piso, 'Planilla ' + cat.sheet, (s.total - s.pend) + '/' + s.total, s.rz ? s.rz + ' RZ' : ''].filter(Boolean).join(' · '));
     var filter = S.ui.filter[reg.key] || 'all';
-    var editing = S.ui.open['hdr:' + reg.key];
-    var html = storageNote() + '<div class="card pad" id="hdr">';
-    if (editing) {
-      html += headerForm(reg);
-    } else {
-      html += '<dl class="kv">' +
-        '<dt>Elemento</dt><dd>' + esc(reg.elemento || '—') + '</dd>' +
-        '<dt>Piso</dt><dd>' + esc(reg.piso || '—') + '</dd>' +
-        '<dt>Sector</dt><dd>' + esc(reg.sector || '—') + '</dd>' +
-        '<dt>Etapa</dt><dd>' + esc(reg.etapa || '—') + '</dd>' +
-        '<dt>Resp.</dt><dd>' + esc(reg.resp.filter(function (x) { return x && x !== 'N/A'; }).join(', ') || '—') + '</dd>' +
-        '</dl><div class="flex" style="margin-top:10px"><span class="grow meta">' +
-        (reg.pending ? 'Nuevo · se crea en la planilla al sincronizar' : 'Planilla ' + esc(sheet) + ' · fila ' + reg.h) + (reg.dirty && !reg.pending ? ' · cambios sin enviar' : '') +
-        '</span>' + (MODE === 'sidebar' && !reg.pending ? '<button class="btn" data-act="goto" data-sheet="' + esc(sheet) + '" data-row="' + reg.h + '">Ver fila</button>' : '') +
-        '<button class="btn" data-act="hdr" data-key="' + reg.key + '">Editar</button></div>';
-    }
-    html += '</div>';
     var rdoc = docDefault(reg);
-    html += '<div class="card pad" style="margin-top:12px"><label class="f" style="margin:0"><span>Plano del registro (FOD 02)</span>' +
-      '<span class="pick"><input class="in" data-regdoc="1" data-key="' + reg.key + '" value="' + esc(rdoc) + '" placeholder="Elegí el plano del FOD 02">' +
-      '<button type="button" class="btn" data-act="docpick" data-target="default" data-key="' + reg.key + '">FOD 02</button></span></label>' +
-      '<div class="flex" style="margin-top:6px"><span class="grow help">Se aplica a todos los controles pendientes. Los ya controlados conservan el plano con el que se hicieron.</span>' +
-      (rdoc ? '<button type="button" class="btn sm" data-act="docpick" data-target="defaultAdd" data-key="' + reg.key + '">' + ic('plus') + 'Otro plano</button>' : '') + '</div></div>';
-    var dd = docStatus({ documento: rdoc, estado: '', fecha: '' });
-    var na = regDocAlerts(reg.items);
-    if (na.bad || na.old || (dd && dd.level === 'old')) {
-      html += '<div class="note err" style="margin-top:12px"><b>Plano superado (FOD 02).</b> ' +
-        (dd && dd.level === 'old' ? 'El plano del registro está en R' + esc(dd.used) + ' y rige la R' + esc(dd.latest) + (dd.fecha ? ' (desde ' + esc(fmtDate(dd.fecha)) + ')' : '') + '. ' : '') +
-        (na.old ? na.old + ' control' + (na.old > 1 ? 'es pendientes usan' : ' pendiente usa') + ' una revisión superada. ' : '') +
-        (na.bad ? na.bad + ' control' + (na.bad > 1 ? 'es se controlaron' : ' se controló') + ' con una revisión que ya estaba reemplazada. ' : '') +
-        ((dd && dd.level === 'old') || na.old ? '<div class="flex" style="margin-top:8px"><button class="btn sm" data-act="docupdall" data-key="' + reg.key + '">Actualizar el plano a la revisión vigente</button></div>' : '') + '</div>';
-    }
-    var errs = S.queue.filter(function (o) { return o.status === 'error' && (o.op === 'create' ? o.id === reg.opId : opTargets(o, reg)); });
-    if (errs.length) {
-      html += '<div class="note err" style="margin-top:12px"><b>No se pudo guardar en la planilla:</b> ' + esc(errs[0].error || 'error') +
-        '<div class="flex" style="margin-top:8px">' + errs.map(function (o) { return '<button class="btn sm" data-act="retry" data-id="' + esc(o.id) + '">Reintentar</button>'; }).join('') +
-        '<button class="btn sm" data-act="go" data-to="/ajustes">Ver envíos</button></div></div>';
-    }
-    html += '<div class="filters">' +
-      [['all', 'Todos ' + s.total], ['pend', 'Pendientes ' + s.pend], ['ap', 'AP ' + s.ap], ['rz', 'RZ ' + s.rz], ['na', 'N/A ' + s.na]].map(function (f) {
-        return '<button class="' + (filter === f[0] ? 'on' : '') + '" data-act="filter" data-key="' + reg.key + '" data-f="' + f[0] + '">' + f[1] + '</button>';
-      }).join('') + '</div>';
+    // resumen compacto (§5.6): datos, fila del plano y avance; la edición de datos va adentro de #hdr
+    var html = storageNote() + '<section class="card sum"><div id="hdr">' + (S.ui.open['hdr:' + reg.key] ? headerForm(reg) : sumHead(reg)) + '</div>' +
+      docRow(reg, rdoc) + barHtml(s) + '</section>';
+    html += docBanner(reg, rdoc) + sendErrNote(reg);
+    html += filtersHtml(reg, s, filter);
     groupItems(reg.items).forEach(function (g) {
       var gs = stats([].concat.apply([], g.tasks.map(function (t) { return t.items; })));
       var visibleTasks = g.tasks.map(function (tk) {
@@ -2135,15 +2287,21 @@
       }).filter(function (tk) { return tk.items.length; });
       if (!visibleTasks.length) return;
       var fk = reg.key + '|' + g.name;
-      var folded = S.ui.folded[fk] != null ? S.ui.folded[fk] : false;
-      html += '<div class="stage"><div class="stage-h"><button class="fold" data-act="fold" data-k="' + esc(fk) + '" aria-expanded="' + !folded + '">' +
-        ic('chev-d', 'chev') + '<b>' + esc(g.name) + '</b><span class="chip ' + (gs.pend ? 'pend' : 'ap') + '">' + (gs.total - gs.pend) + '/' + gs.total + '</span></button><span class="sp"></span>' +
-        (gs.pend && !folded ? '<button class="btn sm" data-act="bulk" data-key="' + reg.key + '" data-stage="' + esc(g.name) + '">Pendientes → AP</button>' : '') + '</div>';
+      var folded = !!S.ui.folded[fk];
+      // banda de etapa fija bajo el header mientras se recorre la etapa (§4.9)
+      html += '<div class="stage' + (gs.pend ? '' : ' done') + '" data-stage="' + esc(g.name) + '"><div class="stage-h">' +
+        '<button type="button" class="fold" data-act="fold" data-k="' + esc(fk) + '" aria-expanded="' + !folded + '">' + ic('chev-d', 'chev') +
+        '<span class="st-name">' + esc(g.name) + '</span><span class="st-cnt">' + (gs.total - gs.pend) + '/' + gs.total + '</span>' + barHtml(gs, 'mini') + '</button></div>';
       if (folded) { html += '</div>'; return; }
       visibleTasks.forEach(function (tk) {
-        html += '<div class="card task"><div class="task-h">' + esc(tk.name) + (tk.muestra !== '' ? '<span class="mu chip">Muestra ' + esc(fmtMuestra(tk.muestra)) + '</span>' : '') + '</div>' +
-          tk.items.map(function (it) { return itemCard(reg, it); }).join('') + '</div>';
+        html += '<div class="card task">' + taskHead(tk) + tk.items.map(function (it) { return itemCard(reg, it); }).join('') + '</div>';
       });
+      // al final de la etapa, después de mirar los controles; con el filtro AP, RZ o N/A no se ofrece:
+      // aprobaría pendientes que no están en pantalla (C17)
+      if (gs.pend && (filter === 'all' || filter === 'pend')) {
+        html += '<button type="button" class="btn block ap-line bulk" data-act="bulk" data-key="' + reg.key + '" data-stage="' + esc(g.name) + '">' + ic('check2') +
+          esc(gs.pend === 1 ? 'Aprobar el pendiente de ' + g.name : 'Aprobar los ' + gs.pend + ' pendientes de ' + g.name) + '</button>';
+      }
       html += '</div>';
     });
     html += s.pend
@@ -2154,29 +2312,101 @@
         esc((s.rz ? 'Sin pendientes' : 'Completo') + ' · ' + s.ap + ' AP · ' + s.na + ' N/A · ' + s.rz + ' RZ') + '</span></div>' +
         '<button class="btn" data-act="go" data-to="/c/' + esc(sheet) + '">Planilla ' + esc(sheet) + '</button>');
     view.innerHTML = html;
+    // el elemento completo va en el resumen sólo si en el header quedó cortado
+    var tb = document.querySelector('#top .ttl b'), se = view.querySelector('.sum-el');
+    if (tb && se && tb.scrollWidth > tb.clientWidth) se.hidden = false;
     if (S.ui.focus != null) {
       var fe = document.getElementById('it-' + S.ui.focus);
       S.ui.focus = null;
       if (fe) { fe.scrollIntoView({ block: 'center', behavior: scrollMode() }); flash(fe); }
     }
   }
+  /** Datos del registro en dos renglones; «Planilla 6 · fila N» y «cambios sin enviar» quedan en #hdr. */
+  function sumHead(reg) {
+    var resp = reg.resp.filter(function (x) { return x && x !== 'N/A'; }).map(function (x) { return abrevOf(x) || x; });
+    var meta = [reg.piso, reg.sector, reg.etapa ? 'Etapa ' + reg.etapa : '', resp.join(', ')].filter(Boolean).join(' · ');
+    return '<h1 class="sum-el" hidden>' + esc(reg.elemento || 'Registro') + '</h1>' +
+      '<div class="sum-row"><div class="grow">' +
+      (meta ? '<p class="sum-meta">' + esc(meta) + '</p>' : '') +
+      '<p class="sum-foot">' + (reg.pending ? 'Planilla ' + esc(reg.sheet) + ' · nuevo, se crea en el PIE al enviarse'
+        : 'Planilla ' + esc(reg.sheet) + ' · fila ' + reg.h + (reg.dirty ? ' · <span class="t-sync">cambios sin enviar</span>' : '')) + '</p></div>' +
+      (MODE === 'sidebar' && !reg.pending ? '<button class="icon-btn" type="button" data-act="goto" data-sheet="' + esc(reg.sheet) + '" data-row="' + reg.h + '" aria-label="Ver fila en la planilla">' + ic('ext') + '</button>' : '') +
+      '<button class="icon-btn" type="button" data-act="hdr" data-key="' + reg.key + '" aria-label="Editar datos del registro">' + ic('pencil') + '</button></div>';
+  }
+  /** Chip de una parte del plano del registro contra el FOD 02. */
+  function docChip(part) {
+    var r = docRefs(part)[0];
+    if (!r) return ['', 'fuera del FOD 02'];
+    if (isNo(r.doc[7])) return ['rz', 'no vigente'];
+    if (r.used == null) return ['', 'sin rev.'];
+    return revCmp(r.used, r.doc[1]) < 0 ? ['rz', 'superado'] : ['ap', 'vigente'];
+  }
+  /*
+   * Plano del registro como fila-botón (a11y-12): el código completo, que corta renglón en vez de esconder
+   * la revisión, con su chip. Abre el selector del FOD 02 (reemplazar, agregar otro o texto libre).
+   */
+  function docRow(reg, rdoc) {
+    var parts = String(rdoc || '').split('//').map(function (x) { return x.trim(); }).filter(Boolean);
+    var codes = parts.length ? parts.map(function (part) {
+      var c = docChip(part);
+      return '<span class="dr"><span class="code">' + esc(part) + '</span> <span class="chip ' + c[0] + '">' + esc(c[1]) + '</span></span>';
+    }).join('') : '<span class="dr"><span class="code missing">Falta plano · elegí el del FOD 02</span></span>';
+    return '<button class="docrow" type="button" data-act="docpick" data-target="default" data-key="' + reg.key + '" data-regdoc="1" data-value="' + esc(rdoc) + '"' +
+      ' aria-label="' + esc('Plano del registro: ' + (rdoc || 'sin plano') + '. Cambiar') + '">' + ic('doc') +
+      '<span class="docrow-codes">' + codes + '</span>' + ic('chev-r', 'chev') + '</button>';
+  }
+  /** Banner de plano superado (§7.5): queda como recordatorio mientras haya algo con una revisión vieja. */
+  function docBanner(reg, rdoc) {
+    var dd = docStatus({ documento: rdoc, estado: '', fecha: '' });
+    var regOld = !!(dd && dd.level === 'old');
+    var na = regDocAlerts(reg.items);
+    if (!na.bad && !na.old && !regOld) return '';
+    var lines = [];
+    if (regOld) lines.push('El registro usa ' + revLabel(dd.used) + '; rige la ' + revLabel(dd.latest) + (dd.fecha ? ' desde ' + fmtDate(dd.fecha) : '') + '.');
+    if (na.old) lines.push(na.old + (na.old > 1 ? ' pendientes usan' : ' pendiente usa') + ' una revisión vieja.');
+    if (na.bad) lines.push(na.bad + (na.bad > 1 ? ' controles marcados' : ' control marcado') + ' con una revisión ya reemplazada: ' + (na.bad > 1 ? 'revisalos.' : 'revisalo.'));
+    var cur = docRefs(rdoc)[0];
+    var latest = regOld ? dd.latest : cur ? cur.doc[1] : null;
+    return '<div class="note err ic-l">' + ic('alert') + '<div><b>Plano superado</b>' +
+      lines.map(function (x) { return '<p>' + esc(x) + '</p>'; }).join('') +
+      (regOld || na.old ? '<div class="btns"><button type="button" class="btn sm primary" data-act="docupdall" data-key="' + reg.key + '">' +
+        esc(latest != null ? 'Pasar a ' + revLabel(latest) : 'Pasar a la revisión vigente') + '</button></div>' : '') + '</div></div>';
+  }
+  /** Envío rechazado por el PIE para este registro. */
+  function sendErrNote(reg) {
+    var errs = S.queue.filter(function (o) { return o.status === 'error' && (o.op === 'create' ? o.id === reg.opId : opTargets(o, reg)); });
+    if (!errs.length) return '';
+    return '<div class="note err ic-l">' + ic('alert') + '<div><p>' + esc('No se pudo enviar al PIE: ' + String(errs[0].error || 'error').replace(/[\s.]+$/, '')) + '</p>' +
+      '<div class="btns"><button type="button" class="btn sm" data-act="retry" data-id="' + esc(errs.map(function (o) { return o.id; }).join(',')) + '">Reintentar</button>' +
+      '<button type="button" class="btn sm" data-act="go" data-to="/ajustes">Ver envíos</button></div></div></div>';
+  }
+  /** Filtros (§4.8): cinco celdas iguales con el número arriba; la activa toma el color de su estado. */
+  function filtersHtml(reg, s, filter) {
+    return '<div class="filters" role="group" aria-label="Filtrar controles">' +
+      [['all', 'Todos', s.total], ['pend', 'Pend.', s.pend], ['ap', 'AP', s.ap], ['rz', 'RZ', s.rz], ['na', 'N/A', s.na]].map(function (f) {
+        var on = filter === f[0];
+        return '<button type="button" class="f-' + f[0] + (on ? ' on' : '') + (f[2] ? '' : ' zero') + '" data-act="filter" data-key="' + reg.key + '" data-f="' + f[0] + '"' +
+          ' aria-pressed="' + on + '"><b>' + f[2] + '</b><span>' + f[1] + '</span></button>';
+      }).join('') + '</div>';
+  }
   function headerForm(reg) {
     var names = datos().responsables.map(function (x) { return x.nombre; }).concat(['N/A']);
     var opts = function (sel) {
       var n = names.slice();
       if (sel && n.indexOf(sel) < 0) n.push(sel);
-      return '<option value="">—</option>' + n.map(function (x) { return '<option' + (x === sel ? ' selected' : '') + '>' + esc(x) + '</option>'; }).join('');
+      return '<option value="">Sin responsable</option>' + n.map(function (x) { return '<option' + (x === sel ? ' selected' : '') + '>' + esc(x) + '</option>'; }).join('');
     };
     var slots = Math.max(reg.slots || 0, reg.resp.length, 1);
     var r = '';
     for (var i = 0; i < slots; i++) r += '<label class="f"><span>Responsable ' + (i + 1) + '</span><select class="in" name="resp">' + opts(reg.resp[i] || '') + '</select></label>';
+    var code = ' autocapitalize="characters" autocorrect="off" spellcheck="false" autocomplete="off"';
     return '<form id="hdrForm" data-key="' + reg.key + '">' +
-      '<label class="f"><span>Elemento a verificar</span><input class="in" name="elemento" value="' + esc(reg.elemento) + '"></label>' +
-      '<div class="grid3"><label class="f"><span>Piso</span><input class="in" name="piso" value="' + esc(reg.piso) + '"></label>' +
-      '<label class="f"><span>Sector</span><input class="in" name="sector" value="' + esc(reg.sector) + '"></label>' +
+      '<label class="f"><span>Elemento a verificar</span><input class="in" name="elemento" value="' + esc(reg.elemento) + '" autocapitalize="sentences" autocorrect="off"></label>' +
+      '<div class="grid3"><label class="f"><span>Piso</span><input class="in" name="piso" value="' + esc(reg.piso) + '"' + code + '></label>' +
+      '<label class="f"><span>Sector</span><input class="in" name="sector" value="' + esc(reg.sector) + '" autocapitalize="sentences" autocorrect="off"></label>' +
       '<label class="f"><span>Etapa</span><input class="in" name="etapa" value="' + esc(reg.etapa) + '"></label></div>' +
       '<div>' + r + '</div>' +
-      '<div class="flex"><button type="button" class="btn grow" data-act="hdr" data-key="' + reg.key + '">Cancelar</button><button class="btn primary grow" type="submit">Guardar</button></div></form>';
+      '<div class="btns"><button type="button" class="btn" data-act="hdr" data-key="' + reg.key + '">Cancelar</button><button class="btn primary" type="submit">Guardar</button></div></form>';
   }
   function docDefault(reg) {
     var k = 'doc.' + reg.sheet + '.' + reg.key;
@@ -2202,55 +2432,80 @@
     if (!n) queueChanged();
     return n;
   }
+  /*
+   * Tarjeta de control (§4.6). Todo lo que aparece al marcar (resumen, avisos, detalle) va debajo de
+   * AP/RZ/N/A, así los botones no se corren bajo el dedo.
+   */
   function itemCard(reg, it) {
     var st = itemState(it);
-    var open = S.ui.open[reg.key + ':' + it.off];
+    var open = !!S.ui.open[reg.key + ':' + it.off];
+    var fz = itemFum(reg, it);
+    var rdocIt = docDefault(reg);
+    var nFotos = ((reg.fotos && reg.fotos[it.off]) || []).length + ((reg.localFotos && reg.localFotos[it.off]) || []).length;
+    var fotosTxt = nFotos ? nFotos + (nFotos === 1 ? ' foto' : ' fotos') : '';
+    // resumen de lo cargado (sólo con el detalle cerrado): el estado primero, en palabras
+    var fumTxt = fz.server
+      ? 'FUM ' + fz.server[0] + (fz.closing ? (fz.closing.resultado === 'Anulada' ? ' se anula al enviar' : ' se cierra al enviar')
+        : fz.open ? ' abierta' : ' ' + String(fz.server[5] || '').toLowerCase())
+      : fz.pend ? 'FUM nueva (sin enviar)' : it.fum ? 'FUM ' + it.fum : '';
+    var filled = [fumTxt,
+      String(it.fecha || '').toUpperCase() === 'NA' ? '' : fmtDate(it.fecha),
+      it.resp,
+      it.documento && it.documento !== rdocIt ? 'Plano: ' + it.documento : '',
+      fotosTxt,
+      it.obs ? '“' + it.obs + '”' : ''].filter(Boolean).map(esc);
+    if (st !== 'pend') filled.unshift('<b class="t-' + st + '">' + EST[st] + '</b>');
+    var b = function (cls, icon) {
+      return '<button type="button" class="st ' + cls + (st === cls ? ' on' : '') + '" data-act="mark" data-key="' + reg.key + '" data-off="' + it.off + '" data-st="' + cls + '"' +
+        ' aria-pressed="' + (st === cls) + '" aria-describedby="crit-' + it.off + '">' + ic(icon) + EST[cls] + '</button>';
+    };
+    var meta = [it.metodo, it.instrumento && it.instrumento !== 'NA' ? it.instrumento : ''].filter(Boolean).join(' · ');
+    var warn = ((st === 'ap' || st === 'rz') && needsSerial(it.instrumento)
+      ? '<button type="button" class="chip pend" data-act="serial" data-key="' + reg.key + '" data-off="' + it.off + '">Falta N° de serie</button>' : '') +
+      docWarnHtml(reg, it);
+    var moreLabel = 'Detalle del control' + (fotosTxt ? ', ' + fotosTxt : '') + (it.obs ? ', con observación' : '');
+    var h = '<div class="item ' + st + '" id="it-' + it.off + '">' +
+      '<p class="crit" id="crit-' + it.off + '">' + esc(it.criterio) + '</p>' +
+      (meta ? '<p class="meta">' + esc(meta) + '</p>' : '') +
+      '<div class="acts' + (st !== 'pend' ? ' set' : '') + '" role="group" aria-label="Resultado del control">' + b('ap', 'check') + b('rz', 'x') + b('na', 'minus') +
+      '<button type="button" class="more' + (nFotos || it.obs ? ' has' : '') + '" data-act="more" data-key="' + reg.key + '" data-off="' + it.off + '"' +
+      ' aria-expanded="' + open + '" aria-controls="det-' + it.off + '" aria-label="' + esc(moreLabel) + '">' + ic('chev-d') + '</button></div>';
+    if (filled.length && !open) h += '<p class="filled">' + filled.join(' · ') + '</p>';
+    if (warn) h += '<div class="warn">' + warn + '</div>';
+    if (open) h += detailHtml(reg, it, st, fz, rdocIt, nFotos);
+    return h + '</div>';
+  }
+  /*
+   * Detalle del control (§4.7), en este orden: FUM (si hay), fotos (sin desplazarse), observaciones,
+   * datos del control y el pie con «Borrar carga» (sólo si hay algo cargado) y «Listo».
+   */
+  function detailHtml(reg, it, st, fz, rdocIt, nFotos) {
+    var attrs = ' data-key="' + reg.key + '" data-off="' + it.off + '"';
     var abrevs = datos().responsables.map(function (x) { return x.abrev; }).filter(Boolean);
     if (it.resp && abrevs.indexOf(it.resp) < 0) abrevs.push(it.resp);
-    var filled = [];
-    if (it.fecha) filled.push(fmtDate(it.fecha));
-    if (it.resp) filled.push(it.resp);
-    var rdocIt = docDefault(reg);
-    if (it.documento && it.documento !== rdocIt) filled.push('Plano: ' + it.documento);
-    var fz = itemFum(reg, it);
-    if (it.fum && !fz.server) filled.push('FUM ' + it.fum);
-    if (fz.server) filled.push('FUM ' + fz.server[0] + (fz.open ? ' abierta' : ' ' + fz.server[5].toLowerCase()));
-    else if (fz.pend) filled.push('FUM (sin enviar)');
-    var nFotos = ((reg.fotos && reg.fotos[it.off]) || []).length + ((reg.localFotos && reg.localFotos[it.off]) || []).length;
-    if (nFotos) filled.push(nFotos + (nFotos === 1 ? ' foto' : ' fotos'));
-    var b = function (cls, label) {
-      return '<button class="st ' + cls + (st === cls ? ' on' : '') + '" data-act="mark" data-key="' + reg.key + '" data-off="' + it.off + '" data-st="' + cls + '">' + label + '</button>';
-    };
-    var h = '<div class="item ' + st + '" id="it-' + it.off + '">' +
-      '<div class="crit">' + esc(it.criterio) + '</div>' +
-      '<div class="meta">' + esc([it.metodo, it.instrumento && it.instrumento !== 'NA' ? it.instrumento : ''].filter(Boolean).join(' · ')) + '</div>' +
-      ((st === 'ap' || st === 'rz') && needsSerial(it.instrumento) ? '<div class="warn"><span class="chip pend">Indicar N° de serie del instrumento</span></div>' : '') +
-      docWarnHtml(reg, it) +
-      '<div class="acts">' + b('ap', 'AP') + b('rz', 'RZ') + b('na', 'N/A') +
-      '<button class="more" data-act="more" data-key="' + reg.key + '" data-off="' + it.off + '" aria-expanded="' + !!open + '" aria-label="Detalle">' + ic('chev-d') + '</button></div>';
-    if (filled.length && !open) h += '<div class="filled">' + esc(filled.join(' · ')) + (it.obs ? ' · “' + esc(it.obs) + '”' : '') + '</div>';
-    if (open) {
-      h += '<div class="det" data-key="' + reg.key + '" data-off="' + it.off + '">' +
-        '<div class="grid2"><label class="f"><span>Fecha</span><input class="in" type="date" data-field="fecha" value="' + esc(/^\d{4}-\d{2}-\d{2}$/.test(it.fecha) ? it.fecha : '') + '"></label>' +
-        '<label class="f"><span>Resp.</span><select class="in" data-field="resp"><option value="">—</option>' +
-        abrevs.map(function (a) { return '<option' + (a === it.resp ? ' selected' : '') + '>' + esc(a) + '</option>'; }).join('') + '</select></label></div>' +
-        (it.documento && it.documento !== rdocIt ? '<p class="help" style="margin:0 0 8px">Plano de este control: ' + esc(it.documento) + '</p>' : '') +
-        instrSelect(reg, it) +
-        fumBox(reg, it) +
-        (fz.pend || fz.server ? '' : '<label class="f"><span>FUM N°</span><input class="in" data-field="fum" inputmode="numeric" value="' + esc(it.fum) + '" placeholder="Se genera sola al marcar RZ"></label>') +
-        '<label class="f"><span>Observaciones / informes</span><textarea class="in" data-field="obs">' + esc(it.obs) + '</textarea></label>' +
-        '<fieldset><legend>Fotos de control</legend>' +
-        '<div class="thumbs">' + photoThumbs(reg, it) + '</div>' +
-        '<div class="flex" style="margin-bottom:10px">' +
-        '<label class="btn file-btn grow">' + ic('camera') + 'Cámara<input type="file" accept="image/*" capture="environment" data-photo="1" data-key="' + reg.key + '" data-off="' + it.off + '"></label>' +
-        '<label class="btn file-btn grow">' + ic('image') + 'Galería<input type="file" accept="image/*" multiple data-photo="1" data-key="' + reg.key + '" data-off="' + it.off + '"></label></div></fieldset>' +
-        '<div class="flex">' +
-        // «Borrar carga» sólo si hay algo cargado
-        (st !== 'pend' || it.fecha || it.resp || it.fum || it.obs || fz.open
-          ? '<button class="btn ghost danger grow" data-act="clear" data-key="' + reg.key + '" data-off="' + it.off + '">Borrar carga</button>' : '') +
-        '<button class="btn grow" data-act="more" data-key="' + reg.key + '" data-off="' + it.off + '">Listo</button></div></div>';
-    }
-    return h + '</div>';
+    var fecha = /^\d{4}-\d{2}-\d{2}$/.test(it.fecha) ? it.fecha : '';
+    var canClear = st !== 'pend' || it.fecha || it.resp || it.fum || it.obs || fz.open;
+    return '<div class="det" id="det-' + it.off + '"' + attrs + '>' +
+      fumBox(reg, it) +
+      '<fieldset class="sec"><legend>Fotos' + (nFotos ? ' · ' + nFotos : '') + '</legend>' +
+      '<div class="thumbs">' + photoThumbs(reg, it) + '</div>' +
+      '<div class="grid2">' +
+      '<label class="btn file-btn">' + ic('camera') + 'Cámara<input type="file" accept="image/*" capture="environment" data-photo="1"' + attrs + '></label>' +
+      '<label class="btn file-btn">' + ic('image') + 'Galería<input type="file" accept="image/*" multiple data-photo="1"' + attrs + '></label></div></fieldset>' +
+      '<label class="f sec"><span>Observaciones</span><textarea class="in" data-field="obs" autocapitalize="sentences">' + esc(it.obs) + '</textarea></label>' +
+      '<div class="sec"><div class="grid2">' +
+      '<label class="f"><span>Fecha</span><input class="in" type="date" data-field="fecha" value="' + esc(fecha) + '">' +
+      (fecha ? '' : '<span class="help">Vacía = hoy al marcar</span>') + '</label>' +
+      '<label class="f"><span>Resp.</span><select class="in" data-field="resp"><option value="">Sin responsable</option>' +
+      abrevs.map(function (x) { return '<option' + (x === it.resp ? ' selected' : '') + '>' + esc(x) + '</option>'; }).join('') + '</select></label></div>' +
+      instrSelect(reg, it) +
+      (it.documento && it.documento !== rdocIt ? '<p class="help">Plano de este control: <span class="mono">' + esc(it.documento) + '</span></p>' : '') +
+      // N° de FUM a mano: sólo si ya tiene uno y la FUM no está ni en la cola ni en el FOG 01
+      (it.fum && !fz.pend && !fz.server ? '<label class="f"><span>FUM N°</span><input class="in" data-field="fum" inputmode="numeric" value="' + esc(it.fum) + '"></label>' : '') +
+      '</div>' +
+      '<div class="det-foot">' +
+      (canClear ? '<button type="button" class="btn ghost danger" data-act="clear"' + attrs + '>Borrar carga</button>' : '') +
+      '<button type="button" class="btn primary" data-act="more"' + attrs + '>' + ic('check') + 'Listo</button></div></div>';
   }
   function refreshItem(reg, off) {
     var it = reg.items.filter(function (x) { return x.off === off; })[0];
@@ -2539,20 +2794,22 @@
       });
     }
     if (a === 'retry') {
-      S.queue.forEach(function (o) { if (o.id === el.dataset.id) { o.status = 'pending'; o.error = ''; } });
+      var rids = String(el.dataset.id || '').split(',');
+      S.queue.forEach(function (o) { if (rids.indexOf(o.id) >= 0) { o.status = 'pending'; o.error = ''; } });
       saveQueue(); return sync({ manual: true });
     }
     if (a === 'closemodal' || (a === 'modalbg')) return closeModal();
-    if (a === 'doccat' && picker) {
-      picker.cat = el.dataset.cat;
-      [].forEach.call(el.parentNode.children, function (b) { b.classList.toggle('on', b === el); });
-      return renderDocList();
+    if (a === 'pkmode' && picker) {
+      picker.mode = el.dataset.mode === 'add' ? 'add' : 'replace';
+      [].forEach.call(el.parentNode.children, function (b) { b.setAttribute('aria-selected', String(b === el)); });
+      return;
     }
     if ((a === 'pickdoc' || a === 'pickfree') && picker) {
       var val = a === 'pickfree' ? picker.q.trim() : docRef(fodDocs()[Number(el.dataset.i)]);
-      var cb = picker.onPick;
+      var cb = picker.onPick, pmode = picker.mode;
+      if (!val) return;
       closeModal();
-      return cb(val);
+      return cb(val, pmode);
     }
     if (a === 'rmphoto') {
       var pid = el.dataset.id;
@@ -2569,28 +2826,29 @@
       });
     }
     if (a === 'docpick') {
-      var target = el.dataset.target;
       var mm = /^\/c\/([^/]+)\//.exec(S.route);
-      return openDocPicker(function (val) {
-        if (target === 'new') {
+      if (el.dataset.target === 'new') {
+        return openDocPicker({ title: 'Elegí el plano', sub: 'Última revisión de cada uno (FOD 02)', onPick: function (val) {
           var f = document.getElementById('newForm');
           if (f) f.documento.value = val;
-        } else if (target === 'default' || target === 'defaultAdd') {
-          var rg0 = getReg(mm[1], el.dataset.key);
-          if (rg0) {
-            var cur0 = docDefault(rg0);
-            var nv = target === 'defaultAdd' && cur0 ? cur0 + ' // ' + val : val;
-            var n0 = setRegDoc(rg0, nv);
-            render({ keepScroll: true });
-            toast('Plano del registro: ' + nv + (n0 ? ' · aplicado a ' + n0 + ' control' + (n0 === 1 ? '' : 'es') : ''), { kind: 'ok' });
-          }
-          return;
-        } else {
-          var rg = getReg(mm[1], el.dataset.key);
-          if (rg) { editItem(rg, Number(el.dataset.off), { documento: val }); refreshItem(rg, Number(el.dataset.off)); }
-        }
-        toast('Documento: ' + val, { kind: 'ok' });
-      });
+          toast('Plano: ' + val, { kind: 'ok' });
+        } });
+      }
+      var rgp = mm && getReg(mm[1], el.dataset.key);
+      if (!rgp) return;
+      // plano del registro: reemplazar, o agregar otro (A // B) si ya tiene uno
+      return openDocPicker({ title: 'Plano del registro', sub: 'Se aplica a pendientes y N/A. AP y RZ quedan con su plano.', modes: !!docDefault(rgp),
+        onPick: function (val, mode) {
+          var rg0 = getReg(mm[1], el.dataset.key);   // se vuelve a leer: pudo terminar un envío
+          if (!rg0) return;
+          var cur0 = docDefault(rg0);
+          var nv = mode === 'add' && cur0 ? cur0 + ' // ' + val : val;
+          var n0 = setRegDoc(rg0, nv);
+          render({ keepScroll: true });
+          var dr = view.querySelector('.docrow');
+          if (dr) { try { dr.focus({ preventScroll: true }); } catch (e) { /* noop */ } }
+          toast('Plano: ' + nv + (n0 ? ' · aplicado a ' + n0 + (n0 === 1 ? ' control' : ' controles') : ''), { kind: 'ok' });
+        } });
     }
     if (a === 'fold') {
       var fk = el.dataset.k, fi = fk.indexOf('|');
@@ -2601,7 +2859,8 @@
     if (a === 'nextpend') {
       // el próximo control pendiente debajo de lo que se está viendo (si no hay, el primero)
       var all = [].slice.call(document.querySelectorAll('.item.pend'));
-      var top = 70;
+      // debajo del header y de la banda de etapa, que quedan fijos arriba
+      var top = document.getElementById('top').getBoundingClientRect().bottom + 48 + 8;
       var nx = all.filter(function (x) { return x.getBoundingClientRect().top > top + 10; })[0] || all[0];
       if (!nx) {
         // puede estar en una etapa plegada: desplegar todo y reintentar
@@ -2639,6 +2898,17 @@
       return markItem(reg, off, el.dataset.st).then(function (ok) { if (ok) render({ keepScroll: true }); });
     }
     if (a === 'more') { var k = reg.key + ':' + off; S.ui.open[k] = !S.ui.open[k]; return refreshItem(reg, off); }
+    if (a === 'serial') {
+      // el chip «Falta N° de serie» abre el detalle directo en el instrumento
+      S.ui.open[reg.key + ':' + off] = true;
+      refreshItem(reg, off);
+      var ssel = document.querySelector('#it-' + off + ' select[data-field=instrumento]');
+      if (ssel) {
+        try { ssel.focus({ preventScroll: true }); } catch (e) { /* noop */ }
+        ssel.scrollIntoView({ block: 'center', behavior: scrollMode() });
+      }
+      return;
+    }
     if (a === 'clear') {
       var cit = itemOf(reg, off);
       if (!cit) return;
@@ -2651,13 +2921,15 @@
     if (a === 'docupdall') {
       var nd = docUpgrade(docDefault(reg) || '');
       var n = setRegDoc(reg, nd);
-      toast('Plano actualizado a ' + nd + (n ? ' en ' + n + ' control' + (n === 1 ? '' : 'es') + ' pendiente' + (n === 1 ? '' : 's') : ''), { kind: 'ok' });
+      var ur = docRefs(nd)[0];
+      toast((ur ? 'Registro pasado a ' + revLabel(ur.doc[1]) : 'Plano: ' + nd) +
+        (n ? ' · ' + n + (n === 1 ? ' control actualizado' : ' controles actualizados') : ''), { kind: 'ok' });
       return render({ keepScroll: true });
     }
     if (a === 'bulk') {
       if (!S.settings.inspector) { toast('Primero elegí quién sos', { kind: 'info' }); return nav('/quien'); }
       var bst = el.dataset.stage;
-      var pendOf = function (r) { return r.items.filter(function (it) { return it.etapa === bst && itemState(it) === 'pend'; }); };
+      var pendOf = function (r) { return r.items.filter(function (it) { return (it.etapa || '—') === bst && itemState(it) === 'pend'; }); };
       var nb = pendOf(reg).length;
       if (!nb) return;
       return ask({
@@ -2712,16 +2984,7 @@
 
   document.addEventListener('change', function (ev) {
     var el = ev.target;
-    if (el.dataset.regdoc) {
-      var rm = /^\/c\/([^/]+)\//.exec(S.route);
-      var rr = rm && getReg(rm[1], el.dataset.key);
-      if (rr) {
-        var cnt = setRegDoc(rr, el.value);
-        if (cnt) toast('Plano aplicado a ' + cnt + ' control' + (cnt === 1 ? '' : 'es'), { kind: 'ok' });
-        render({ keepScroll: true });
-      }
-      return;
-    }
+    if (el.dataset.input === 'doccat' && picker) { picker.cat = el.value; renderDocList(); return; }
     if (el.dataset.photo) {
       var pm = /^\/c\/([^/]+)\//.exec(S.route);
       var preg = pm && getReg(pm[1], el.dataset.key);
@@ -2739,6 +3002,10 @@
     if (el.dataset.fum) {
       var ff = {};
       ff[el.dataset.fum] = el.value.trim();
+      if (el.dataset.fum === 'plazo') {
+        var sf = det.querySelector('[data-sinfecha]');
+        if (sf) sf.hidden = !!ff.plazo;
+      }
       return editFum(reg, dit, ff);
     }
     if (el.dataset.field === 'instrumento' && needsSerial(dit.instrumento) && !needsSerial(el.value)) {
@@ -2763,7 +3030,7 @@
         responsables: [].slice.call(f.querySelectorAll('select[name=resp]')).map(function (s) { return s.value; })
       });
       S.ui.open['hdr:' + reg.key] = false;
-      toast('Encabezado guardado', { kind: 'ok' });
+      toast('Datos del registro guardados', { kind: 'ok' });
       render({ keepScroll: true });
     }
     if (f.id === 'cfgForm') {
@@ -2783,6 +3050,11 @@
       toast('Probando conexión…');
       sync({ full: true, manual: true }).then(function (ok) { if (ok) { toast('Conectado', { kind: 'ok' }); render(); } });
     }
+  });
+
+  // Enter en el buscador del FOD 02 cierra el teclado (la lista ya está filtrada)
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Enter' && ev.target.dataset && ev.target.dataset.input === 'docq') { ev.preventDefault(); ev.target.blur(); }
   });
 
   // un dibujo que se postergó porque había un campo en edición se hace al salir del campo

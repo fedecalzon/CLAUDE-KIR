@@ -52,16 +52,18 @@ const sheetRows = (name, from, to, book) => fetch(`http://localhost:8081/__sheet
   await page.click('button[data-act=docpick][data-target=new]');
   await page.waitForSelector('#modal .doc');
   await page.fill('#modal input[data-input=docq]', 'REF-ESTR-S12');
-  await page.waitForSelector('#modal .doc:has-text("Rev 7")');
+  await page.waitForSelector('#modal .doc:has-text("R07")');
   assert.strictEqual(await page.$$eval('#modal [data-act=pickdoc]', n => n.length), 1, 'un solo resultado por código');
+  assert.ok(await page.$eval('#view', e => e.inert), 'con el selector abierto lo de atrás no responde');
   await shot('05a-fod02');
   await page.click('#modal [data-act=pickdoc]');
   assert.strictEqual(await page.inputValue('input[name=documento]'), 'KIR-COMR-REF-ESTR-S12P-R07');
+  assert.ok(!(await page.$eval('#view', e => e.inert)) && !(await page.$('#modal')), 'el selector se cerró y lo de atrás vuelve a responder');
   await page.fill('input[name=documento]', 'KIR-COMR-EST-P05-R00');
   await shot('05-nuevo');
   assert.strictEqual(await page.$$eval('input:not([type=file]), select, textarea', els => els.filter(e => parseFloat(getComputedStyle(e).fontSize) < 16).length), 0, 'campos ≥ 16 px');
   await page.click('button[type=submit]');
-  await page.waitForSelector('text=Nuevo · se crea en la planilla al sincronizar');
+  await page.waitForSelector('text=se crea en el PIE al enviarse');
   await page.waitForSelector('.net:has-text("Sin señal")');
   // indicador: relleno claro = hay cambios sólo en el celular; el texto completo sigue en el DOM
   assert.ok(await page.$eval('.net', e => e.classList.contains('q') && /^Envíos: Sin señal/.test(e.getAttribute('aria-label'))), 'indicador con cambios sin enviar');
@@ -77,7 +79,7 @@ const sheetRows = (name, from, to, book) => fetch(`http://localhost:8081/__sheet
   // con el detalle a la vista, la barra inferior se oculta
   await page.waitForFunction(() => document.body.classList.contains('det-vis') && getComputedStyle(document.querySelector('.bbar')).visibility === 'hidden');
   // RZ abre una FUM (se numera al sincronizar)
-  await page.waitForSelector('.item >> nth=1 >> .fumbox:has-text("se numera al sincronizar")');
+  await page.waitForSelector('.item >> nth=1 >> .fumbox:has-text("FUM nueva")');
   await page.fill('.item >> nth=1 >> [data-fum=accionCorrectiva]', 'Rehacer recubrimiento');
   await page.locator('.item >> nth=1 >> [data-fum=accionCorrectiva]').blur();
   await page.fill('.item >> nth=1 >> [data-fum=plazo]', '2026-10-24');
@@ -184,9 +186,10 @@ const sheetRows = (name, from, to, book) => fetch(`http://localhost:8081/__sheet
 
   // 6b. Plano único del registro: se cambia una vez y se aplica a los pendientes; se detecta si está superado
   assert.strictEqual(await page.$$eval('.det [data-field=documento], .item [data-field=documento]', n => n.length), 0, 'sin campo de documento por control');
-  await page.fill('[data-regdoc]', '_KIR-COMR-REF-ESTR-S12P-R06');
-  await page.locator('[data-regdoc]').blur();
-  await page.waitForSelector('text=Plano superado (FOD 02).');
+  await page.click('button[data-act=docpick][data-target=default]');
+  await page.fill('#modal input[data-input=docq]', '_KIR-COMR-REF-ESTR-S12P-R06');
+  await page.click('#modal [data-act=pickfree]');
+  await page.waitForSelector('.note.err:has-text("Plano superado")');
   await shot('10-doc-superado');
   // marcar AP con el plano superado: hoja con tres salidas; «No marcar» deja el control como estaba
   await page.click('.item.pend >> nth=0 >> button[data-st=ap]');
@@ -199,7 +202,7 @@ const sheetRows = (name, from, to, book) => fetch(`http://localhost:8081/__sheet
   assert.strictEqual(await page.$$('#ask').then(n => n.length), 0, 'la hoja se cerró');
   assert.strictEqual(await page.$$eval('.item.pend', n => n.length), pendBefore, 'no marcó nada');
   await page.click('button[data-act=docupdall]');
-  await page.waitForFunction(() => document.querySelector('[data-regdoc]').value === 'KIR-COMR-REF-ESTR-S12P-R07');
+  await page.waitForFunction(() => document.querySelector('[data-regdoc]').dataset.value === 'KIR-COMR-REF-ESTR-S12P-R07');
   assert.ok(!(await page.textContent('main')).includes('Plano superado'), 'la alerta desaparece');
 
   // 6c. Reinspección: AP sobre el control rechazado cierra la FUM
@@ -226,7 +229,7 @@ const sheetRows = (name, from, to, book) => fetch(`http://localhost:8081/__sheet
   await page.click('button[data-act=fold] >> nth=0');
   // tamaños para usar con guantes
   const sizes = await page.evaluate(() => ['.acts .st', '.acts .more', '.filters button'].map(q => Math.round(document.querySelector(q).getBoundingClientRect().height)));
-  assert.ok(sizes[0] >= 48 && sizes[1] >= 48 && sizes[2] >= 44, 'botones grandes: ' + sizes);
+  assert.ok(sizes[0] >= 56 && sizes[1] >= 56 && sizes[2] >= 48, 'botones grandes: ' + sizes);
 
   // 7. Filtro de pendientes y vista de registro existente con datos
   await page.click('button[data-f=ap]');
@@ -250,6 +253,18 @@ const sheetRows = (name, from, to, book) => fetch(`http://localhost:8081/__sheet
   await page.setViewportSize({ width: 320, height: 568 });
   assert.ok((await page.textContent('.net')).includes('Al día'), 'texto del indicador en el DOM');
   assert.ok(!(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)), 'sin scroll horizontal a 320');
+  // iPhone SE en el registro: resumen compacto, criterio del primer control a la vista, filtros y botones enteros
+  await page.evaluate((t) => { location.hash = '#/c/6/r/h' + t; }, T);
+  await page.waitForSelector('.sum');
+  await page.evaluate(() => window.scrollTo(0, 0));
+  const se = await page.evaluate(() => {
+    const crit = document.querySelector('.item .crit').getBoundingClientRect();
+    const f = [...document.querySelectorAll('.filters button')].map(b => b.getBoundingClientRect());
+    return { sum: Math.round(document.querySelector('.sum').getBoundingClientRect().height), critTop: Math.round(crit.top), h: innerHeight,
+      filtersIn: f.every(r => r.left >= 0 && r.right <= innerWidth), st: Math.round(document.querySelector('.acts .st').getBoundingClientRect().height),
+      overflow: document.documentElement.scrollWidth > innerWidth };
+  });
+  assert.ok(se.sum <= 160 && se.critTop < se.h - 80 && se.filtersIn && se.st >= 56 && !se.overflow, 'registro en el SE: ' + JSON.stringify(se));
 
   assert.deepStrictEqual(errors.filter(e => !/Failed to load resource|ERR_INTERNET_DISCONNECTED/.test(e)), []);
   console.log('E2E OK');
