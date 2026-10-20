@@ -60,6 +60,8 @@
     min-height: 100vh;
   }
   button, input, select, textarea { font: inherit; color: inherit; }
+  /* iOS agranda la página al tocar un campo con letra de menos de 16 px */
+  input, select, textarea { font-size: 16px; }
   button { cursor: pointer; }
   header.top {
     position: sticky; top: 0; z-index: 20;
@@ -93,7 +95,7 @@
   .small { font-size: 13px; }
   .tiny { font-size: 12px; }
   h2.sec { font-size: 13px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); margin: 18px 4px 8px; font-weight: 600; }
-  .search { width: 100%; padding: 11px 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); }
+  .search { width: 100%; min-height: 48px; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); font-size: 16px; line-height: 1.3; }
   .list { display: flex; flex-direction: column; gap: 8px; }
   .row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; text-align: left; width: 100%; border: 1px solid var(--line); background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); }
   .row:active { transform: scale(.995); }
@@ -126,8 +128,8 @@
   .btn:disabled { opacity: .5; }
   label.f { display: block; margin-bottom: 12px; }
   label.f > span { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: .03em; }
-  .in { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); min-height: 42px; }
-  textarea.in { min-height: 64px; resize: vertical; }
+  .in { width: 100%; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); min-height: 48px; font-size: 16px; line-height: 1.3; }
+  textarea.in { min-height: 96px; font-size: 17px; line-height: 1.4; resize: vertical; }
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
   .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0 10px; }
   @media (max-width: 380px) { .grid3 { grid-template-columns: 1fr 1fr; } }
@@ -172,11 +174,15 @@
   .req-crit { padding: 8px 14px; border-top: 1px solid var(--line); font-size: 14px; }
   .req-crit:first-of-type { border-top: 0; }
   .toast {
-    position: fixed; left: 50%; bottom: calc(86px + env(safe-area-inset-bottom)); transform: translateX(-50%) translateY(20px);
+    position: fixed; left: 16px; right: 16px; margin: 0 auto; width: -webkit-fit-content; width: fit-content; max-width: 520px;
+    bottom: calc(86px + env(safe-area-inset-bottom)); transform: translateY(20px);
+    display: flex; align-items: center; gap: 12px;
     background: #222b36; color: #fff; padding: 10px 16px; border-radius: 10px; font-size: 14px; opacity: 0;
-    pointer-events: none; transition: .2s; z-index: 50; max-width: calc(100% - 32px); text-align: center;
+    pointer-events: none; transition: .2s; z-index: 50; text-align: center;
   }
-  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .toast.show { opacity: 1; transform: none; }
+  .toast .msg { flex: 1; }
+  .toast .act { pointer-events: auto; flex: none; min-height: 44px; margin: -8px -8px -8px 0; padding: 0 10px; border: 0; background: none; color: inherit; font-weight: 700; text-decoration: underline; }
   .filters { display: flex; gap: 6px; overflow-x: auto; margin: 10px 0 2px; padding-bottom: 2px; }
   .filters button { border: 1px solid var(--line); background: var(--card); border-radius: 999px; padding: 6px 14px; min-height: 44px; font-size: 14px; white-space: nowrap; }
   .filters button.on { background: var(--ink); color: var(--card); border-color: var(--ink); }
@@ -219,7 +225,7 @@
 <body>
 <header class="top" id="top"></header>
 <main id="view"></main>
-<div class="toast" id="toast"></div>
+<div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true"><span class="msg"></span><button class="act" type="button" hidden></button></div>
 <script>/*PIE_BOOT*/</script>
 <script>
 (function () {
@@ -231,7 +237,7 @@
   var BOOT = window.PIE_BOOT || {};
   var IN_GAS = !!(window.google && google.script && google.script.run);
   var MODE = IN_GAS ? (BOOT.mode || 'webapp') : 'pwa';
-  var APP_VERSION = '1.5.0';
+  var APP_VERSION = '1.5.1';
   var ETAPAS = ['PRE', 'DURANTE', 'POST', 'DOC'];
   var FIELDS = ['documento', 'fecha', 'resp', 'estado', 'fum', 'obs', 'instrumento'];
 
@@ -242,56 +248,95 @@
     get: function (k, d) {
       try { var v = localStorage.getItem('pie.' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; }
     },
-    set: function (k, v) {
-      try { localStorage.setItem('pie.' + k, JSON.stringify(v)); } catch (e) { /* sin espacio o bloqueado */ }
+    set: function (k, v) { LS.trySet(k, v); },
+    /** Devuelve false si no se pudo guardar (sin espacio o bloqueado). */
+    trySet: function (k, v) {
+      try { localStorage.setItem('pie.' + k, JSON.stringify(v)); return true; } catch (e) { return false; }
+    },
+    del: function (k) {
+      try { localStorage.removeItem('pie.' + k); } catch (e) { /* bloqueado */ }
     }
   };
 
+  /*
+   * IndexedDB con respaldo en localStorage. Si IndexedDB falla al guardar, el valor queda en
+   * 'kv.<clave>' con la marca 'kvlocal.<clave>' (hora): mientras exista la marca, ese es el valor
+   * más nuevo y get() lo devuelve e intenta pasarlo de nuevo a IndexedDB.
+   */
   var KV = (function () {
     var dbp = null;
     function db() {
       if (dbp) return dbp;
-      dbp = new Promise(function (res, rej) {
+      var p = dbp = new Promise(function (res, rej) {
         if (!window.indexedDB) return rej(new Error('sin indexedDB'));
-        var r = indexedDB.open('pie', 1);
+        var r;
+        try { r = indexedDB.open('pie', 1); } catch (e) { return rej(e); }
         r.onupgradeneeded = function () { r.result.createObjectStore('kv'); };
-        r.onsuccess = function () { res(r.result); };
+        r.onsuccess = function () {
+          var d = r.result;
+          // iOS pierde la conexión después de suspensiones largas: se reabre en el próximo uso
+          d.onclose = function () { if (dbp === p) dbp = null; };
+          d.onversionchange = function () { if (dbp === p) dbp = null; try { d.close(); } catch (e) { /* noop */ } };
+          res(d);
+        };
         r.onerror = function () { rej(r.error); };
       });
-      return dbp;
+      p.catch(function () { if (dbp === p) dbp = null; });
+      return p;
+    }
+    /** Una transacción sobre 'kv'. fn(store) puede devolver un pedido cuyo resultado se entrega. Reintenta una vez. */
+    function tx(mode, fn, retried) {
+      return db().then(function (d) {
+        return new Promise(function (res, rej) {
+          var t, q;
+          try {
+            t = d.transaction('kv', mode);
+            q = fn(t.objectStore('kv'));
+          } catch (e) { return rej(e); }
+          t.oncomplete = function () { res(q ? q.result : undefined); };
+          t.onerror = function () { rej(t.error || (q && q.error) || new Error('error')); };
+          t.onabort = function () { rej(t.error || new Error('abort')); };
+        });
+      }).catch(function (e) {
+        if (retried) throw e;
+        dbp = null;   // conexión perdida o transacción abortada: se reabre y se prueba otra vez
+        return tx(mode, fn, true);
+      });
     }
     var mem = {};
     return {
       get: function (k) {
-        return db().then(function (d) {
-          return new Promise(function (res, rej) {
-            var q = d.transaction('kv').objectStore('kv').get(k);
-            q.onsuccess = function () { res(q.result); };
-            q.onerror = function () { rej(q.error); };
-          });
-        }).catch(function () { return LS.get('kv.' + k, mem[k]); });
+        var ts = LS.get('kvlocal.' + k, null);
+        var lv = ts != null ? LS.get('kv.' + k, undefined) : undefined;
+        if (lv !== undefined) {
+          // lo más nuevo quedó en localStorage: se devuelve y se intenta pasarlo a IndexedDB
+          tx('readwrite', function (st) {
+            if (LS.get('kvlocal.' + k, null) !== ts) return null;   // hubo otro guardado: no pisarlo
+            st.put(lv, k);
+            return null;
+          }).then(function () {
+            if (LS.get('kvlocal.' + k, null) === ts) { LS.del('kvlocal.' + k); LS.del('kv.' + k); }
+          }, function () { /* sigue en localStorage */ });
+          return Promise.resolve(lv);
+        }
+        return tx('readonly', function (st) { return st.get(k); })
+          .catch(function () { return LS.get('kv.' + k, mem[k]); });
       },
+      /** Rechaza sólo si no se pudo guardar ni en IndexedDB ni en localStorage. */
       set: function (k, v) {
         mem[k] = v;
-        return db().then(function (d) {
-          return new Promise(function (res, rej) {
-            var t = d.transaction('kv', 'readwrite');
-            t.objectStore('kv').put(v, k);
-            t.oncomplete = function () { res(); };
-            t.onerror = function () { rej(t.error); };
-          });
-        }).catch(function () { LS.set('kv.' + k, v); });
+        return tx('readwrite', function (st) { st.put(v, k); }).then(function () {
+          LS.del('kvlocal.' + k);
+        }, function (e) {
+          if (LS.trySet('kv.' + k, v) && LS.trySet('kvlocal.' + k, Date.now())) return;
+          throw e || new Error('sin espacio');
+        });
       },
       del: function (k) {
         delete mem[k];
-        return db().then(function (d) {
-          return new Promise(function (res) {
-            var t = d.transaction('kv', 'readwrite');
-            t.objectStore('kv').delete(k);
-            t.oncomplete = function () { res(); };
-            t.onerror = function () { res(); };
-          });
-        }).catch(function () { try { localStorage.removeItem('pie.kv.' + k); } catch (e) { /* noop */ } });
+        LS.del('kvlocal.' + k);
+        LS.del('kv.' + k);
+        return tx('readwrite', function (st) { st.delete(k); }).catch(function () { /* noop */ });
       }
     };
   })();
@@ -310,12 +355,41 @@
     route: '/',
     stack: [],
     thumbs: {},             // id de foto pendiente -> dataURL (miniatura local)
-    ui: { tab: {}, filter: {}, open: {}, search: '', regSearch: {}, folded: {} }
+    hold: {},               // id de operación -> retención en memoria (no se envía todavía)
+    undo: null,             // último Deshacer ofrecido
+    storageError: false,    // falló guardar la cola en el celular
+    ui: { tab: {}, filter: {}, open: {}, search: '', regSearch: {}, folded: {}, renderOnBlur: false }
   };
   if (BOOT.token) S.settings.token = BOOT.token;
 
   function saveSettings() { LS.set('settings', S.settings); }
-  function saveQueue() { return KV.set('queue', S.queue); }
+
+  /*
+   * Guarda la cola en el celular. Los guardados van de a uno (el siguiente toma la cola como esté
+   * en ese momento), así un reintento lento nunca pisa una versión más nueva. Nunca rechaza.
+   */
+  var qSave = null, qNext = null, queueLoaded = false;
+  function saveQueue() {
+    if (!queueLoaded) return Promise.resolve();   // todavía no se leyó la cola guardada: no pisarla
+    if (qNext) return qNext;   // ya hay un guardado esperando: va a incluir este cambio
+    if (qSave) {
+      qNext = qSave.then(function () { qNext = null; return writeQueue(); });
+      return qNext;
+    }
+    return writeQueue();
+  }
+  function writeQueue() {
+    var p = KV.set('queue', S.queue).then(function () {
+      S.storageError = false;
+    }, function () {
+      if (S.storageError) return;
+      S.storageError = true;
+      toast('No se pudo guardar en el celular. No cierres la app y liberá espacio.', { kind: 'err', ms: 8000 });
+      if (!isEditing()) render({ keepScroll: true });
+    }).then(function () { if (qSave === p) qSave = null; });
+    qSave = p;
+    return p;
+  }
 
   /* ================================================================
    *  Utilidades
@@ -361,13 +435,45 @@
   function norm(s) {
     return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
   }
-  var toastT;
-  function toast(msg, ms) {
+  /*
+   * Aviso breve. opts: milisegundos, u {kind: 'ok'|'info'|'warn'|'err', ms, action: {label, fn}}.
+   * Un aviso de error, de advertencia o con acción no se pisa: los nuevos esperan su turno
+   * (hasta 2, sin repetir). Uno con acción sí se muestra enseguida (el Deshacer vigente es el último).
+   */
+  var toastT, toastCur = null, toastQ = [];
+  function toast(msg, opts) {
+    var o = opts && typeof opts === 'object' ? opts : { ms: opts };
+    o = { msg: msg, kind: o.kind || 'info', ms: o.ms, action: o.action || null };
+    var sticky = function (x) { return !!(x && (x.action || x.kind === 'err' || x.kind === 'warn')); };
+    if (sticky(toastCur) && !o.action) {
+      if (toastQ.length < 2 && toastCur.msg !== msg && !toastQ.some(function (x) { return x.msg === msg; })) toastQ.push(o);
+      return;
+    }
+    if (sticky(toastCur) && !toastCur.action) toastQ.unshift(toastCur);   // el error vuelve después
+    if (toastQ.length > 2) toastQ.length = 2;
+    showToast(o);
+  }
+  function showToast(o) {
     var el = document.getElementById('toast');
-    el.textContent = msg;
+    var act = el.querySelector('.act');
+    toastCur = o;
+    el.querySelector('.msg').textContent = o.msg;
+    act.hidden = !o.action;
+    act.textContent = o.action ? o.action.label : '';
+    act.onclick = o.action ? function () { hideToast(); o.action.fn(); } : null;
     el.classList.add('show');
     clearTimeout(toastT);
-    toastT = setTimeout(function () { el.classList.remove('show'); }, ms || 2600);
+    toastT = setTimeout(hideToast, o.ms || (o.action || o.kind === 'err' || o.kind === 'warn' ? 6000 : 2600));
+  }
+  function hideToast() {
+    var el = document.getElementById('toast');
+    clearTimeout(toastT);
+    toastCur = null;
+    el.classList.remove('show');
+    var act = el.querySelector('.act');
+    act.hidden = true;
+    act.onclick = null;
+    if (toastQ.length) toastT = setTimeout(function () { if (!toastCur && toastQ.length) showToast(toastQ.shift()); }, 250);
   }
   function datos() { return (S.catalog && S.catalog.datos) || { responsables: [], obra: '' }; }
   function abrevOf(nombre) {
@@ -396,6 +502,12 @@
     return S.queue.filter(function (o) { return o.id === id && o.op === 'create'; })[0] || null;
   }
 
+  /** Clave vigente de un registro: un alta ya creada en el PIE ('p' + id) pasa a ser 'h' + fila. */
+  function liveKey(key) {
+    var id = key && key.charAt(0) === 'p' ? key.slice(1) : null;
+    return id && S.resolved[id] && !pendingCreate(id) ? 'h' + S.resolved[id].h : key;
+  }
+
   /** Registro "vivo": datos del servidor + cambios locales sin sincronizar. */
   function getReg(sheet, key) {
     var cat = category(sheet);
@@ -403,7 +515,8 @@
     if (key.charAt(0) === 'p') {
       var id = key.slice(1);
       var op = pendingCreate(id);
-      if (!op) return null;
+      // alta ya confirmada: la pantalla todavía puede tener la clave vieja (p. ej. un campo en edición)
+      if (!op) return S.resolved[id] ? getReg(sheet, 'h' + S.resolved[id].h) : null;
       reg = {
         key: key, pending: true, opId: id, sheet: sheet, h: null, sig: op.base.sig,
         resp: (op.header.responsables || []).slice(), slots: op.slots || 3,
@@ -491,6 +604,55 @@
     }
     return out.filter(Boolean);
   }
+  /**
+   * Un alta confirmada pasa de 'p' + id a 'h' + fila: se renombran las claves de la interfaz y las
+   * guardadas en el celular, así no se pierde lo abierto, el filtro, lo plegado ni el plano elegido.
+   * Idempotente; si ya existe la versión nueva de una clave, gana esa.
+   */
+  function migrateKey(sheet, pk, hk) {
+    var ren = function (obj, from, to) {
+      if (!obj || !Object.prototype.hasOwnProperty.call(obj, from)) return;
+      if (!Object.prototype.hasOwnProperty.call(obj, to)) obj[to] = obj[from];
+      delete obj[from];
+    };
+    var renPrefix = function (obj, sep) {
+      if (!obj) return;
+      Object.keys(obj).forEach(function (k) { if (k.indexOf(pk + sep) === 0) ren(obj, k, hk + k.slice(pk.length)); });
+    };
+    renPrefix(S.ui.open, ':');
+    ren(S.ui.open, 'hdr:' + pk, 'hdr:' + hk);
+    ren(S.ui.filter, pk, hk);
+    renPrefix(S.ui.folded, '|');
+    ren(S.ui.keep, pk, hk);
+    renPrefix(S.ui.lastMark, ':');
+    Object.keys(S.hold).forEach(function (id) {
+      var h = S.hold[id];
+      if (h.key === pk) h.key = hk;
+      if (h.det && h.det.indexOf(pk + ':') === 0) h.det = hk + h.det.slice(pk.length);
+    });
+    var from = '/c/' + sheet + '/r/' + pk, to = '/c/' + sheet + '/r/' + hk;
+    ren(S.scroll, from, to);
+    S.stack = S.stack.map(function (r) { return r === from ? to : r; });
+    ['doc.', 'docKeep.'].forEach(function (pre) {
+      var a = pre + sheet + '.' + pk, b = pre + sheet + '.' + hk;
+      var v = LS.get(a, null);
+      if (v == null) return;
+      if (LS.get(b, null) != null || LS.trySet(b, v)) LS.del(a);   // si no entra, queda la vieja
+    });
+    var rec = LS.get('recent', null);
+    if (rec && rec.some(function (x) { return x.s === sheet && x.k === pk; })) {
+      var hasH = rec.some(function (x) { return x.s === sheet && x.k === hk; });
+      LS.set('recent', rec.filter(function (x) { return !(hasH && x.s === sheet && x.k === pk); })
+        .map(function (x) { return x.s === sheet && x.k === pk ? { s: x.s, k: hk, t: x.t } : x; }));
+    }
+  }
+  function migrateResolved() {
+    Object.keys(S.resolved).forEach(function (id) {
+      var r = S.resolved[id];
+      if (r && !pendingCreate(id)) migrateKey(r.sheet, 'p' + id, 'h' + r.h);
+    });
+  }
+
   /** Bloque que se usa como modelo de requisitos: el último de la hoja. */
   function templateReg(sheet) {
     var cat = category(sheet);
@@ -553,6 +715,29 @@
     renderTop();
     clearTimeout(autoSyncT);
     autoSyncT = setTimeout(function () { if (navigator.onLine) sync(); }, 4000);
+  }
+
+  /*
+   * Retención de envíos (en memoria): una operación retenida queda en la cola, cuenta como
+   * «sin enviar» y sync() no la manda hasta que se vence. Da tiempo a Deshacer.
+   */
+  function routeIsReg(key) {
+    var m = /^\/c\/[^/]+\/r\/(.+)$/.exec(S.route);
+    return !!m && liveKey(m[1]) === key;
+  }
+  function isHeld(o) {
+    var h = S.hold[o.id];
+    if (!h) return false;
+    if (Date.now() < h.until) return true;
+    if (h.det && S.ui.open[h.det] && routeIsReg(h.key) && Date.now() - h.since < 600000) return true;
+    delete S.hold[o.id];
+    return false;
+  }
+  function hold(op, ms) {
+    S.hold[op.id] = { since: Date.now(), until: Date.now() + ms, det: null };
+    setTimeout(function () {
+      if (navigator.onLine || IN_GAS) { clearTimeout(autoSyncT); autoSyncT = setTimeout(sync, 300); }
+    }, ms + 100);
   }
 
   /* ================================================================
@@ -894,27 +1079,39 @@
       img.src = url;
     });
   }
+  /** La foto entra en la cola sólo si quedó guardada en el celular. */
   function addPhotos(reg, off, files) {
     var it = reg.items.filter(function (x) { return x.off === off; })[0];
     if (!it || !files.length) return;
-    toast('Procesando ' + (files.length === 1 ? 'foto' : files.length + ' fotos') + '…');
+    toast(files.length === 1 ? 'Procesando la foto…' : 'Procesando ' + files.length + ' fotos…');
+    var added = 0, unread = 0, noSpace = false;
     [].slice.call(files).reduce(function (p, f) {
-      return p.then(function () { return compressImage(f); }).then(function (dataUrl) {
-        var id = uid();
-        var op = {
-          id: id, op: 'photo', sheet: reg.sheet, off: off, criterio: it.criterio, tarea: it.tarea, mime: 'image/jpeg',
-          img: 'img:' + id, status: 'pending', createdAt: Date.now(), by: S.settings.inspector, takenAt: localStamp()
-        };
-        if (reg.pending) op.ref = reg.opId; else { op.h = reg.h; op.sig = reg.sig; op.elemento = reg.elemento; }
-        S.thumbs[id] = dataUrl;
-        return KV.set(op.img, dataUrl).then(function () { S.queue.push(op); });
+      return p.then(function () {
+        if (noSpace) return;   // sin espacio: no tiene sentido seguir con las demás
+        return compressImage(f).then(function (dataUrl) {
+          var id = uid();
+          var op = {
+            id: id, op: 'photo', sheet: reg.sheet, off: off, criterio: it.criterio, tarea: it.tarea, mime: 'image/jpeg',
+            img: 'img:' + id, status: 'pending', createdAt: Date.now(), by: S.settings.inspector, takenAt: localStamp()
+          };
+          if (reg.pending) op.ref = reg.opId; else { op.h = reg.h; op.sig = reg.sig; op.elemento = reg.elemento; }
+          S.thumbs[id] = dataUrl;
+          return KV.set(op.img, dataUrl).then(function () { S.queue.push(op); added++; }, function () {
+            delete S.thumbs[id];
+            noSpace = true;
+          });
+        }, function () { unread++; });
       });
     }, Promise.resolve()).then(function () {
-      queueChanged();
-      var fresh = getReg(reg.sheet, reg.key);
-      if (fresh) refreshItem(fresh, off);
-      toast(navigator.onLine || IN_GAS ? 'Foto guardada · subiendo…' : 'Foto guardada en el celular · se sube al tener señal');
-    }).catch(function (e) { toast('No se pudo procesar la foto: ' + e.message); });
+      if (added) {
+        queueChanged();
+        var fresh = getReg(reg.sheet, reg.key);
+        if (fresh) refreshItem(fresh, off);
+      }
+      if (noSpace) toast('No se pudo guardar la foto en el celular: falta espacio. Liberá espacio y sacala de nuevo.', { kind: 'err' });
+      else if (unread) toast('No se pudo leer la foto. Sacala de nuevo o elegila de la galería.', { kind: 'err' });
+      else toast(navigator.onLine || IN_GAS ? 'Foto guardada · enviando…' : 'Foto guardada en el celular · se envía al tener señal', { kind: 'ok' });
+    });
   }
   function photoThumbs(reg, it) {
     var server = (reg.fotos && reg.fotos[it.off]) || [];
@@ -977,7 +1174,7 @@
       var i = S.catalog.categorias.findIndex(function (x) { return x.sheet === c.sheet; });
       if (i >= 0) S.catalog.categorias[i] = c; else S.catalog.categorias.push(c);
     });
-    KV.set('catalog', S.catalog);
+    KV.set('catalog', S.catalog).catch(function () { /* se vuelve a descargar */ });
   }
 
   /** Hay un formulario o campo en edición que un re-render borraría. */
@@ -1056,8 +1253,9 @@
     S.syncing = true;
     S.lastError = '';
     renderTop();
-    // primero altas y cambios en un solo lote; las fotos van después, de a una
-    var sending = S.queue.filter(function (o) { return o.status === 'pending' && o.op !== 'photo'; });
+    var t0 = Date.now();
+    // primero altas y cambios en un solo lote; las fotos van después, de a una. Lo retenido espera.
+    var sending = S.queue.filter(function (o) { return o.status === 'pending' && o.op !== 'photo' && !isHeld(o); });
     var chain = Promise.resolve();
     if (sending.length) {
       sending.forEach(function (o) { o.status = 'sending'; });
@@ -1072,7 +1270,7 @@
       if (opts.full || !S.catalog || Date.now() - S.lastSync > 10 * 60 * 1000) {
         return callApi({ action: 'catalog' }).then(function (c) {
           S.catalog = c;
-          KV.set('catalog', c);
+          KV.set('catalog', c).catch(function () { /* se vuelve a descargar */ });
         });
       }
     }).then(function () {
@@ -1089,19 +1287,32 @@
       return false;
     }).then(function (ok) {
       S.syncing = false;
-      // si el usuario estaba viendo un alta local que ya se creó, redirigir al registro real
+      // altas confirmadas: las claves 'p' + id pasan a 'h' + fila (lo abierto, el filtro, el plano…)
+      migrateResolved();
+      // si el usuario estaba viendo un alta que ya se creó, la ruta pasa al registro real sin
+      // volver a dibujar desde arriba (nunca nav() ni scrollTo(0, 0))
       var m = /^\/c\/([^/]+)\/r\/p(.+)$/.exec(S.route);
       if (m && S.resolved[m[2]] && !pendingCreate(m[2])) {
-        nav('/c/' + m[1] + '/r/h' + S.resolved[m[2]].h, { replace: true });
-      } else if (isEditing()) {
-        renderTop();   // no pisar lo que el usuario está escribiendo
-      } else {
-        render({ keepScroll: true });
+        S.route = '/c/' + m[1] + '/r/h' + S.resolved[m[2]].h;
+        if (!IN_GAS) { try { history.replaceState(null, '', '#' + S.route); } catch (e) { /* iframe */ } }
       }
+      if (isEditing()) {
+        renderTop();                 // no pisar lo que el usuario está escribiendo:
+        S.ui.renderOnBlur = true;    // se dibuja al salir del campo
+      } else {
+        finishRender();
+      }
+      // lo que entró (o se liberó) mientras se enviaba sale enseguida, sin esperar otro aviso
+      if (ok && S.queue.some(function (o) {
+        return o.status === 'pending' && !isHeld(o) && (o.createdAt >= t0 || (o.op !== 'photo' && sending.indexOf(o) < 0));
+      })) { clearTimeout(autoSyncT); autoSyncT = setTimeout(sync, 300); }
       syncWaiters.splice(0).forEach(function (r) { r(ok); });
       return ok;
     });
   }
+
+  /** Dibujo al terminar un envío (§6.8 agrega la espera si se está desplazando la pantalla). */
+  function finishRender() { render({ keepScroll: true }); }
 
   /* ================================================================
    *  Navegación
@@ -1162,6 +1373,7 @@
 
   function render(o) {
     o = o || {};
+    S.ui.renderOnBlur = false;
     var y = window.scrollY;
     var r = S.route, m;
     if (!S.catalog && r !== '/ajustes') {
@@ -1200,6 +1412,9 @@
       groups[c.rubro].push(c);
     });
     var html = '<input class="search" type="search" placeholder="Buscar planilla (ej. hormigón, 28)" value="' + esc(S.ui.search) + '" data-input="search">';
+    if (MODE === 'pwa' && !isStandalone()) {
+      html += '<div class="spacer"></div><div class="note warn">Instalá la app: en Safari, Compartir › Agregar a inicio. Así no se borra lo cargado sin señal.</div>';
+    }
     var of = openFums();
     var late = of.filter(function (f) { return f.plazo && f.plazo < today(); }).length;
     html += '<div class="spacer"></div><button class="row" data-act="go" data-to="/fum"><span class="num" style="background:' + (of.length ? 'var(--rz-bg);color:var(--rz)' : 'var(--ap-bg);color:var(--ap)') + '">' + of.length + '</span>' +
@@ -1219,6 +1434,9 @@
     if (!order.length && !hidden.length) html += '<div class="empty">Sin resultados</div>';
     html += '<p class="tiny muted" style="text-align:center;margin-top:24px">Datos ' + esc(ago(S.lastSync)) + ' · v' + APP_VERSION + '</p>';
     view.innerHTML = html;
+  }
+  function isStandalone() {
+    try { return !!(navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches)); } catch (e) { return false; }
   }
   function hasLocal(sheet) { return S.queue.some(function (o) { return o.sheet === sheet; }); }
   function catRow(c) {
@@ -1312,6 +1530,11 @@
       html += '</div>';
     });
     return html;
+  }
+
+  /** Nota fija mientras no se pueda guardar en el celular. */
+  function storageNote() {
+    return S.storageError ? '<div class="note err"><b>No se pudo guardar en el celular.</b> No cierres la app y liberá espacio: lo cargado sigue en pantalla y se envía al tener señal.</div>' : '';
   }
 
   /* ---------- Nuevo registro ---------- */
@@ -1419,11 +1642,16 @@
       nav('/c/' + sheet, { replace: true });
       return;
     }
+    if (reg.key !== key) {
+      // ruta vieja de un alta ya creada (p. ej. al volver atrás): se corrige sin mover la pantalla
+      S.route = '/c/' + sheet + '/r/' + reg.key;
+      if (!IN_GAS) { try { history.replaceState(null, '', '#' + S.route); } catch (e) { /* iframe */ } }
+    }
     renderTop(reg.elemento || 'Registro', cat.sheet + ' · ' + cat.titulo);
     var s = stats(reg.items);
     var filter = S.ui.filter[reg.key] || 'all';
     var editing = S.ui.open['hdr:' + reg.key];
-    var html = '<div class="card pad" id="hdr">';
+    var html = storageNote() + '<div class="card pad" id="hdr">';
     if (editing) {
       html += headerForm(reg);
     } else {
@@ -1574,7 +1802,10 @@
         '<div class="flex" style="margin-bottom:10px">' +
         '<label class="btn file-btn grow">📷 Cámara<input type="file" accept="image/*" capture="environment" data-photo="1" data-key="' + reg.key + '" data-off="' + it.off + '"></label>' +
         '<label class="btn file-btn grow">🖼 Galería<input type="file" accept="image/*" multiple data-photo="1" data-key="' + reg.key + '" data-off="' + it.off + '"></label></div>' +
-        '<div class="flex"><button class="btn danger grow" data-act="clear" data-key="' + reg.key + '" data-off="' + it.off + '">Limpiar</button>' +
+        '<div class="flex">' +
+        // «Borrar carga» sólo si hay algo cargado
+        (st !== 'pend' || it.fecha || it.resp || it.fum || it.obs || fz.open
+          ? '<button class="btn danger grow" data-act="clear" data-key="' + reg.key + '" data-off="' + it.off + '">Borrar carga</button>' : '') +
         '<button class="btn grow" data-act="more" data-key="' + reg.key + '" data-off="' + it.off + '">Listo</button></div></div>';
     }
     return h + '</div>';
@@ -1586,6 +1817,62 @@
     var tmp = document.createElement('div');
     tmp.innerHTML = itemCard(reg, it);
     el.replaceWith(tmp.firstChild);
+  }
+
+  /** Texto de la confirmación de «Borrar carga» (en la etapa 3 pasa a la hoja ask()). */
+  function clearQuestion(f) {
+    var num = f.server ? f.server[0] : null;
+    return '¿Borrar la carga de este control?\n\nVuelve a pendiente y se borran fecha, responsable y observaciones. Las fotos quedan.' +
+      (!f.open ? '' : f.pend && f.pend.status === 'pending' ? '\n\nLa FUM nueva se descarta (todavía no se envió).'
+        : '\n\nLa ' + (num ? 'FUM N° ' + num : 'FUM') + ' queda ANULADA en el FOG 01. Si ya se corrigió, cancelá y marcá AP.');
+  }
+  /**
+   * «Borrar carga»: el control vuelve a pendiente (las fotos quedan). La FUM nueva sin enviar se
+   * descarta; la ya enviada se anula, retenida 6 s para poder deshacer. Ofrece Deshacer.
+   */
+  function clearItem(reg, off) {
+    var it = reg.items.filter(function (x) { return x.off === off; })[0];
+    if (!it) return;
+    var f = itemFum(reg, it);   // se vuelve a mirar al confirmar: pudo haber llegado un envío
+    var prev = {};
+    ['estado', 'fecha', 'resp', 'fum', 'obs', 'documento', 'instrumento'].forEach(function (k) { prev[k] = it[k]; });
+    var u = { patches: [{ sheet: reg.sheet, key: reg.key, off: it.off, prev: prev }], drop: [], restore: [] };
+    if (f.open) {
+      if (f.pend && f.pend.status === 'pending') {
+        u.restore = S.queue.filter(function (o) { return o === f.pend || o.ref === f.pend.id; });
+        dropOp(f.pend);
+      } else {
+        var anul = queueFum(reg, it, f.server
+          ? { accion: 'cerrar', num: f.server[0], resultado: 'Anulada', fecha: today() }
+          : { accion: 'cerrar', ref: f.pend.id, resultado: 'Anulada', fecha: today() });
+        hold(anul, 6000);
+        u.drop.push(anul);
+      }
+    }
+    editItem(reg, it.off, { estado: '', fecha: '', resp: '', fum: '', obs: '' });
+    refreshItem(reg, it.off);
+    offerUndo('Carga borrada', u);
+  }
+  /** Deshacer (6 s): u = {patches: [{sheet, key, off, prev}], drop: [ops creadas], restore: [ops descartadas]}. */
+  function offerUndo(msg, u) {
+    S.undo = u;
+    toast(msg, { kind: 'ok', ms: 6000, action: { label: 'Deshacer', fn: function () { doUndo(u); } } });
+  }
+  function doUndo(u) {
+    if (S.undo !== u) return;
+    S.undo = null;
+    // lo creado tiene que seguir sin enviar (la retención de 6 s lo asegura); si ya salió, no se toca nada
+    var sent = u.drop.filter(function (o) { return S.queue.indexOf(o) < 0 || (o.status !== 'pending' && o.status !== 'error'); });
+    if (sent.length) { toast('No se puede deshacer: la FUM ya se cerró en el FOG 01.', { kind: 'err' }); return; }
+    u.drop.forEach(function (o) { dropOp(o); delete S.hold[o.id]; });
+    u.restore.forEach(function (o) { o.status = 'pending'; S.queue.push(o); });
+    u.patches.forEach(function (p) {
+      var r = getReg(p.sheet, p.key);
+      if (r && r.items.some(function (x) { return x.off === p.off; })) editItem(r, p.off, p.prev);
+    });
+    queueChanged();
+    render({ keepScroll: true });
+    toast('Listo, se deshizo', { kind: 'info' });
   }
 
   /** Devuelve false si el usuario canceló. */
@@ -1678,7 +1965,8 @@
       }).join('') + '</div>';
     }
 
-    html += '<h2 class="sec">Datos</h2><div class="card pad"><div class="small">Última actualización: <b>' + esc(ago(S.lastSync)) + '</b>' +
+    html += '<h2 class="sec">Datos</h2>' + storageNote() + '<div class="card pad"><div class="small">Última actualización: <b>' + esc(ago(S.lastSync)) + '</b>' +
+      '<div class="muted" id="storeUse"></div>' +
       (S.lastError ? '<div class="note err" style="margin:8px 0 0">' + esc(S.lastError) + '</div>' : '') + '</div><div class="spacer"></div>' +
       '<button class="btn primary block" data-act="sync" data-full="1">Sincronizar y descargar todo</button></div>';
 
@@ -1701,6 +1989,14 @@
     }
     html += '<p class="tiny muted" style="text-align:center;margin-top:24px">PIE · Carga v' + APP_VERSION + ' · modo ' + MODE + '</p>';
     view.innerHTML = html;
+    try {
+      if (navigator.storage && navigator.storage.estimate) {
+        navigator.storage.estimate().then(function (e) {
+          var el = document.getElementById('storeUse');
+          if (el && e && e.usage != null) el.textContent = 'Espacio usado en el celular: ' + (e.usage / 1048576).toFixed(1).replace('.', ',') + ' MB';
+        }, function () { /* noop */ });
+      }
+    } catch (e) { /* noop */ }
   }
 
   /* ================================================================
@@ -1780,7 +2076,12 @@
         toast('Documento: ' + val);
       });
     }
-    if (a === 'fold') { S.ui.folded[el.dataset.k] = !S.ui.folded[el.dataset.k]; return render({ keepScroll: true }); }
+    if (a === 'fold') {
+      var fk = el.dataset.k, fi = fk.indexOf('|');
+      fk = liveKey(fk.slice(0, fi)) + fk.slice(fi);   // la pantalla puede tener la clave de un alta ya creada
+      S.ui.folded[fk] = !S.ui.folded[fk];
+      return render({ keepScroll: true });
+    }
     if (a === 'nextpend') {
       // el próximo control pendiente debajo de lo que se está viendo (si no hay, el primero)
       var all = [].slice.call(document.querySelectorAll('.item.pend'));
@@ -1799,9 +2100,10 @@
       return;
     }
     if (a === 'gofum') {
-      S.ui.open[el.dataset.key + ':' + el.dataset.off] = true;
+      var gk = liveKey(el.dataset.key);
+      S.ui.open[gk + ':' + el.dataset.off] = true;
       S.ui.focus = Number(el.dataset.off);
-      return nav('/c/' + el.dataset.sheet + '/r/' + el.dataset.key);
+      return nav('/c/' + el.dataset.sheet + '/r/' + gk);
     }
     if (a === 'goto') {
       google.script.run.irA(el.dataset.sheet, Number(el.dataset.row));
@@ -1810,8 +2112,9 @@
     var m = /^\/c\/([^/]+)\//.exec(S.route);
     var sheet = m && m[1];
     if (el.dataset.key && sheet) reg = getReg(sheet, el.dataset.key);
-    if (a === 'filter') { S.ui.filter[el.dataset.key] = el.dataset.f; return render({ keepScroll: true }); }
-    if (a === 'hdr') { S.ui.open['hdr:' + el.dataset.key] = !S.ui.open['hdr:' + el.dataset.key]; return render({ keepScroll: true }); }
+    var lk = reg ? reg.key : liveKey(el.dataset.key);
+    if (a === 'filter') { S.ui.filter[lk] = el.dataset.f; return render({ keepScroll: true }); }
+    if (a === 'hdr') { S.ui.open['hdr:' + lk] = !S.ui.open['hdr:' + lk]; return render({ keepScroll: true }); }
     if (!reg) return;
     var off = Number(el.dataset.off);
     if (a === 'mark') {
@@ -1824,8 +2127,10 @@
     }
     if (a === 'more') { var k = reg.key + ':' + off; S.ui.open[k] = !S.ui.open[k]; return refreshItem(reg, off); }
     if (a === 'clear') {
-      editItem(reg, off, { estado: '', fecha: '', resp: '', fum: '', obs: '' });
-      return refreshItem(reg, off);
+      var cit = reg.items.filter(function (x) { return x.off === off; })[0];
+      if (!cit) return;
+      if (!confirm(clearQuestion(itemFum(reg, cit)))) return;   // transitorio: en la etapa 3 pasa a ask()
+      return clearItem(reg, off);
     }
     if (a === 'docupdall') {
       var nd = docUpgrade(docDefault(reg) || '');
@@ -1912,11 +2217,12 @@
       ev.preventDefault();
       var m = /^\/c\/([^/]+)\//.exec(S.route);
       var reg = getReg(m[1], f.dataset.key);
+      if (!reg) return;
       editHeader(reg, {
         elemento: f.elemento.value.trim(), piso: f.piso.value.trim(), sector: f.sector.value.trim(), etapa: f.etapa.value.trim(),
         responsables: [].slice.call(f.querySelectorAll('select[name=resp]')).map(function (s) { return s.value; })
       });
-      S.ui.open['hdr:' + f.dataset.key] = false;
+      S.ui.open['hdr:' + reg.key] = false;
       toast('Encabezado guardado');
       render({ keepScroll: true });
     }
@@ -1939,6 +2245,32 @@
     }
   });
 
+  // un dibujo que se postergó porque había un campo en edición se hace al salir del campo
+  document.addEventListener('focusout', function () {
+    setTimeout(function () {
+      if (S.ui.renderOnBlur && !isEditing()) { S.ui.renderOnBlur = false; render({ keepScroll: true }); }
+    }, 50);
+  });
+
+  /* Ciclo de vida: iOS congela la app en segundo plano y puede cerrarla sin aviso. */
+  var swReg = null;
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) {
+      var a = document.activeElement;
+      if (a && /^(INPUT|TEXTAREA)$/.test(a.tagName)) a.blur();   // dispara 'change': guarda lo escrito
+      saveQueue();
+    } else {
+      onResume();
+    }
+  });
+  window.addEventListener('pageshow', function (e) { if (e.persisted) onResume(); });
+  /** Al volver a la app: se envía lo pendiente enseguida (los temporizadores estaban congelados). */
+  function onResume() {
+    renderTop();
+    if ((navigator.onLine || IN_GAS) && S.queue.some(function (o) { return o.status === 'pending'; })) sync();
+    if (swReg) { try { swReg.update().catch(function () { /* sin señal */ }); } catch (e) { /* noop */ } }
+  }
+
   window.addEventListener('online', function () { renderTop(); sync(); });
   window.addEventListener('offline', function () { renderTop(); });
   window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); window.__piePrompt = e; });
@@ -1958,7 +2290,7 @@
         try { history.replaceState(null, '', location.pathname + location.hash); } catch (e) { /* noop */ }
       }
       if ('serviceWorker' in navigator && /^https:|^http:\/\/localhost/.test(location.href)) {
-        navigator.serviceWorker.register('sw.js').catch(function () { /* sin SW */ });
+        navigator.serviceWorker.register('sw.js').then(function (reg) { swReg = reg; }, function () { /* sin SW */ });
       }
       var link = document.createElement('link');
       link.rel = 'manifest';
@@ -1966,11 +2298,15 @@
       document.head.appendChild(link);
       var r = decodeURIComponent(location.hash.slice(1));
       if (r) S.route = r;
+      // pedir que el navegador no borre lo guardado sin señal
+      try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(function () { /* noop */ }); } catch (e) { /* noop */ }
     }
     S.resolved = LS.get('resolved', {});
     Promise.all([KV.get('catalog'), KV.get('queue')]).then(function (v) {
       S.catalog = v[0] || null;
       S.queue = (v[1] || []).map(function (o) { if (o.status === 'sending') o.status = 'pending'; return o; });
+      queueLoaded = true;
+      migrateResolved();
       render();
       S.queue.filter(function (o) { return o.op === 'photo'; }).forEach(function (o) {
         KV.get(o.img).then(function (d) { if (d) { S.thumbs[o.id] = d; } });

@@ -59,6 +59,7 @@ const sheetRows = (name, from, to, book) => fetch(`http://localhost:8081/__sheet
   assert.strictEqual(await page.inputValue('input[name=documento]'), 'KIR-COMR-REF-ESTR-S12P-R07');
   await page.fill('input[name=documento]', 'KIR-COMR-EST-P05-R00');
   await shot('05-nuevo');
+  assert.strictEqual(await page.$$eval('input:not([type=file]), select, textarea', els => els.filter(e => parseFloat(getComputedStyle(e).fontSize) < 16).length), 0, 'campos ≥ 16 px');
   await page.click('button[type=submit]');
   await page.waitForSelector('text=Nuevo · se crea en la planilla al sincronizar');
   await page.waitForSelector('.net:has-text("Offline")');
@@ -79,6 +80,15 @@ const sheetRows = (name, from, to, book) => fetch(`http://localhost:8081/__sheet
   await page.locator('.item >> nth=1 >> [data-fum=plazo]').blur();
   await page.fill('.item >> nth=1 >> [data-field=obs]', 'Recubrimiento insuficiente');
   await page.locator('.item >> nth=1 >> [data-field=obs]').blur();
+  // «Borrar carga» descarta la FUM nueva (no se envió) y «Deshacer» devuelve todo como estaba
+  await page.click('.item >> nth=1 >> button[data-act=clear]');   // confirm() aceptado por page.on('dialog')
+  await page.waitForFunction(() => document.querySelectorAll('.item')[1].classList.contains('pend'));
+  assert.strictEqual(await page.$$eval('.item >> nth=1 >> .fumbox', n => n.length), 0, 'la FUM nueva se descartó');
+  await page.click('#toast button.act');                           // Deshacer
+  await page.waitForFunction(() => document.querySelectorAll('.item')[1].classList.contains('rz'));
+  assert.strictEqual(await page.inputValue('.item >> nth=1 >> [data-fum=accionCorrectiva]'), 'Rehacer recubrimiento');
+  assert.strictEqual(await page.inputValue('.item >> nth=1 >> [data-fum=plazo]'), '2026-10-24');
+  assert.strictEqual(await page.inputValue('.item >> nth=1 >> [data-field=obs]'), 'Recubrimiento insuficiente');
   await page.click('.item >> nth=1 >> button:has-text("Listo")');
   await page.click('.item >> nth=2 >> button[data-st=na]');
   // foto de control sin señal (queda en el celular)
@@ -89,11 +99,23 @@ const sheetRows = (name, from, to, book) => fetch(`http://localhost:8081/__sheet
   await shot('06-checklist-offline');
   const pending = await page.textContent('.net');
   assert.ok(/Offline · \d+ sin enviar/.test(pending), pending);
+  // FLOW-02: detalle abierto más abajo y texto escrito sin salir del campo mientras se crea el registro
+  await page.click('.item >> nth=10 >> button[data-act=more]');
+  await page.fill('.item >> nth=10 >> [data-field=obs]', 'Escrito mientras se crea el registro');
+  const y0 = await page.evaluate(() => window.scrollY);
+  assert.ok(y0 > 300, 'desplazado hasta el control: ' + y0);
 
   // 5. Vuelve la señal: sincroniza solo y redirige al registro real
   await ctx.setOffline(false);
   await page.evaluate(() => window.dispatchEvent(new Event('online')));
   await page.waitForSelector('.net:has-text("Al día")', { timeout: 20000 });
+  // el alta confirmada no salta arriba ni borra lo que se está escribiendo; se dibuja al salir del campo
+  assert.ok(/\/r\/h\d+$/.test(await page.evaluate(() => location.hash)), 'la ruta pasa a la fila real');
+  const y1 = await page.evaluate(() => window.scrollY);
+  assert.ok(Math.abs(y1 - y0) < 5, 'sin salto: ' + y0 + ' → ' + y1);
+  assert.strictEqual(await page.inputValue('.item >> nth=10 >> [data-field=obs]'), 'Escrito mientras se crea el registro');
+  assert.ok(await page.evaluate(() => document.activeElement && document.activeElement.dataset.field === 'obs'), 'el campo sigue en edición');
+  await page.click('.item >> nth=10 >> button:has-text("Listo")');
   await page.waitForSelector('text=/Planilla 6 · fila \\d+/');
   await shot('07-sincronizado');
   const T = Number(/fila (\d+)/.exec(await page.textContent('#hdr'))[1]);
@@ -121,6 +143,23 @@ const sheetRows = (name, from, to, book) => fetch(`http://localhost:8081/__sheet
   const withNote = await sheetRows('6', T + 3, T + 3);
   assert.ok(Object.values(withNote.notes).some(n => /Foto .*drive\.google\.com/.test(n)), 'foto subida y anotada: ' + JSON.stringify(withNote.notes));
   assert.strictEqual(withNote.files, 1);
+  await page.waitForFunction(() => document.querySelector('.net').textContent.includes('Al día') && !document.getElementById('hdr').textContent.includes('cambios sin enviar'), null, { timeout: 20000 });
+  const rowObs = (await sheetRows('6', T + 11, T + 11)).rows[0];
+  assert.strictEqual(rowObs[11], 'Escrito mientras se crea el registro', 'lo escrito durante el alta llegó a la planilla: ' + JSON.stringify(rowObs));
+
+  // 5b. «Borrar carga» sobre la FUM 4 ya numerada: la anulación queda retenida y «Deshacer» la descarta
+  await page.click('.item >> nth=1 >> button[data-act=more]');
+  await page.click('.item >> nth=1 >> button[data-act=clear]');   // confirm() aceptado
+  await page.waitForFunction(() => document.querySelectorAll('.item')[1].classList.contains('pend'));
+  await page.click('#toast button.act');                           // Deshacer
+  await page.waitForSelector('.item >> nth=1 >> .fumbox:has-text("FUM N° 4")');
+  assert.ok(await page.$eval('.item >> nth=1', e => e.classList.contains('rz')), 'vuelve a RZ');
+  await page.click('.item >> nth=1 >> button:has-text("Listo")');
+  // si la anulación siguiera en la cola, «Al día» llegaría recién después de enviarla (a los 6 s)
+  await page.waitForFunction(() => document.querySelector('.net').textContent.includes('Al día') && !document.getElementById('hdr').textContent.includes('cambios sin enviar'), null, { timeout: 20000 });
+  assert.strictEqual((await sheetRows('_PIE_FUM', 2, 2)).rows[0][14], 'Abierta', 'Deshacer no anuló la FUM 4');
+  const rowU = (await sheetRows('6', T + 2, T + 2)).rows[0];
+  assert.deepStrictEqual([rowU[9], String(rowU[10]), rowU[11]], ['RZ', '4', 'Recubrimiento insuficiente'], 'el control quedó como estaba');
 
   // 6. Editar un registro ya sincronizado (online): instrumento con N° de serie que se recuerda
   await page.click('.item >> nth=3 >> button[data-act=more]');
@@ -183,6 +222,7 @@ const sheetRows = (name, from, to, book) => fetch(`http://localhost:8081/__sheet
   // 8. Ajustes
   await page.click('[data-to="/ajustes"]');
   await page.waitForSelector('text=Envíos pendientes · 0');
+  assert.strictEqual(await page.$$eval('input:not([type=file]), select, textarea', els => els.filter(e => parseFloat(getComputedStyle(e).fontSize) < 16).length), 0, 'campos ≥ 16 px');
   await shot('09-ajustes');
 
   // 9. ancho de celular sin scroll horizontal
