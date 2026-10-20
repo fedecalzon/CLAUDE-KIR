@@ -104,9 +104,9 @@
   button, input, select, textarea { font: inherit; color: inherit; }
   /* iOS agranda la página al tocar un campo con letra de menos de 16 px */
   input, select, textarea { font-size: 16px; }
-  /* touch-action: manipulation entra junto con el bloqueo de doble toque al marcar (§6.1):
-     antes de eso convertiría un doble toque sobre AP en marcar y desmarcar. */
-  button, .row, label.btn, summary { -webkit-user-select: none; user-select: none; cursor: pointer; }
+  /* manipulation: sin zoom por doble toque (un doble toque pasa a ser dos clicks; el bloqueo de 700 ms
+     al marcar, §6.1, hace que el segundo se ignore). Va siempre junto con ese bloqueo. */
+  button, .row, label.btn, summary { touch-action: manipulation; -webkit-user-select: none; user-select: none; cursor: pointer; }
   button, .btn, .row { transition: transform 80ms, filter 80ms; }
   button:active, .btn:active, label.btn:active { transform: scale(.97); filter: brightness(.92); }
   .row:active { transform: scale(.99); }
@@ -685,7 +685,9 @@
     hold: {},               // id de operación -> retención en memoria (no se envía todavía)
     undo: null,             // último Deshacer ofrecido
     storageError: false,    // falló guardar la cola en el celular
-    ui: { tab: {}, filter: {}, open: {}, search: '', regSearch: {}, folded: {}, renderOnBlur: false }
+    // lastMark: 'clave:off' -> hora del último toque de AP/RZ/N/A (bloqueo de 700 ms por control)
+    // keep: clave -> {off: true}, controles marcados con un filtro puesto que siguen a la vista
+    ui: { tab: {}, filter: {}, open: {}, search: '', regSearch: {}, folded: {}, renderOnBlur: false, lastMark: {}, keep: {} }
   };
   if (BOOT.token) S.settings.token = BOOT.token;
 
@@ -712,7 +714,7 @@
       if (S.storageError) return;
       S.storageError = true;
       toast('No se pudo guardar en el celular. No cierres la app y liberá espacio.', { kind: 'err', ms: 8000 });
-      if (!isEditing()) render({ keepScroll: true });
+      finishRender();   // la nota fija aparece sin pisar un campo en edición
     }).then(function () { if (qSave === p) qSave = null; });
     qSave = p;
     return p;
@@ -1164,6 +1166,17 @@
     setTimeout(function () {
       if (navigator.onLine || IN_GAS) { clearTimeout(autoSyncT); autoSyncT = setTimeout(sync, 300); }
     }, ms + 100);
+  }
+  /*
+   * Suelta las retenciones que cumplen fn(h): al cerrar el detalle de una FUM nueva o salir de su registro
+   * el RZ queda confirmado y la FUM sale con el próximo envío (queueChanged). Se borran en el momento:
+   * si se vuelve a abrir el detalle, la FUM ya no vuelve a quedar retenida.
+   */
+  function releaseHolds(fn) {
+    var any = false;
+    Object.keys(S.hold).forEach(function (id) { if (fn(S.hold[id])) { delete S.hold[id]; any = true; } });
+    if (any) queueChanged();
+    return any;
   }
 
   /* ================================================================
@@ -1795,12 +1808,7 @@
         S.route = '/c/' + m[1] + '/r/h' + S.resolved[m[2]].h;
         if (!IN_GAS) { try { history.replaceState(null, '', '#' + S.route); } catch (e) { /* iframe */ } }
       }
-      if (isEditing()) {
-        renderTop();                 // no pisar lo que el usuario está escribiendo:
-        S.ui.renderOnBlur = true;    // se dibuja al salir del campo
-      } else {
-        finishRender();
-      }
+      finishRender();   // no pisa lo que se está escribiendo ni corta un desplazamiento
       // lo que entró (o se liberó) mientras se enviaba sale enseguida, sin esperar otro aviso
       if (ok && S.queue.some(function (o) {
         return o.status === 'pending' && !isHeld(o) && (o.createdAt >= t0 || (o.op !== 'photo' && sending.indexOf(o) < 0));
@@ -1810,8 +1818,24 @@
     });
   }
 
-  /** Dibujo al terminar un envío (§6.8 agrega la espera si se está desplazando la pantalla). */
-  function finishRender() { render({ keepScroll: true }); }
+  /*
+   * Dibujo que no pidió el usuario (al terminar un envío, §6.8). Mientras la pantalla se desplaza espera
+   * (dibujar ahí frena en seco el desplazamiento por inercia de iOS). Con un campo en edición o un buscador
+   * enfocado sólo se actualiza el header: el resto se dibuja al salir del campo (renderOnBlur).
+   */
+  var lastScroll = 0, finT = null;
+  window.addEventListener('scroll', function () { lastScroll = Date.now(); }, { passive: true });
+  function finishRender() {
+    clearTimeout(finT);
+    if (Date.now() - lastScroll < 400) { renderTop(); finT = setTimeout(finishRender, 400); return; }
+    var a = document.activeElement;
+    if (isEditing() || (a && view.contains(a) && a.type === 'search')) {
+      renderTop();
+      S.ui.renderOnBlur = true;
+      return;
+    }
+    render({ keepScroll: true });
+  }
 
   /* ================================================================
    *  Navegación
@@ -1976,11 +2000,49 @@
     watchDets();
   }
 
+  /** Pantalla de una ruta; un alta ya creada ('p' + id) es la misma pantalla que su fila ('h' + fila). */
+  function screenOf(route) {
+    var m = /^\/c\/([^/]+)\/r\/(.+)$/.exec(route);
+    return m ? '/c/' + m[1] + '/r/' + liveKey(m[2]) : route;
+  }
+  /*
+   * Al salir de un registro (§6.8): se vacía su keep y se sueltan las retenciones de sus detalles
+   * (la FUM nueva queda confirmada y sale con el próximo envío).
+   */
+  var shownScreen = null;
+  function checkLeave() {
+    var prev = shownScreen;
+    shownScreen = screenOf(S.route);
+    var m = prev && /^\/c\/[^/]+\/r\/(.+)$/.exec(prev);
+    if (!m || screenOf(prev) === shownScreen) return;
+    var old = liveKey(m[1]);
+    delete S.ui.keep[old];
+    releaseHolds(function (h) { return !!h.det && h.key === old; });
+  }
+  /** Primer control a la vista debajo del header y de la banda de etapa (para anclar el dibujo). */
+  function itemAnchor() {
+    var lim = document.getElementById('top').getBoundingClientRect().bottom + 48, a = null;
+    [].some.call(view.querySelectorAll('.item'), function (el) {
+      var rc = el.getBoundingClientRect();
+      if (rc.bottom > lim) { a = { id: el.id, top: rc.top }; return true; }
+    });
+    return a;
+  }
+
+  /*
+   * Dibuja la pantalla de la ruta actual. keepScroll: queda anclado al primer control a la vista (§6.8),
+   * así no se corre aunque arriba aparezca o desaparezca algo (Safari no compensa); sin controles,
+   * se conserva el desplazamiento.
+   */
   function render(o) {
     o = o || {};
     S.ui.renderOnBlur = false;
+    clearTimeout(finT);   // lo que esperaba para dibujarse ya queda dibujado ahora
+    checkLeave();
     var y = window.scrollY;
     var r = S.route, m;
+    var scr0 = screenOf(r);
+    var anchor = o.keepScroll ? itemAnchor() : null;
     if (!S.catalog && r !== '/ajustes') {
       renderTop('PIE · Carga', 'Plan de Inspección y Ensayo');
       view.innerHTML = S.syncing
@@ -2001,7 +2063,12 @@
     else if ((m = /^\/c\/([^/]+)\/r\/([ph].+)$/.exec(r))) renderReg(m[1], m[2]);
     else { S.route = '/'; renderHome(); }
     afterRender();
-    if (o.keepScroll) window.scrollTo(0, y);
+    // si al dibujar se pasó a otra pantalla (p. ej. el registro ya no existe), esa arranca donde la dejó nav()
+    if (o.keepScroll && screenOf(S.route) === scr0) {
+      var n = anchor && document.getElementById(anchor.id);
+      if (n) window.scrollBy(0, n.getBoundingClientRect().top - anchor.top);
+      else window.scrollTo(0, y);
+    }
   }
 
   /* ---------- Inicio: categorías por rubro ---------- */
@@ -2273,7 +2340,12 @@
     var s = stats(reg.items);
     renderTop(reg.elemento || 'Registro',
       [reg.piso, 'Planilla ' + cat.sheet, (s.total - s.pend) + '/' + s.total, s.rz ? s.rz + ' RZ' : ''].filter(Boolean).join(' · '));
-    var filter = S.ui.filter[reg.key] || 'all';
+    // filtro inicial (§6.1): «Pend.» si el registro ya tiene avance y le quedan pendientes; si no, «Todos».
+    // Se decide una sola vez por registro y sesión; una elección del usuario se respeta.
+    if (S.ui.filter[reg.key] == null) S.ui.filter[reg.key] = s.pend > 0 && s.total - s.pend > 0 ? 'pend' : 'all';
+    var filter = S.ui.filter[reg.key];
+    // lo marcado con un filtro puesto sigue a la vista (keep): nada se corre bajo el dedo
+    var keep = S.ui.keep[reg.key] || {};
     var rdoc = docDefault(reg);
     // resumen compacto (§5.6): datos, fila del plano y avance; la edición de datos va adentro de #hdr
     var html = storageNote() + '<section class="card sum"><div id="hdr">' + (S.ui.open['hdr:' + reg.key] ? headerForm(reg) : sumHead(reg)) + '</div>' +
@@ -2283,7 +2355,7 @@
     groupItems(reg.items).forEach(function (g) {
       var gs = stats([].concat.apply([], g.tasks.map(function (t) { return t.items; })));
       var visibleTasks = g.tasks.map(function (tk) {
-        return { name: tk.name, muestra: tk.muestra, items: tk.items.filter(function (it) { return filter === 'all' || itemState(it) === filter; }) };
+        return { name: tk.name, muestra: tk.muestra, items: tk.items.filter(function (it) { return filter === 'all' || itemState(it) === filter || keep[it.off]; }) };
       }).filter(function (tk) { return tk.items.length; });
       if (!visibleTasks.length) return;
       var fk = reg.key + '|' + g.name;
@@ -2432,6 +2504,15 @@
     if (!n) queueChanged();
     return n;
   }
+  /** Control que se ve sólo porque se marcó con un filtro puesto (keep, §6.1): queda atenuado (.kept). */
+  function isKept(reg, it) {
+    var f = S.ui.filter[reg.key] || 'all';
+    return f !== 'all' && itemState(it) !== f && !!(S.ui.keep[reg.key] || {})[it.off];
+  }
+  /** Con un filtro puesto, lo que se acaba de marcar o borrar queda a la vista hasta cambiar de filtro. */
+  function keepItem(reg, off) {
+    if ((S.ui.filter[reg.key] || 'all') !== 'all') (S.ui.keep[reg.key] = S.ui.keep[reg.key] || {})[off] = true;
+  }
   /*
    * Tarjeta de control (§4.6). Todo lo que aparece al marcar (resumen, avisos, detalle) va debajo de
    * AP/RZ/N/A, así los botones no se corren bajo el dedo.
@@ -2464,7 +2545,7 @@
       ? '<button type="button" class="chip pend" data-act="serial" data-key="' + reg.key + '" data-off="' + it.off + '">Falta N° de serie</button>' : '') +
       docWarnHtml(reg, it);
     var moreLabel = 'Detalle del control' + (fotosTxt ? ', ' + fotosTxt : '') + (it.obs ? ', con observación' : '');
-    var h = '<div class="item ' + st + '" id="it-' + it.off + '">' +
+    var h = '<div class="item ' + st + (isKept(reg, it) ? ' kept' : '') + '" id="it-' + it.off + '">' +
       '<p class="crit" id="crit-' + it.off + '">' + esc(it.criterio) + '</p>' +
       (meta ? '<p class="meta">' + esc(meta) + '</p>' : '') +
       '<div class="acts' + (st !== 'pend' ? ' set' : '') + '" role="group" aria-label="Resultado del control">' + b('ap', 'check') + b('rz', 'x') + b('na', 'minus') +
@@ -2517,9 +2598,30 @@
     watchDets();
   }
 
+  /*
+   * FUM abierta del control: su número en el FOG 01 (null si todavía no se envió) y a qué FUM apunta un
+   * cierre (por número si está abierta en el FOG 01; si no, por el id de su alta en la cola).
+   */
+  function fumOpenNum(f) { return f.server && f.server[5] === 'Abierta' ? f.server[0] : null; }
+  function closeFields(f, resultado) {
+    var n = fumOpenNum(f);
+    var c = n != null ? { num: n } : f.pend ? { ref: f.pend.id } : null;
+    if (!c) return null;
+    c.accion = 'cerrar';
+    c.resultado = resultado;
+    c.fecha = today();
+    return c;
+  }
+  /** Datos de un control antes de cambiarlo (para Deshacer). */
+  function prevOf(it) {
+    var p = {};
+    ['estado', 'fecha', 'resp', 'fum', 'obs', 'documento', 'instrumento'].forEach(function (k) { p[k] = it[k]; });
+    return p;
+  }
+
   /** Hoja de «Borrar carga» (§7.9), según haya FUM nueva, FUM ya enviada o ninguna. */
   function clearQuestion(f) {
-    var num = f.server ? f.server[0] : null;
+    var num = fumOpenNum(f);
     var discard = f.open && f.pend && f.pend.status === 'pending';   // misma condición que clearItem
     var annul = f.open && !discard;
     return {
@@ -2531,37 +2633,37 @@
     };
   }
   /**
-   * «Borrar carga»: el control vuelve a pendiente (las fotos quedan). La FUM nueva sin enviar se
+   * «Borrar carga» (§6.4): el control vuelve a pendiente (las fotos quedan). La FUM nueva sin enviar se
    * descarta; la ya enviada se anula, retenida 6 s para poder deshacer. Ofrece Deshacer.
    */
   function clearItem(reg, off) {
-    var it = reg.items.filter(function (x) { return x.off === off; })[0];
+    var it = itemOf(reg, off);
     if (!it) return;
     var f = itemFum(reg, it);   // se vuelve a mirar al confirmar: pudo haber llegado un envío
-    var prev = {};
-    ['estado', 'fecha', 'resp', 'fum', 'obs', 'documento', 'instrumento'].forEach(function (k) { prev[k] = it[k]; });
-    var u = { patches: [{ sheet: reg.sheet, key: reg.key, off: it.off, prev: prev }], drop: [], restore: [] };
+    var u = { patches: [{ sheet: reg.sheet, key: reg.key, off: it.off, prev: prevOf(it) }], drop: [], restore: [] };
     if (f.open) {
       if (f.pend && f.pend.status === 'pending') {
         u.restore = S.queue.filter(function (o) { return o === f.pend || o.ref === f.pend.id; });
         dropOp(f.pend);
       } else {
-        var anul = queueFum(reg, it, f.server
-          ? { accion: 'cerrar', num: f.server[0], resultado: 'Anulada', fecha: today() }
-          : { accion: 'cerrar', ref: f.pend.id, resultado: 'Anulada', fecha: today() });
-        hold(anul, 6000);
-        u.drop.push(anul);
+        var cf = closeFields(f, 'Anulada');
+        if (cf) {
+          var anul = queueFum(reg, it, cf);
+          hold(anul, 6000);
+          u.drop.push(anul);
+        }
       }
     }
     editItem(reg, it.off, { estado: '', fecha: '', resp: '', fum: '', obs: '' });
+    keepItem(reg, it.off);   // con un filtro puesto (p. ej. AP) no desaparece de la lista: el detalle sigue abierto
     // dibujo completo: el subtítulo, el contador de la etapa y la barra («Siguiente pendiente») quedan al día
     render({ keepScroll: true });
     offerUndo('Carga borrada', u);
   }
   /** Deshacer (6 s): u = {patches: [{sheet, key, off, prev}], drop: [ops creadas], restore: [ops descartadas]}. */
-  function offerUndo(msg, u) {
+  function offerUndo(msg, u, kind) {
     S.undo = u;
-    toast(msg, { kind: 'ok', ms: 6000, action: { label: 'Deshacer', icon: 'undo', fn: function () { doUndo(u); } } });
+    toast(msg, { kind: kind || 'ok', ms: 6000, action: { label: 'Deshacer', icon: 'undo', fn: function () { doUndo(u); } } });
   }
   function doUndo(u) {
     if (S.undo !== u) return;
@@ -2570,7 +2672,8 @@
     var sent = u.drop.filter(function (o) { return S.queue.indexOf(o) < 0 || (o.status !== 'pending' && o.status !== 'error'); });
     if (sent.length) { toast('No se puede deshacer: la FUM ya se cerró en el FOG 01.', { kind: 'err' }); return; }
     u.drop.forEach(function (o) { dropOp(o); delete S.hold[o.id]; });
-    u.restore.forEach(function (o) { o.status = 'pending'; S.queue.push(o); });
+    // lo descartado vuelve a la cola (una FUM nueva vuelve a quedar retenida si su detalle sigue abierto)
+    u.restore.forEach(function (o) { o.status = 'pending'; if (S.queue.indexOf(o) < 0) S.queue.push(o); });
     u.patches.forEach(function (p) {
       var r = getReg(p.sheet, p.key);
       if (r && r.items.some(function (x) { return x.off === p.off; })) editItem(r, p.off, p.prev);
@@ -2581,22 +2684,30 @@
   }
 
   /*
-   * Marcar un control. Las preguntas van con ask(), nunca con el diálogo nativo: primero se decide
-   * (decideMark, puede preguntar) y después se aplica sin preguntar (applyMark).
+   * Marcar un control (§6.1-6.2). Las preguntas van con ask(), nunca con el diálogo nativo: primero se
+   * decide (decideMark, puede preguntar) y después se aplica sin preguntar (applyMark).
    * Tocar el estado que ya tiene no lo borra: para eso está «Borrar carga» en el detalle.
    */
-  /** AP / N/A sobre una FUM abierta que ya está numerada o ya salió del celular: se pregunta antes de cerrarla. */
-  function fumNeedsAsk(f, st) {
-    return st !== 'rz' && f.open && !(f.pend && f.pend.status === 'pending' && !f.server);
+  /**
+   * Qué pasa con la FUM abierta del control al marcar AP o N/A:
+   * 'drop': es nueva y sigue retenida (el RZ fue un error y se corrige con el detalle abierto): se descarta
+   *   sin preguntar y no llega nada al FOG 01;
+   * 'ask': es una reinspección real (numerada, o nueva pero ya liberada o enviada): se pregunta antes de
+   *   cerrarla. Cambio deliberado respecto de la v1.5: un rechazo real cargado sin señal ya no desaparece;
+   * 'none': no hay FUM abierta (o se marca RZ).
+   */
+  function fumAction(f, st) {
+    if (st === 'rz' || !f.open) return 'none';
+    return f.pend && f.pend.status === 'pending' && isHeld(f.pend) ? 'drop' : 'ask';
   }
   function askFumClose(f, st) {
-    var la = 'La ' + (f.server ? 'FUM N° ' + f.server[0] : 'FUM');
+    var num = fumOpenNum(f), la = 'La ' + (num ? 'FUM N° ' + num : 'FUM');
     return ask(st === 'ap'
       ? { title: '¿Pasó la reinspección?', body: la + ' se cierra como aprobada, con fecha de hoy.', ok: { label: 'Cerrar FUM y marcar AP', tone: 'ap' } }
       : { title: '¿El control no aplica?', body: la + ' se anula en el FOG 01 y el control queda N/A.', ok: { label: 'Anular FUM y marcar N/A', tone: 'danger' } });
   }
   /*
-   * Plano superado al marcar AP o RZ (C10): tres salidas y una sola pregunta por registro y revisión.
+   * Plano superado al marcar AP o RZ (§6.6, C10): tres salidas y una sola pregunta por registro y revisión.
    * Devuelve Promise<'ok' (pasar a la vigente) | 'alt' (marcar con la vieja) | 'none' (no hace falta) | null (no marcar)>.
    */
   function askPlano(reg, it) {
@@ -2614,80 +2725,123 @@
       cancel: 'No marcar'
     }).then(function (r) { if (r === 'alt') LS.set(kk, kv); return r; });
   }
-  /** Preguntas antes de marcar. Devuelve Promise<plan | null>; null = no marcar. */
-  function decideMark(reg, it, st) {
-    var plan = { closeOk: false, upgrade: false };
+  /**
+   * Preguntas antes de marcar (§6.2). Devuelve Promise<plan | null>; null = no marcar.
+   * plan = {reg (releído), openFum, dropFum (op), closeFum: {resultado}, upgrade, doc}.
+   * opts.silent (aprobar en lote): sin preguntas; un control cuya FUM habría que cerrar no se marca.
+   */
+  function decideMark(reg, it, st, opts) {
+    opts = opts || {};
+    var off = it.off;
+    var plan = {};
     var p = Promise.resolve(plan);
-    if (fumNeedsAsk(itemFum(reg, it), st)) {
-      p = askFumClose(itemFum(reg, it), st).then(function (r) { if (r !== 'ok') return null; plan.closeOk = true; return plan; });
-    }
-    if (st === 'ap' || st === 'rz') {
-      p = p.then(function (pl) {
-        if (!pl) return null;
-        return askPlano(reg, it).then(function (r) { if (r === null) return null; pl.upgrade = r === 'ok'; return pl; });
+    if (fumAction(itemFum(reg, it), st) === 'ask') {
+      if (opts.silent) return Promise.resolve(null);   // una FUM nunca se cierra sin preguntar
+      p = askFumClose(itemFum(reg, it), st).then(function (r) {
+        if (r !== 'ok') return null;
+        plan.closeOk = true;
+        return plan;
       });
     }
-    return p;
+    if ((st === 'ap' || st === 'rz') && !opts.silent) {
+      p = p.then(function (pl) {
+        if (!pl) return null;
+        return askPlano(reg, it).then(function (r) {
+          if (r === null) return null;
+          if (r === 'ok') pl.upgrade = true;
+          else if (r === 'alt') pl.doc = docDefault(reg) || it.documento;
+          return pl;
+        });
+      });
+    }
+    // mientras se preguntaba pudo terminar un envío: se vuelve a leer el registro y su FUM antes de aplicar
+    var settle = function (pl) {
+      if (!pl) return null;
+      var r = getReg(reg.sheet, reg.key), it2 = r && itemOf(r, off);
+      if (!it2 || itemState(it2) === st) return null;
+      var f = itemFum(r, it2), fa = fumAction(f, st);
+      pl.reg = r;
+      pl.openFum = st === 'rz' && !f.open && !it2.fum;
+      pl.dropFum = fa === 'drop' ? f.pend : null;
+      pl.closeFum = null;
+      if (fa !== 'ask') return pl;
+      if (pl.closeOk) { pl.closeFum = { resultado: st === 'ap' ? 'Reinspección AP' : 'Anulada' }; return pl; }
+      if (opts.silent) return null;
+      // la FUM salió del celular (o apareció) mientras tanto: ya no se descarta sin preguntar
+      return askFumClose(f, st).then(function (a) {
+        if (a !== 'ok') return null;
+        pl.closeOk = true;
+        return settle(pl);
+      });
+    };
+    return p.then(settle);
   }
-  /** Aplica la marca sin preguntar (plan de decideMark, o {} en «Pendientes → AP»). */
+  /** Aviso de «Pasar a la revisión vigente» (§7.10). */
+  function upgradeMsg(nd, n) {
+    var ur = docRefs(nd)[0];
+    return (ur ? 'Registro pasado a ' + revLabel(ur.doc[1]) : 'Plano: ' + nd) +
+      (n ? ' · ' + n + (n === 1 ? ' control actualizado' : ' controles actualizados') : '');
+  }
+  /**
+   * Aplica la marca sin preguntar, con el plan de decideMark. Devuelve lo necesario para Deshacer
+   * ({patches, drop, restore}) y deja en el plan los textos de los avisos: closeMsg (cierre o anulación
+   * encolados) y upgraded (registro pasado a la revisión vigente).
+   */
   function applyMark(reg, off, st, plan) {
     var it = itemOf(reg, off);
-    if (!it) return;
+    if (!it) return null;
     var me = S.settings.inspector;
     var f = itemFum(reg, it);
-    var fumNum = f.server ? f.server[0] : null;
-    var patch;
-    if (st === 'rz') {
-      if (!f.open && !it.fum) queueFum(reg, it, { accion: 'abrir', obs: it.obs || '', accionInmediata: 'Reparar' });
-      S.ui.open[reg.key + ':' + off] = true;
-    } else if (f.open) {
-      // AP / N/A sobre un control con FUM abierta: la FUM nueva sin enviar se descarta; la ya enviada se
-      // cierra (AP = reinspección aprobada; N/A = anulada, así el FOG 01 queda coherente)
-      if (f.pend && f.pend.status === 'pending' && !fumNum) dropOp(f.pend);
-      else {
-        var res = st === 'ap' ? 'Reinspección AP' : 'Anulada';
-        queueFum(reg, it, fumNum ? { accion: 'cerrar', num: fumNum, resultado: res, fecha: today() } : { accion: 'cerrar', ref: f.pend.id, resultado: res, fecha: today() });
+    var u = { patches: [{ sheet: reg.sheet, key: reg.key, off: off, prev: prevOf(it) }], drop: [], restore: [] };
+    if (plan.dropFum) {
+      // RZ por error corregido con el detalle abierto: la FUM nueva (retenida) se descarta y no llega al FOG 01
+      u.restore = S.queue.filter(function (o) { return o === plan.dropFum || o.ref === plan.dropFum.id; });
+      dropOp(plan.dropFum);
+    }
+    if (plan.closeFum) {
+      // reinspección (AP: se cierra) o no aplica (N/A: se anula, así el FOG 01 no dice «aprobada»).
+      // Queda retenida 6 s para poder deshacer.
+      var cf = closeFields(f, plan.closeFum.resultado);
+      if (cf) {
+        var c = queueFum(reg, it, cf);
+        hold(c, 6000);
+        u.drop.push(c);
+        plan.closeMsg = (cf.num != null ? 'FUM N° ' + cf.num : 'La FUM') +
+          (plan.closeFum.resultado === 'Anulada' ? ' se anula al enviar' : ' se cierra al enviar');
       }
     }
+    if (plan.openFum) {
+      var fo = queueFum(reg, it, { accion: 'abrir', obs: it.obs || '', accionInmediata: 'Reparar' });
+      // retenida mientras su detalle siga abierto (§6.3): si el RZ fue un error, no llega nada al FOG 01
+      S.hold[fo.id] = { since: Date.now(), until: 0, det: reg.key + ':' + off, key: reg.key };
+    }
+    if (st === 'rz') S.ui.open[reg.key + ':' + off] = true;
+    var patch;
     if (st === 'na') {
       patch = { estado: '', fecha: 'NA', resp: it.resp || me };
     } else {
       patch = { estado: st.toUpperCase(), resp: it.resp || me };
       if (!/^\d{4}-\d{2}-\d{2}$/.test(it.fecha)) patch.fecha = today();
-      var doc = docDefault(reg) || it.documento;
+      var doc = plan.doc || docDefault(reg) || it.documento;
       if (doc) {
-        if (plan.upgrade) { doc = docUpgrade(doc); setRegDoc(reg, doc); }
+        if (plan.upgrade) {
+          // «Pasar a R07 y marcar»: el registro pasa a la revisión vigente (también pendientes y N/A)
+          var nd = docUpgrade(doc);
+          plan.upgraded = upgradeMsg(nd, setRegDoc(reg, nd));
+          doc = nd;
+        }
         if (doc !== it.documento) patch.documento = doc;
       }
       if (needsSerial(it.instrumento) && instrMemo(it.instrumento)) patch.instrumento = instrMemo(it.instrumento);
     }
     editItem(reg, off, patch);
+    return u;
   }
-  /** Marca un control preguntando lo que haga falta. Devuelve Promise<boolean> (false = no se marcó). */
-  function markItem(reg, off, st) {
-    var it = itemOf(reg, off);
-    if (!it) return Promise.resolve(false);
-    if (itemState(it) === st) {
-      toast('Ya está en ' + EST[st] + '. Para borrarlo: Detalle › Borrar carga.', { kind: 'info' });
-      return Promise.resolve(false);
-    }
-    return decideMark(reg, it, st).then(function (plan) {
-      if (!plan) return false;
-      // mientras se preguntaba pudo terminar un envío: se vuelve a leer el registro
-      var r = getReg(reg.sheet, reg.key), it2 = r && itemOf(r, off);
-      if (!it2 || itemState(it2) === st) return false;
-      if (!plan.closeOk && fumNeedsAsk(itemFum(r, it2), st)) {
-        // la FUM salió del celular en ese rato: ya no se descarta sin preguntar
-        return askFumClose(itemFum(r, it2), st).then(function (a) {
-          var r3 = a === 'ok' && getReg(reg.sheet, reg.key);
-          if (!r3 || !itemOf(r3, off)) return false;
-          applyMark(r3, off, st, plan);
-          return true;
-        });
-      }
-      applyMark(r, off, st, plan);
-      return true;
-    });
+  /** Avisos después de marcar: cierre, anulación o descarte de la FUM con Deshacer; plano pasado a la vigente. */
+  function markToasts(plan, u) {
+    if (plan.closeMsg) offerUndo(plan.closeMsg, u);
+    else if (plan.dropFum) offerUndo('FUM descartada: no se había enviado.', u, 'info');
+    if (plan.upgraded) toast(plan.upgraded, { kind: 'ok' });   // espera su turno detrás del Deshacer
   }
 
   /* ---------- Ajustes ---------- */
@@ -2857,11 +3011,19 @@
       return render({ keepScroll: true });
     }
     if (a === 'nextpend') {
+      // lo que quedaba a la vista por el filtro (keep) se va: se pasa a lo que falta
+      var npm = /^\/c\/[^/]+\/r\/(.+)$/.exec(S.route), npk = npm && liveKey(npm[1]);
+      var npf = npk && S.ui.filter[npk];
+      if (npk) S.ui.keep[npk] = {};
+      // con el filtro AP, RZ o N/A no hay pendientes en pantalla: se pasa a «Pend.» y se va al primero
+      var npSwitch = npf === 'ap' || npf === 'rz' || npf === 'na';
+      if (npSwitch) S.ui.filter[npk] = 'pend';
+      render({ keepScroll: true });
       // el próximo control pendiente debajo de lo que se está viendo (si no hay, el primero)
-      var all = [].slice.call(document.querySelectorAll('.item.pend'));
+      var all = [].slice.call(view.querySelectorAll('.item.pend'));
       // debajo del header y de la banda de etapa, que quedan fijos arriba
       var top = document.getElementById('top').getBoundingClientRect().bottom + 48 + 8;
-      var nx = all.filter(function (x) { return x.getBoundingClientRect().top > top + 10; })[0] || all[0];
+      var nx = npSwitch ? all[0] : all.filter(function (x) { return x.getBoundingClientRect().top > top + 10; })[0] || all[0];
       if (!nx) {
         // puede estar en una etapa plegada: desplegar todo y reintentar
         Object.keys(S.ui.folded).forEach(function (k) { S.ui.folded[k] = false; });
@@ -2878,6 +3040,7 @@
       var gk = liveKey(el.dataset.key);
       S.ui.open[gk + ':' + el.dataset.off] = true;
       S.ui.focus = Number(el.dataset.off);
+      S.ui.filter[gk] = 'all';   // el control de la FUM tiene que estar en la lista
       return nav('/c/' + el.dataset.sheet + '/r/' + gk);
     }
     if (a === 'goto') {
@@ -2888,16 +3051,39 @@
     var sheet = m && m[1];
     if (el.dataset.key && sheet) reg = getReg(sheet, el.dataset.key);
     var lk = reg ? reg.key : liveKey(el.dataset.key);
-    if (a === 'filter') { S.ui.filter[lk] = el.dataset.f; return render({ keepScroll: true }); }
+    if (a === 'filter') { S.ui.filter[lk] = el.dataset.f; delete S.ui.keep[lk]; return render({ keepScroll: true }); }
     if (a === 'hdr') { S.ui.open['hdr:' + lk] = !S.ui.open['hdr:' + lk]; return render({ keepScroll: true }); }
     if (!reg) return;
     var off = Number(el.dataset.off);
     if (a === 'mark') {
       if (!S.settings.inspector) { toast('Primero elegí quién sos', { kind: 'info' }); return nav('/quien'); }
-      // render completo: contadores, etapa, subtítulo y barra quedan al día (el desplazamiento se conserva)
-      return markItem(reg, off, el.dataset.st).then(function (ok) { if (ok) render({ keepScroll: true }); });
+      var mst = el.dataset.st, mlk = reg.key + ':' + off, now = Date.now();
+      // rebote o doble toque con guante: otro toque sobre el mismo control antes de 700 ms se ignora sin aviso
+      // (el bloqueo es por control: se pueden marcar controles distintos seguidos)
+      if (S.ui.lastMark[mlk] && now - S.ui.lastMark[mlk] < 700) return;
+      S.ui.lastMark[mlk] = now;
+      var mit = itemOf(reg, off);
+      if (!mit) return;
+      if (itemState(mit) === mst) { toast('Ya está en ' + EST[mst] + '. Para borrarlo: Detalle › Borrar carga.', { kind: 'info' }); return; }
+      return decideMark(reg, mit, mst).then(function (plan) {
+        if (!plan) return;
+        var u = applyMark(plan.reg, off, mst, plan);
+        keepItem(plan.reg, off);   // con un filtro puesto, lo marcado no desaparece bajo el dedo
+        // dibujo completo anclado al control: contadores, etapa, subtítulo y barra quedan al día sin correrse
+        render({ keepScroll: true });
+        var mb = view.querySelector('#it-' + off + ' [data-st=' + mst + ']');
+        if (mb) { try { mb.focus({ preventScroll: true }); } catch (e) { /* noop */ } }
+        if (u) markToasts(plan, u);
+      });
     }
-    if (a === 'more') { var k = reg.key + ':' + off; S.ui.open[k] = !S.ui.open[k]; return refreshItem(reg, off); }
+    if (a === 'more') {
+      var k = reg.key + ':' + off;
+      S.ui.open[k] = !S.ui.open[k];
+      refreshItem(reg, off);
+      // al cerrar el detalle se suelta la FUM nueva retenida: sale con el próximo envío
+      if (!S.ui.open[k]) releaseHolds(function (h) { return h.det === k; });
+      return;
+    }
     if (a === 'serial') {
       // el chip «Falta N° de serie» abre el detalle directo en el instrumento
       S.ui.open[reg.key + ':' + off] = true;
@@ -2920,29 +3106,61 @@
     }
     if (a === 'docupdall') {
       var nd = docUpgrade(docDefault(reg) || '');
-      var n = setRegDoc(reg, nd);
-      var ur = docRefs(nd)[0];
-      toast((ur ? 'Registro pasado a ' + revLabel(ur.doc[1]) : 'Plano: ' + nd) +
-        (n ? ' · ' + n + (n === 1 ? ' control actualizado' : ' controles actualizados') : ''), { kind: 'ok' });
+      toast(upgradeMsg(nd, setRegDoc(reg, nd)), { kind: 'ok' });
       return render({ keepScroll: true });
     }
     if (a === 'bulk') {
       if (!S.settings.inspector) { toast('Primero elegí quién sos', { kind: 'info' }); return nav('/quien'); }
       var bst = el.dataset.stage;
       var pendOf = function (r) { return r.items.filter(function (it) { return (it.etapa || '—') === bst && itemState(it) === 'pend'; }); };
-      var nb = pendOf(reg).length;
+      var bl = pendOf(reg);
+      var nb = bl.length;
       if (!nb) return;
-      return ask({
-        title: nb === 1 ? '¿Aprobar el control pendiente de ' + bst + '?' : '¿Aprobar los ' + nb + ' controles pendientes de ' + bst + '?',
-        body: 'Quedan AP con fecha de hoy y RESP. ' + S.settings.inspector + '.',
-        ok: { label: 'Aprobar ' + nb, tone: 'ap' }
+      // §6.5: plano superado primero (una sola pregunta para todo el lote; ninguna si ya eligió seguir con la vieja)
+      var bpr = null;
+      return askPlano(reg, bl[0]).then(function (pr) {
+        if (pr === null) return null;
+        bpr = pr;
+        return ask({
+          title: nb === 1 ? '¿Aprobar el control pendiente de ' + bst + '?' : '¿Aprobar los ' + nb + ' controles pendientes de ' + bst + '?',
+          body: 'Quedan AP con fecha de hoy y RESP. ' + S.settings.inspector + '.',
+          ok: { label: 'Aprobar ' + nb, tone: 'ap' }
+        });
       }).then(function (r) {
         if (r !== 'ok') return;
         // se vuelve a leer: sólo lo que sigue pendiente al confirmar
         var br = getReg(reg.sheet, reg.key);
         if (!br) return;
-        pendOf(br).forEach(function (it) { applyMark(getReg(reg.sheet, reg.key), it.off, 'ap', {}); });
-        render({ keepScroll: true });
+        var upMsg = '', bdoc = docDefault(br) || bl[0].documento;
+        if (bpr === 'ok' && bdoc) {
+          // «Pasar a R07 y marcar»: una sola vez para todo el lote
+          var bnd = docUpgrade(bdoc);
+          upMsg = upgradeMsg(bnd, setRegDoc(br, bnd));
+        }
+        // Deshacer devuelve cada control a como estaba (el plano del registro queda en la vigente)
+        var u = { patches: [], drop: [], restore: [] }, n = 0;
+        var chain = Promise.resolve();
+        pendOf(getReg(reg.sheet, reg.key) || br).forEach(function (bit) {
+          chain = chain.then(function () {
+            var r0 = getReg(reg.sheet, reg.key), i0 = r0 && itemOf(r0, bit.off);
+            if (!i0) return;
+            // sin preguntas: un control cuya FUM habría que cerrar queda pendiente
+            return decideMark(r0, i0, 'ap', { silent: true }).then(function (plan) {
+              var uu = plan && applyMark(plan.reg, bit.off, 'ap', plan);
+              if (!uu) return;
+              u.patches = u.patches.concat(uu.patches);
+              u.drop = u.drop.concat(uu.drop);
+              u.restore = u.restore.concat(uu.restore);
+              keepItem(plan.reg, bit.off);
+              n++;
+            });
+          });
+        });
+        return chain.then(function () {
+          render({ keepScroll: true });
+          if (n) offerUndo(n === 1 ? '1 control aprobado' : n + ' controles aprobados', u);
+          if (upMsg) toast(upMsg, { kind: 'ok' });
+        });
       });
     }
   });

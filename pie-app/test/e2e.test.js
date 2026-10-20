@@ -208,6 +208,8 @@ const sheetRows = (name, from, to, book) => fetch(`http://localhost:8081/__sheet
   // 6c. Reinspección: AP sobre el control rechazado cierra la FUM
   await page.click('.item >> nth=1 >> button[data-st=ap]');
   await page.click('#ask [data-ans=ok]');                          // «Cerrar FUM y marcar AP»
+  // el cierre queda retenido 6 s y se ofrece Deshacer, abajo (al alcance del pulgar)
+  await page.waitForSelector('#toast.show.bottom:has-text("FUM N° 4 se cierra al enviar")');
   await page.waitForFunction(() => document.querySelector('.net').textContent.includes('Al día') && !document.getElementById('hdr').textContent.includes('cambios sin enviar'), null, { timeout: 20000 });
   const fumRows2 = await sheetRows('_PIE_FUM', 2, 2);
   assert.deepStrictEqual([fumRows2.rows[0][14], fumRows2.rows[0][17]], ['Cerrada', 'Reinspección AP']);
@@ -230,6 +232,24 @@ const sheetRows = (name, from, to, book) => fetch(`http://localhost:8081/__sheet
   // tamaños para usar con guantes
   const sizes = await page.evaluate(() => ['.acts .st', '.acts .more', '.filters button'].map(q => Math.round(document.querySelector(q).getBoundingClientRect().height)));
   assert.ok(sizes[0] >= 56 && sizes[1] >= 56 && sizes[2] >= 48, 'botones grandes: ' + sizes);
+
+  // 6e. Doble toque no desmarca; RZ corregido con el detalle abierto no crea FUM; con filtro, lo marcado no desaparece
+  await page.dblclick('.item >> nth=5 >> button[data-st=na]');
+  assert.ok(await page.$eval('.item >> nth=5', e => e.classList.contains('na')), 'el doble toque no desmarca');
+  assert.ok(!(await page.$eval('#toast', e => e.classList.contains('show') && e.textContent.includes('Ya está en'))), 'el segundo toque se ignora sin aviso');
+  await page.click('.item >> nth=6 >> button[data-st=rz]');
+  await page.waitForSelector('.item >> nth=6 >> .fumbox');
+  await page.waitForTimeout(800);                                   // pasa el bloqueo de 700 ms del control
+  await page.click('.item >> nth=6 >> button[data-st=na]');         // FUM retenida → se descarta sin preguntar
+  assert.strictEqual(await page.$$eval('.item >> nth=6 >> .fumbox', n => n.length), 0, 'sin FUM');
+  await page.click('.item >> nth=6 >> button:has-text("Listo")');
+  await page.click('button[data-f=pend]');
+  const nPend = await page.$$eval('.item', n => n.length);
+  await page.click('.item >> nth=0 >> button[data-st=na]');
+  assert.strictEqual(await page.$$eval('.item', n => n.length), nPend, 'el control marcado sigue en la lista');
+  assert.ok(await page.$eval('.item >> nth=0', e => e.classList.contains('na') && e.classList.contains('kept')), 'queda a la vista, atenuado');
+  await page.click('button[data-f=all]');
+  await page.waitForFunction(() => document.querySelector('.net').textContent.includes('Al día'), null, { timeout: 20000 });
 
   // 7. Filtro de pendientes y vista de registro existente con datos
   await page.click('button[data-f=ap]');
