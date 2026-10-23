@@ -346,3 +346,60 @@ begin
   return jsonb_build_object('ok', true, 'results', v_results);
 end;
 $$;
+
+-- ------------------------------------------------------------------
+-- Sync de solo lectura hacia Sheets (consumido por
+-- functions/sync-to-sheets/index.ts, ver supabase/README.md)
+-- ------------------------------------------------------------------
+
+-- Snapshot de los registros con cambios pendientes, en la forma exacta que necesita
+-- transform.js para armar ops de Apps Script (create/update). `pending_ids` son los ids de
+-- sheets_sync_pendiente cubiertos por este snapshot: api_sync_ack() los recibe de vuelta para
+-- marcarlos procesados SIN tocar ninguna fila nueva que haya llegado mientras tanto (evita
+-- perder un cambio que entra justo entre el fetch y el ack).
+create or replace function api_sync_pendientes() returns jsonb
+language sql stable as $$
+  with pend as (
+    select id, registro_id from sheets_sync_pendiente
+    where procesado = false and tabla in ('registros', 'controles') and registro_id is not null
+  )
+  select jsonb_build_object(
+    'pending_ids', coalesce((select jsonb_agg(id) from pend), '[]'::jsonb),
+    'registros', coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'id', reg.id, 'h', reg.h, 'sig', reg.sig, 'categoria', reg.categoria,
+        'resp', to_jsonb(reg.resp), 'piso', reg.piso, 'sector', reg.sector, 'etapa', reg.etapa, 'elemento', reg.elemento,
+        'controles', (
+          select coalesce(jsonb_agg(jsonb_build_object(
+            'off', ctl.off, 'criterio', cr.criterio, 'documento', ctl.documento,
+            'fecha', ctl.fecha, 'resp', ctl.resp, 'estado', ctl.estado, 'fum_n', ctl.fum_n, 'obs', ctl.obs
+          ) order by ctl.off), '[]'::jsonb)
+          from controles ctl join criterios cr on cr.id = ctl.criterio_id
+          where ctl.registro_id = reg.id
+        )
+      ))
+      from registros reg where reg.id in (select distinct registro_id from pend)
+    ), '[]'::jsonb)
+  );
+$$;
+
+-- p_h_assignments: [{"registroId": "...", "h": 912}, ...] (los 'create' que Apps Script
+-- aceptó y devolvieron en qué fila quedó el bloque nuevo).
+create or replace function api_sync_ack(p_pending_ids jsonb, p_h_assignments jsonb) returns void
+language plpgsql as $$
+declare
+  v jsonb;
+begin
+  -- session_replication_role = replica evita que esta actualización de h (resultado del
+  -- propio sync, no un cambio nuevo del usuario) dispare el trigger de registros y se
+  -- vuelva a encolar a sí misma en sheets_sync_pendiente.
+  perform set_config('session_replication_role', 'replica', true);
+  for v in select * from jsonb_array_elements(coalesce(p_h_assignments, '[]'::jsonb)) loop
+    update registros set h = (v->>'h')::int where id = (v->>'registroId')::uuid;
+  end loop;
+  perform set_config('session_replication_role', 'origin', true);
+
+  update sheets_sync_pendiente set procesado = true
+  where id in (select (x::text)::bigint from jsonb_array_elements(coalesce(p_pending_ids, '[]'::jsonb)) x);
+end;
+$$;
