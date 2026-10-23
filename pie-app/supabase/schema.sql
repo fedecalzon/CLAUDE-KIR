@@ -150,9 +150,16 @@ create table liberaciones (
   registro_id uuid references registros(id),
   etapa       text not null,
   quien       text not null default '',
-  resumen     jsonb not null default '{}',
-  plano       text not null default ''
+  resumen     text not null default '',   -- resumen de controles en texto libre, igual que hoy en LIBERACIONES
+  plano       text not null default '',
+  obs         text not null default ''
 );
+
+-- Numeración correlativa de FUM. En Sheets, nextFumNumber_ tenía que conciliar el máximo
+-- del FOG 01 con el de la hoja local porque podían desincronizarse; acá hay una sola fuente
+-- de verdad, así que alcanza con una secuencia (segura ante cargas concurrentes).
+-- Después de importar datos reales, ajustar con: select setval('fum_numero_seq', (select max(numero) from fums));
+create sequence fum_numero_seq start 1;
 
 -- Idempotencia de operaciones enviadas desde la cola offline del celular (reemplaza _PIE_LOG).
 create table operaciones (
@@ -191,4 +198,8 @@ $$ language plpgsql;
 create trigger controles_sync after insert or update on controles
   for each row execute function marcar_pendiente_sync();
 create trigger registros_sync after insert or update on registros
+  for each row execute function marcar_pendiente_sync();
+create trigger fums_sync after insert or update on fums
+  for each row execute function marcar_pendiente_sync();
+create trigger liberaciones_sync after insert on liberaciones
   for each row execute function marcar_pendiente_sync();
