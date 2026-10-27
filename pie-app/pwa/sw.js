@@ -1,6 +1,6 @@
 'use strict';
 // Actualizar esta versión junto con APP_VERSION al publicar cambios del shell.
-const CACHE = 'pie-shell-2.3.0';
+const CACHE = 'pie-shell-2.3.1';
 const SHELL = ['index.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png'];
 const urlFor = path => new URL(path, self.registration.scope).href;
 

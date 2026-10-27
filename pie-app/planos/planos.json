@@ -1,142 +1,302 @@
 [
-  {
-    "id": "1281-C-PL-1802",
-    "planilla": "6",
-    "titulo": "Losa de subpresión - estructura proyectada - encofrados",
-    "sub": "1281-C-PL-1802 R00",
-    "rev": "R00",
-    "pdf": "1281-C-CA-020_RevA",
-    "pag": 8,
-    "w": 3700,
-    "h": 2617,
-    "v": "8d695422df99a9ae",
-    "codigo": "1281-C-PL-1802",
-    "hoja": "02 de 04",
-    "revision_archivo": "R00",
-    "fuente_sha256": "9a285cade8c25a9e044f43508cb639bc94ce5e8aa3db6d88c52575ea1c5889cc",
-    "imagen_sha256": "8d695422df99a9ae4569a1e24a363ea0994628400daf6778f4a3bbca4228d502",
-    "documentos": [
-      "_KIR-COMR-REF-ESTR-SP-R00"
-    ]
-  },
-  {
-    "id": "1281-C-PL-1881",
-    "planilla": "6",
-    "titulo": "Losa de subpresión - banquina tipo 1 para apoyo de tanques contra incendio",
-    "sub": "1281-C-PL-1881 R00",
-    "rev": "R00",
-    "pdf": "1281-C-CA-020_RevA",
-    "pag": 9,
-    "w": 3700,
-    "h": 2616,
-    "v": "5488d2419af69fcb",
-    "codigo": "1281-C-PL-1881",
-    "hoja": "03 de 04",
-    "revision_archivo": "R00",
-    "fuente_sha256": "9a285cade8c25a9e044f43508cb639bc94ce5e8aa3db6d88c52575ea1c5889cc",
-    "imagen_sha256": "5488d2419af69fcbcf76b28263c62c4ec9990441015db92bd8230bb9e77732e7",
-    "documentos": [
-      "_KIR-COMR-REF-ESTR-SP-R00"
-    ]
-  },
-  {
-    "id": "1281-C-PL-1881-p10",
-    "planilla": "6",
-    "titulo": "Losa de subpresión - banquina tipo 2 para apoyo de tanques contra incendio",
-    "sub": "1281-C-PL-1881-p10 R00",
-    "rev": "R00",
-    "pdf": "1281-C-CA-020_RevA",
-    "pag": 10,
-    "w": 3700,
-    "h": 2616,
-    "v": "2b6f0e14c370e6be",
-    "codigo": "1281-C-PL-1881",
-    "hoja": "04 de 04",
-    "revision_archivo": "R00",
-    "fuente_sha256": "9a285cade8c25a9e044f43508cb639bc94ce5e8aa3db6d88c52575ea1c5889cc",
-    "imagen_sha256": "2b6f0e14c370e6be97706b4dabaccd5caa2612aeca8662d778f9ca0a2b3f838d",
-    "documentos": [
-      "_KIR-COMR-REF-ESTR-SP-R00"
-    ]
-  },
-  {
-    "id": "1281-C-PL-1202",
-    "planilla": "6",
-    "titulo": "Estructura sobre 11° piso - estructura proyectada - encofrados",
-    "sub": "1281-C-PL-1202 R02",
-    "rev": "R02",
-    "pdf": "COMR-MC-REF-ESTRUCTURA S11P_RevB",
-    "pag": 7,
-    "w": 3700,
-    "h": 2617,
-    "v": "e6442a235dd383b7",
-    "codigo": "1281-C-PL-1202",
-    "hoja": "02 de 07",
-    "revision_archivo": "R04",
-    "fuente_sha256": "c72918879ca976c2b85a575f87cd6de41f9eb573c0c3077886d42f0c36ec5520",
-    "imagen_sha256": "e6442a235dd383b742265b3f36a105116e26df9aa6afb1ef3c3eb55ffb125835",
-    "documentos": [
-      "_KIR-COMR-REF-VyL-S11P-R04"
-    ]
-  },
-  {
-    "id": "1281-C-PL-1232",
-    "planilla": "6",
-    "titulo": "Estructura sobre 11° piso - refuerzo de viga V1216",
-    "sub": "1281-C-PL-1232 R02",
-    "rev": "R02",
-    "pdf": "COMR-MC-REF-ESTRUCTURA S11P_RevB",
-    "pag": 8,
-    "w": 3700,
-    "h": 2616,
-    "v": "e988c957251f64cd",
-    "codigo": "1281-C-PL-1232",
-    "hoja": "05 de 07",
-    "revision_archivo": "R04",
-    "fuente_sha256": "c72918879ca976c2b85a575f87cd6de41f9eb573c0c3077886d42f0c36ec5520",
-    "imagen_sha256": "e988c957251f64cd596bf6b8be8cbf56b886fc095058ad08f0fbf656c1db74ec",
-    "documentos": [
-      "_KIR-COMR-REF-VyL-S11P-R04"
-    ]
-  },
-  {
-    "id": "1281-C-PL-1233",
-    "planilla": "6",
-    "titulo": "Estructura sobre 11° piso - refuerzo de viga V1215",
-    "sub": "1281-C-PL-1233 R02",
-    "rev": "R02",
-    "pdf": "COMR-MC-REF-ESTRUCTURA S11P_RevB",
-    "pag": 9,
-    "w": 3700,
-    "h": 2616,
-    "v": "128ebd7f92dfb042",
-    "codigo": "1281-C-PL-1233",
-    "hoja": "06 de 07",
-    "revision_archivo": "R04",
-    "fuente_sha256": "c72918879ca976c2b85a575f87cd6de41f9eb573c0c3077886d42f0c36ec5520",
-    "imagen_sha256": "128ebd7f92dfb042da2882d84e891dfcf23bb482b52c61e47eefd86fc1fd6055",
-    "documentos": [
-      "_KIR-COMR-REF-VyL-S11P-R04"
-    ]
-  },
-  {
-    "id": "C1224-01-PL-SDB003",
-    "planilla": "6",
-    "titulo": "Sistema de bombeo contra incendio - sala de bombas, planta, cortes y detalles",
-    "sub": "C1224-01-PL-SDB003 RC",
-    "rev": "RC",
-    "pdf": "1281-C-CA-020_RevA",
-    "pag": 11,
-    "w": 3700,
-    "h": 2617,
-    "v": "8904be13604e698b",
-    "codigo": "C1224-01-PL-SDB003",
-    "hoja": "",
-    "revision_archivo": "RC",
-    "fuente_sha256": "9a285cade8c25a9e044f43508cb639bc94ce5e8aa3db6d88c52575ea1c5889cc",
-    "imagen_sha256": "8904be13604e698b2f802712ea39f361516efdd41ee69d51a47c380e2ab823a2",
-    "documentos": [
-      "C1224-01-PL-SDB003-C"
-    ]
-  }
+ {
+  "id": "1281-C-PL-1802",
+  "planilla": "6",
+  "titulo": "Losa de subpresión - estructura proyectada - encofrados",
+  "sub": "1281-C-PL-1802 R00",
+  "rev": "R00",
+  "pdf": "1281-C-CA-020_RevA",
+  "pag": 8,
+  "w": 3700,
+  "h": 2617,
+  "v": "8d695422df99a9ae",
+  "codigo": "1281-C-PL-1802",
+  "hoja": "02 de 04",
+  "revision_archivo": "R00",
+  "fuente_sha256": "9a285cade8c25a9e044f43508cb639bc94ce5e8aa3db6d88c52575ea1c5889cc",
+  "imagen_sha256": "8d695422df99a9ae4569a1e24a363ea0994628400daf6778f4a3bbca4228d502",
+  "documentos": [
+   "_KIR-COMR-REF-ESTR-SP-R00"
+  ]
+ },
+ {
+  "id": "1281-C-PL-1881",
+  "planilla": "6",
+  "titulo": "Losa de subpresión - banquina tipo 1 para apoyo de tanques contra incendio",
+  "sub": "1281-C-PL-1881 R00",
+  "rev": "R00",
+  "pdf": "1281-C-CA-020_RevA",
+  "pag": 9,
+  "w": 3700,
+  "h": 2616,
+  "v": "5488d2419af69fcb",
+  "codigo": "1281-C-PL-1881",
+  "hoja": "03 de 04",
+  "revision_archivo": "R00",
+  "fuente_sha256": "9a285cade8c25a9e044f43508cb639bc94ce5e8aa3db6d88c52575ea1c5889cc",
+  "imagen_sha256": "5488d2419af69fcbcf76b28263c62c4ec9990441015db92bd8230bb9e77732e7",
+  "documentos": [
+   "_KIR-COMR-REF-ESTR-SP-R00"
+  ]
+ },
+ {
+  "id": "1281-C-PL-1881-p10",
+  "planilla": "6",
+  "titulo": "Losa de subpresión - banquina tipo 2 para apoyo de tanques contra incendio",
+  "sub": "1281-C-PL-1881-p10 R00",
+  "rev": "R00",
+  "pdf": "1281-C-CA-020_RevA",
+  "pag": 10,
+  "w": 3700,
+  "h": 2616,
+  "v": "2b6f0e14c370e6be",
+  "codigo": "1281-C-PL-1881",
+  "hoja": "04 de 04",
+  "revision_archivo": "R00",
+  "fuente_sha256": "9a285cade8c25a9e044f43508cb639bc94ce5e8aa3db6d88c52575ea1c5889cc",
+  "imagen_sha256": "2b6f0e14c370e6be97706b4dabaccd5caa2612aeca8662d778f9ca0a2b3f838d",
+  "documentos": [
+   "_KIR-COMR-REF-ESTR-SP-R00"
+  ]
+ },
+ {
+  "id": "1281-C-PL-1202",
+  "planilla": "6",
+  "titulo": "Estructura sobre 11° piso - estructura proyectada - encofrados",
+  "sub": "1281-C-PL-1202 R02",
+  "rev": "R02",
+  "pdf": "COMR-MC-REF-ESTRUCTURA S11P_RevB",
+  "pag": 7,
+  "w": 3700,
+  "h": 2617,
+  "v": "e6442a235dd383b7",
+  "codigo": "1281-C-PL-1202",
+  "hoja": "02 de 07",
+  "revision_archivo": "R04",
+  "fuente_sha256": "c72918879ca976c2b85a575f87cd6de41f9eb573c0c3077886d42f0c36ec5520",
+  "imagen_sha256": "e6442a235dd383b742265b3f36a105116e26df9aa6afb1ef3c3eb55ffb125835",
+  "documentos": [
+   "_KIR-COMR-REF-VyL-S11P-R04"
+  ]
+ },
+ {
+  "id": "1281-C-PL-1232",
+  "planilla": "6",
+  "titulo": "Estructura sobre 11° piso - refuerzo de viga V1216",
+  "sub": "1281-C-PL-1232 R02",
+  "rev": "R02",
+  "pdf": "COMR-MC-REF-ESTRUCTURA S11P_RevB",
+  "pag": 8,
+  "w": 3700,
+  "h": 2616,
+  "v": "e988c957251f64cd",
+  "codigo": "1281-C-PL-1232",
+  "hoja": "05 de 07",
+  "revision_archivo": "R04",
+  "fuente_sha256": "c72918879ca976c2b85a575f87cd6de41f9eb573c0c3077886d42f0c36ec5520",
+  "imagen_sha256": "e988c957251f64cd596bf6b8be8cbf56b886fc095058ad08f0fbf656c1db74ec",
+  "documentos": [
+   "_KIR-COMR-REF-VyL-S11P-R04"
+  ]
+ },
+ {
+  "id": "1281-C-PL-1233",
+  "planilla": "6",
+  "titulo": "Estructura sobre 11° piso - refuerzo de viga V1215",
+  "sub": "1281-C-PL-1233 R02",
+  "rev": "R02",
+  "pdf": "COMR-MC-REF-ESTRUCTURA S11P_RevB",
+  "pag": 9,
+  "w": 3700,
+  "h": 2616,
+  "v": "128ebd7f92dfb042",
+  "codigo": "1281-C-PL-1233",
+  "hoja": "06 de 07",
+  "revision_archivo": "R04",
+  "fuente_sha256": "c72918879ca976c2b85a575f87cd6de41f9eb573c0c3077886d42f0c36ec5520",
+  "imagen_sha256": "128ebd7f92dfb042da2882d84e891dfcf23bb482b52c61e47eefd86fc1fd6055",
+  "documentos": [
+   "_KIR-COMR-REF-VyL-S11P-R04"
+  ]
+ },
+ {
+  "id": "C1224-01-PL-SDB003",
+  "planilla": "6",
+  "titulo": "Sistema de bombeo contra incendio - sala de bombas, planta, cortes y detalles",
+  "sub": "C1224-01-PL-SDB003 RC",
+  "rev": "RC",
+  "pdf": "1281-C-CA-020_RevA",
+  "pag": 11,
+  "w": 3700,
+  "h": 2617,
+  "v": "8904be13604e698b",
+  "codigo": "C1224-01-PL-SDB003",
+  "hoja": "",
+  "revision_archivo": "RC",
+  "fuente_sha256": "9a285cade8c25a9e044f43508cb639bc94ce5e8aa3db6d88c52575ea1c5889cc",
+  "imagen_sha256": "8904be13604e698b2f802712ea39f361516efdd41ee69d51a47c380e2ab823a2",
+  "documentos": [
+   "C1224-01-PL-SDB003-C"
+  ]
+ },
+ {
+  "id": "KIR-COMR-Rep.Tab_P06",
+  "planilla": [
+   "11",
+   "15",
+   "17",
+   "20",
+   "25",
+   "38"
+  ],
+  "titulo": "Replanteo tabiquería P06",
+  "sub": "KIR-COMR-Rep.Tab P06 R07",
+  "rev": "R07",
+  "pdf": "KIR-COMR-Rep.Tab_P06_07",
+  "pag": 1,
+  "w": 3700,
+  "h": 2614,
+  "v": "97f7a4d3a26e224e",
+  "codigo": "KIR-COMR-Rep.Tab P06",
+  "hoja": "",
+  "fecha_cajetin": "07/07/26",
+  "revision_archivo": "R07",
+  "fuente_sha256": "7b3499caa60996c0afe0c4d7947aecc0474fd92689be1997c86764ea33a0476e",
+  "imagen_sha256": "97f7a4d3a26e224e8b2a9aec987cfce034fa74aa2d74697308b1f4e690c7bb48",
+  "documentos": [
+   "KIR-COMR-Rep.Tab P06-R07",
+   "KIR-COMR-Rep.Tab P06_07",
+   "KIR-COMR-Replanteo Tabiqueria P06_07",
+   "KIR-COMR-REP. TAB. 06_07",
+   "KIR-COMR-ARQ-Rep.Tab P06_07"
+  ]
+ },
+ {
+  "id": "KIR-COMR-Rep.Tab_P07",
+  "planilla": [
+   "11",
+   "15",
+   "17",
+   "20",
+   "25",
+   "38"
+  ],
+  "titulo": "Replanteo tabiquería P07",
+  "sub": "KIR-COMR-Rep.Tab P07 R06",
+  "rev": "R06",
+  "pdf": "KIR-COMR-Rep.Tab_P07_06",
+  "pag": 1,
+  "w": 3700,
+  "h": 2614,
+  "v": "277688993a3be33b",
+  "codigo": "KIR-COMR-Rep.Tab P07",
+  "hoja": "",
+  "fecha_cajetin": "07/07/26",
+  "revision_archivo": "R06",
+  "fuente_sha256": "ed6f3fae33e8a0d66ee6d404ca03be370651d90799fd4fa244a5ab50d1fec486",
+  "imagen_sha256": "277688993a3be33bda43d50dc8bbbc02e6b77c913eff65f1dc7f429e2bc82018",
+  "documentos": [
+   "KIR-COMR-Rep.Tab P07-R06",
+   "KIR-COMR-Rep.Tab P07_06",
+   "KIR-COMR-Replanteo Tabiqueria P07_06",
+   "KIR-COMR-REP. TAB. 07_06",
+   "KIR-COMR-ARQ-Rep.Tab P07_06"
+  ]
+ },
+ {
+  "id": "KIR-COMR-Rep.Tab_P08",
+  "planilla": [
+   "11",
+   "15",
+   "17",
+   "20",
+   "25",
+   "38"
+  ],
+  "titulo": "Replanteo tabiquería P08 · R07 superada: en el FOD 02 rige la R08",
+  "sub": "KIR-COMR-Rep.Tab P08 R07",
+  "rev": "R07",
+  "pdf": "KIR-COMR-Rep.Tab_P08_07",
+  "pag": 1,
+  "w": 3700,
+  "h": 2614,
+  "v": "61c3ad324e6ca7cf",
+  "codigo": "KIR-COMR-Rep.Tab P08",
+  "hoja": "",
+  "fecha_cajetin": "07/07/26",
+  "revision_archivo": "R07",
+  "fuente_sha256": "3d3a1e096729ed4ecaeccdf77254290f5f3f70c0b59b58a59d8778ef5f93a393",
+  "imagen_sha256": "61c3ad324e6ca7cf300a3a8f2546c046ec2bd71673ea009fe992791d570b9d6e",
+  "documentos": [
+   "KIR-COMR-Rep.Tab P08-R07",
+   "KIR-COMR-Rep.Tab P08_07",
+   "KIR-COMR-Replanteo Tabiqueria P08_07",
+   "KIR-COMR-REP. TAB. 08_07",
+   "KIR-COMR-ARQ-Rep.Tab P08_07"
+  ]
+ },
+ {
+  "id": "KIR-COMR-Rep.Tab_P09",
+  "planilla": [
+   "11",
+   "15",
+   "17",
+   "20",
+   "25",
+   "38"
+  ],
+  "titulo": "Replanteo tabiquería P09",
+  "sub": "KIR-COMR-Rep.Tab P09 R09",
+  "rev": "R09",
+  "pdf": "KIR-COMR-Rep.Tab_P09_09",
+  "pag": 1,
+  "w": 3700,
+  "h": 2614,
+  "v": "ddfa1b4e02649dbc",
+  "codigo": "KIR-COMR-Rep.Tab P09",
+  "hoja": "",
+  "fecha_cajetin": "10/09/26",
+  "revision_archivo": "R09",
+  "fuente_sha256": "9c3a5e23742eeceda53d596c9039e8f5634468d3bf6f3eb37619a52a7fe1471e",
+  "imagen_sha256": "ddfa1b4e02649dbcff98cf5ddb26594ad165c246b91c18e2737dbad5301b712b",
+  "documentos": [
+   "KIR-COMR-Rep.Tab P09-R09",
+   "KIR-COMR-Rep.Tab P09_09",
+   "KIR-COMR-Replanteo Tabiqueria P09_09",
+   "KIR-COMR-REP. TAB. 09_09",
+   "KIR-COMR-ARQ-Rep.Tab P09_09"
+  ]
+ },
+ {
+  "id": "KIR-COMR-Rep.Tab_P10",
+  "planilla": [
+   "11",
+   "15",
+   "17",
+   "20",
+   "25",
+   "38"
+  ],
+  "titulo": "Replanteo tabiquería P10",
+  "sub": "KIR-COMR-Rep.Tab P10 R09",
+  "rev": "R09",
+  "pdf": "KIR-COMR-Rep.Tab_P10_09",
+  "pag": 1,
+  "w": 3700,
+  "h": 2614,
+  "v": "bd7f379a4f1a4f34",
+  "codigo": "KIR-COMR-Rep.Tab P10",
+  "hoja": "",
+  "fecha_cajetin": "00/09/26 (así en el cajetín)",
+  "revision_archivo": "R09",
+  "fuente_sha256": "f1547e927866699c2495b65267f569dc8320aa3919fcb3024c92c87685b6381a",
+  "imagen_sha256": "bd7f379a4f1a4f34535359b66bb21128fe1ab7b2e484443b80aa0fd59a689c0f",
+  "documentos": [
+   "KIR-COMR-Rep.Tab P10-R09",
+   "KIR-COMR-Rep.Tab P10_09",
+   "KIR-COMR-Replanteo Tabiqueria P10_09",
+   "KIR-COMR-REP. TAB. 10_09",
+   "KIR-COMR-ARQ-Rep.Tab P10_09"
+  ]
+ }
 ]

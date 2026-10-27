@@ -216,13 +216,15 @@ test('manifiesto: entrega los códigos documentales y hojas sin cambiar IDs ni l
     return {hasNext: () => !done, next: () => {done = true; return {getBlob: () => ({getDataAsString: () => JSON.stringify(plans)})};}};
   }});
   const parsed = JSON.parse(JSON.stringify(c.readPlanos_()));
-  assert.equal(parsed.length, 7);
+  // 7 láminas de estructura en la planilla 6 + 5 de replanteo de tabiquería que sirven a 6 planillas cada una
+  assert.equal(parsed.length, 7 + 5 * 6);
+  assert.equal(parsed.filter(p => p.id === 'KIR-COMR-Rep.Tab_P06').map(p => p.planilla).join(), '11,15,17,20,25,38');
   assert.equal(parsed.filter(p => p.documentos.includes('_KIR-COMR-REF-ESTR-SP-R00')).length, 3);
   const beam = parsed.find(p => p.id === '1281-C-PL-1232');
   assert.deepEqual(beam.documentos, ['_KIR-COMR-REF-VyL-S11P-R04']);
   assert.equal(beam.rev, 'R02');
   assert.equal(beam.hoja, '05 de 07');
-  assert.equal(new Set(parsed.map(p=>p.id)).size, 7);
+  assert.equal(new Set(parsed.map(p=>p.id)).size, 12);
 });
 
 test('manifiesto anterior: conserva compatibilidad y descarta aliases de tipo inválido', () => {

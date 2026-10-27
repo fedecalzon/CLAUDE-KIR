@@ -1,4 +1,4 @@
-# PIE 2.3.0 · Carga de inspecciones y planos (FOP 01)
+# PIE 2.3.1 · Carga de inspecciones y planos (FOP 01)
 
 App para cargar desde el celular los **Planes de Inspección y Ensayo** de la planilla `PIE - CORE`, con o sin señal, y marcarlos sobre las láminas de la obra. Backend: **Google Apps Script sobre la planilla** (no usa otra base de datos).
 
@@ -44,7 +44,7 @@ La fecha de la liberación es la del día en que se decidió (sin adelantar ni a
 |---|---|
 | `apps-script/` | Se pega en el editor de Apps Script de la planilla: `Code.gs`, `Beta.gs` (reglas de liberación, zonas y lotes; obligatorio), `Index.html` y `appsscript.json`. |
 | `pwa/` | La misma app como sitio instalable (opcional): `index.html` (copia exacta de `apps-script/Index.html`), `sw.js`, manifiesto e íconos. |
-| `planos/` | `planos.json`, que vincula cada lámina con sus documentos del FOD 02. Las imágenes `.webp` de la obra no están en el repositorio: van en la carpeta Planos de Drive y en el zip de entrega. |
+| `planos/` | `planos.json`, que vincula cada lámina con sus documentos del FOD 02 y con una o varias planillas (`"planilla": "6"` o `["11", "20", "38"]`). Las imágenes `.webp` de la obra no están en el repositorio: van en la carpeta Planos de Drive y en el zip de entrega. |
 | `tests/` | Pruebas de reglas, gestos, colores y fotos (Node, sin dependencias). |
 | `herramientas/` | Simulador de Apps Script (`test-v2/`), comprobación de sintaxis y conversión de PDF a láminas. |
 

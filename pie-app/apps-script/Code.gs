@@ -22,7 +22,7 @@
  */
 
 var PIE = {
-  VERSION: '2.3.0',
+  VERSION: '2.3.1',
   DATOS_SHEET: 'DATOS',
   LOG_SHEET: '_PIE_LOG',
   FOTOS_SHEET: '_PIE_FOTOS',
@@ -731,8 +731,17 @@ function readPlanos_(strict) {
     var file = liveFile_(folder, PIE.PLANOS_MANIFEST);
     if (!file) return [];
     var list = JSON.parse(file.getBlob().getDataAsString('UTF-8'));
-    return (Array.isArray(list) ? list : []).filter(function (p) {
-      return p && /^[A-Za-z0-9._-]{3,80}$/.test(String(p.id)) && p.planilla !== '' && p.planilla != null && Number(p.w) > 0 && Number(p.h) > 0;
+    // una lámina puede servir a varias planillas («planilla»: "11" o ["11", "20", "38"]): una entrada por planilla
+    var flat = [];
+    (Array.isArray(list) ? list : []).forEach(function (p) {
+      if (!p) return;
+      (Array.isArray(p.planilla) ? p.planilla : [p.planilla]).forEach(function (pl) {
+        if (pl === '' || pl == null || typeof pl === 'object') return;
+        var q = {}; Object.keys(p).forEach(function (k) { q[k] = p[k]; }); q.planilla = pl; flat.push(q);
+      });
+    });
+    return flat.filter(function (p) {
+      return /^[A-Za-z0-9._-]{3,80}$/.test(String(p.id)) && Number(p.w) > 0 && Number(p.h) > 0;
     }).map(function (p) {
       return { id: String(p.id), planilla: String(p.planilla), titulo: txt_(p.titulo) || String(p.id), sub: txt_(p.sub), rev: txt_(p.rev),
         w: Number(p.w), h: Number(p.h), v: txt_(p.v), codigo: txt_(p.codigo), hoja: txt_(p.hoja),

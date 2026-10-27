@@ -789,7 +789,7 @@
   var BOOT = window.PIE_BOOT || {};
   var IN_GAS = !!(window.google && google.script && google.script.run);
   var MODE = IN_GAS ? (BOOT.mode || 'webapp') : 'pwa';
-  var APP_VERSION = '2.3.0';
+  var APP_VERSION = '2.3.1';
   var ETAPAS = ['PRE', 'DURANTE', 'POST', 'DOC'];
   var FIELDS = ['documento', 'fecha', 'resp', 'estado', 'fum', 'obs', 'instrumento'];
   // movimiento reducido (iPhone › Accesibilidad › Movimiento): los desplazamientos van sin animación
@@ -2724,7 +2724,9 @@
   function r5(n) { return Math.round(n * 100000) / 100000; }
 
   /** Pines vigentes de una lámina: los del PIE más lo que está en la cola sin enviar. */
-  function plPins(planoId) {
+  /** Pines y zonas de una lámina en una planilla (una lámina puede servir a varias planillas). */
+  function plPins(planoId, sheet) {
+    sheet = String(sheet || PL.sheet || '');
     var out = {}, order = [];
     var put = function (p) { if (!out[p.id]) order.push(p.id); out[p.id] = p; };
     ((S.catalog && S.catalog.pines) || []).forEach(function (r) {
@@ -2739,7 +2741,7 @@
       else if (o.accion === 'quitar') { delete out[o.pin]; }
       if (o.status === 'error' && out[o.pin]) out[o.pin].err = o.error || 'error';
     });
-    return order.filter(function (id) { return out[id] && out[id].plano === planoId; }).map(function (id) { return out[id]; });
+    return order.filter(function (id) { return out[id] && out[id].plano === planoId && (!sheet || String(out[id].sheet) === sheet); }).map(function (id) { return out[id]; });
   }
   /**
    * Registro vivo de un pin: el de su fila (el PIE actualiza el elemento del pin al corregirlo, pero el catálogo
@@ -2838,7 +2840,7 @@
   function plChip(c) { return chipHtml(c === 'ap' ? 'ap' : c === 'rz' ? 'rz' : c === 'enc' ? 'pend' : '', PL_TXT[c]); }
   function plHasPin(reg) {
     var key = liveKey(reg.key);
-    return plLams(reg.sheet).some(function (l) { return plPins(l.id).some(function (pn) { var r = plRegOf(pn); return r && liveKey(r.key) === key; }); });
+    return plLams(reg.sheet).some(function (l) { return plPins(l.id, reg.sheet).some(function (pn) { var r = plRegOf(pn); return r && liveKey(r.key) === key; }); });
   }
   /** Si el punto queda tapado por la hoja inferior o fuera de la vista, lo lleva al centro. */
   function plReveal(pt) {
@@ -3441,7 +3443,7 @@
   function plGoto(sheet, key) {
     var k = liveKey(key), found = null;
     plLams(sheet).forEach(function (l) {
-      plPins(l.id).forEach(function (pn) { var r = plRegOf(pn); if (!found && r && liveKey(r.key) === k) found = { plano: l.id, pin: pn.id }; });
+      plPins(l.id, sheet).forEach(function (pn) { var r = plRegOf(pn); if (!found && r && liveKey(r.key) === k) found = { plano: l.id, pin: pn.id }; });
     });
     if (!found) return toast('Este registro todavía no tiene pines en un plano.', { kind: 'info' });
     PL.id = found.plano; PL.sel = found.pin; PL.center = found.pin; PL.z = 0; PL.mode = 'ver'; PL.draft = null; PL.moving = false;
