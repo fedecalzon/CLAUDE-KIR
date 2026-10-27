@@ -1,0 +1,142 @@
+[
+  {
+    "id": "1281-C-PL-1802",
+    "planilla": "6",
+    "titulo": "Losa de subpresión - estructura proyectada - encofrados",
+    "sub": "1281-C-PL-1802 R00",
+    "rev": "R00",
+    "pdf": "1281-C-CA-020_RevA",
+    "pag": 8,
+    "w": 3700,
+    "h": 2617,
+    "v": "8d695422df99a9ae",
+    "codigo": "1281-C-PL-1802",
+    "hoja": "02 de 04",
+    "revision_archivo": "R00",
+    "fuente_sha256": "9a285cade8c25a9e044f43508cb639bc94ce5e8aa3db6d88c52575ea1c5889cc",
+    "imagen_sha256": "8d695422df99a9ae4569a1e24a363ea0994628400daf6778f4a3bbca4228d502",
+    "documentos": [
+      "_KIR-COMR-REF-ESTR-SP-R00"
+    ]
+  },
+  {
+    "id": "1281-C-PL-1881",
+    "planilla": "6",
+    "titulo": "Losa de subpresión - banquina tipo 1 para apoyo de tanques contra incendio",
+    "sub": "1281-C-PL-1881 R00",
+    "rev": "R00",
+    "pdf": "1281-C-CA-020_RevA",
+    "pag": 9,
+    "w": 3700,
+    "h": 2616,
+    "v": "5488d2419af69fcb",
+    "codigo": "1281-C-PL-1881",
+    "hoja": "03 de 04",
+    "revision_archivo": "R00",
+    "fuente_sha256": "9a285cade8c25a9e044f43508cb639bc94ce5e8aa3db6d88c52575ea1c5889cc",
+    "imagen_sha256": "5488d2419af69fcbcf76b28263c62c4ec9990441015db92bd8230bb9e77732e7",
+    "documentos": [
+      "_KIR-COMR-REF-ESTR-SP-R00"
+    ]
+  },
+  {
+    "id": "1281-C-PL-1881-p10",
+    "planilla": "6",
+    "titulo": "Losa de subpresión - banquina tipo 2 para apoyo de tanques contra incendio",
+    "sub": "1281-C-PL-1881-p10 R00",
+    "rev": "R00",
+    "pdf": "1281-C-CA-020_RevA",
+    "pag": 10,
+    "w": 3700,
+    "h": 2616,
+    "v": "2b6f0e14c370e6be",
+    "codigo": "1281-C-PL-1881",
+    "hoja": "04 de 04",
+    "revision_archivo": "R00",
+    "fuente_sha256": "9a285cade8c25a9e044f43508cb639bc94ce5e8aa3db6d88c52575ea1c5889cc",
+    "imagen_sha256": "2b6f0e14c370e6be97706b4dabaccd5caa2612aeca8662d778f9ca0a2b3f838d",
+    "documentos": [
+      "_KIR-COMR-REF-ESTR-SP-R00"
+    ]
+  },
+  {
+    "id": "1281-C-PL-1202",
+    "planilla": "6",
+    "titulo": "Estructura sobre 11° piso - estructura proyectada - encofrados",
+    "sub": "1281-C-PL-1202 R02",
+    "rev": "R02",
+    "pdf": "COMR-MC-REF-ESTRUCTURA S11P_RevB",
+    "pag": 7,
+    "w": 3700,
+    "h": 2617,
+    "v": "e6442a235dd383b7",
+    "codigo": "1281-C-PL-1202",
+    "hoja": "02 de 07",
+    "revision_archivo": "R04",
+    "fuente_sha256": "c72918879ca976c2b85a575f87cd6de41f9eb573c0c3077886d42f0c36ec5520",
+    "imagen_sha256": "e6442a235dd383b742265b3f36a105116e26df9aa6afb1ef3c3eb55ffb125835",
+    "documentos": [
+      "_KIR-COMR-REF-VyL-S11P-R04"
+    ]
+  },
+  {
+    "id": "1281-C-PL-1232",
+    "planilla": "6",
+    "titulo": "Estructura sobre 11° piso - refuerzo de viga V1216",
+    "sub": "1281-C-PL-1232 R02",
+    "rev": "R02",
+    "pdf": "COMR-MC-REF-ESTRUCTURA S11P_RevB",
+    "pag": 8,
+    "w": 3700,
+    "h": 2616,
+    "v": "e988c957251f64cd",
+    "codigo": "1281-C-PL-1232",
+    "hoja": "05 de 07",
+    "revision_archivo": "R04",
+    "fuente_sha256": "c72918879ca976c2b85a575f87cd6de41f9eb573c0c3077886d42f0c36ec5520",
+    "imagen_sha256": "e988c957251f64cd596bf6b8be8cbf56b886fc095058ad08f0fbf656c1db74ec",
+    "documentos": [
+      "_KIR-COMR-REF-VyL-S11P-R04"
+    ]
+  },
+  {
+    "id": "1281-C-PL-1233",
+    "planilla": "6",
+    "titulo": "Estructura sobre 11° piso - refuerzo de viga V1215",
+    "sub": "1281-C-PL-1233 R02",
+    "rev": "R02",
+    "pdf": "COMR-MC-REF-ESTRUCTURA S11P_RevB",
+    "pag": 9,
+    "w": 3700,
+    "h": 2616,
+    "v": "128ebd7f92dfb042",
+    "codigo": "1281-C-PL-1233",
+    "hoja": "06 de 07",
+    "revision_archivo": "R04",
+    "fuente_sha256": "c72918879ca976c2b85a575f87cd6de41f9eb573c0c3077886d42f0c36ec5520",
+    "imagen_sha256": "128ebd7f92dfb042da2882d84e891dfcf23bb482b52c61e47eefd86fc1fd6055",
+    "documentos": [
+      "_KIR-COMR-REF-VyL-S11P-R04"
+    ]
+  },
+  {
+    "id": "C1224-01-PL-SDB003",
+    "planilla": "6",
+    "titulo": "Sistema de bombeo contra incendio - sala de bombas, planta, cortes y detalles",
+    "sub": "C1224-01-PL-SDB003 RC",
+    "rev": "RC",
+    "pdf": "1281-C-CA-020_RevA",
+    "pag": 11,
+    "w": 3700,
+    "h": 2617,
+    "v": "8904be13604e698b",
+    "codigo": "C1224-01-PL-SDB003",
+    "hoja": "",
+    "revision_archivo": "RC",
+    "fuente_sha256": "9a285cade8c25a9e044f43508cb639bc94ce5e8aa3db6d88c52575ea1c5889cc",
+    "imagen_sha256": "8904be13604e698b2f802712ea39f361516efdd41ee69d51a47c380e2ab823a2",
+    "documentos": [
+      "C1224-01-PL-SDB003-C"
+    ]
+  }
+]

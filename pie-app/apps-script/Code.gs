@@ -22,7 +22,7 @@
  */
 
 var PIE = {
-  VERSION: '1.7.0',
+  VERSION: '2.3.0',
   DATOS_SHEET: 'DATOS',
   LOG_SHEET: '_PIE_LOG',
   FOTOS_SHEET: '_PIE_FOTOS',
@@ -31,6 +31,10 @@ var PIE = {
   FUM_SHEET_OLD: 'FUM - Rechazos', // nombre de la v1.2, se migra solo
   EQUIPOS_SHEET: 'EQUIPOS DE MEDICIÓN', // equipos con N° de serie y vencimiento de calibración (v1.7)
   LIB_SHEET: 'LIBERACIONES',            // liberaciones de etapa hechas desde la app (v1.7)
+  PINES_SHEET: '_PIE_PINES',            // pines de registros sobre los planos (v2.0 beta)
+  PLANOS_FOLDER: 'Planos',              // subcarpeta de la carpeta de fotos con las láminas (<id>.webp) y planos.json (v2.1)
+  PLANOS_MANIFEST: 'planos.json',       // lista de láminas por planilla: la arma herramientas/pdf-a-planos.py
+  PLANO_MAX_BYTES: 6 * 1024 * 1024,
   FOTOS_FOLDER_NAME: 'PIE - Fotos de control',
   DATE_FORMAT: 'dd/mm/yy',
   MAX_COLS: 30,          // columnas a leer por hoja (los bloques usan A:O)
@@ -75,6 +79,7 @@ function onOpen() {
     .addItem('Vincular FOD 02 (registro de documentos)', 'vincularFod02')
     .addItem('Vincular FOG 01 (FUM - formulario de mejoras)', 'vincularFog01')
     .addItem('Crear hoja de equipos de medición', 'crearHojaEquipos')
+    .addItem('Planos: abrir carpeta y verificar', 'verificarPlanos')
     .addItem('Ver enlace de la app', 'verEnlace')
     .addToUi();
 }
@@ -99,10 +104,7 @@ function configurarClave() {
 }
 
 function newToken_() {
-  var abc = 'abcdefghjkmnpqrstuvwxyz23456789';
-  var t = '';
-  for (var i = 0; i < 10; i++) t += abc.charAt(Math.floor(Math.random() * abc.length));
-  return t;
+  return Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '');
 }
 
 /** La clave es obligatoria: si no hay, se genera una (sólo desde la planilla, por el dueño). */
@@ -286,6 +288,7 @@ function irA(sheetName, row) {
 
 function doGet(e) {
   var p = (e && e.parameter) || {};
+  if (p.action === 'batch') return json_({ ok: false, error: 'Las escrituras requieren POST', code: 'bad_request' });
   if (p.action) return json_(safeHandle_(p));
   return serveApp_('webapp');
 }
@@ -343,6 +346,8 @@ function handle_(req) {
       return { ok: true, version: PIE.VERSION };
     case 'catalog':
       return catalog_(ss);
+    case 'plano':
+      return planoData_(ss, req.id);
     case 'sheet':
       return { ok: true, categoria: readCategory_(sheetOrThrow_(ss, req.sheet)) };
     case 'batch':
@@ -370,12 +375,17 @@ function catalog_(ss) {
     fums: readFums_(ss),
     equipos: readEquipos_(ss),
     liberaciones: readLiberaciones_(ss),
+    pines: readPines_(ss),
+    planos: readPlanos_(),
     fogAviso: (function () { var l = fogLinkedSafe_(); return l.configured && !l.fog ? 'No se pudo abrir el FOG 01: ' + l.error : ''; })(),
     categorias: cats
   };
 }
 
 function batch_(ss, ops) {
+  betaBatch_(ops);
+  var later = ops.slice(25);   // una app vieja puede mandar más: se procesan 25 y el resto se reintenta
+  ops = ops.slice(0, 25);
   var lock = LockService.getDocumentLock() || LockService.getScriptLock();
   if (!lock.tryLock(30000)) throw pieError_('La planilla está ocupada, reintentá en unos segundos', 'busy');
   var results = [];
@@ -398,11 +408,12 @@ function batch_(ss, ops) {
         else if (op.op === 'photo') res = opPhoto_(ss, log, op);
         else if (op.op === 'fum') res = opFum_(ss, log, op);
         else if (op.op === 'liberar') res = opLiberar_(ss, log, op);
+        else if (op.op === 'pin') res = opPin_(ss, log, op);
         else throw pieError_('Operación desconocida: ' + op.op, 'bad_request');
         var extra = res.url || (res.fum != null ? String(res.fum) : '');
         var sheetName = res.sheet || op.sheet;
         log.appendRow([op.id, new Date(), op.op, sheetName, res.h, op.by || '', res.warnings ? res.warnings.join(' | ') : '', extra]);
-        if (sheetName && ss.getSheetByName(sheetName)) touched[sheetName] = true;
+        if (sheetName && !res.noTouch && ss.getSheetByName(sheetName)) touched[sheetName] = true;
         results.push({ id: op.id, ok: true, sheet: sheetName, h: res.h, url: res.url, fum: res.fum, warnings: res.warnings || [] });
       } catch (err) {
         results.push({ id: op && op.id, ok: false, error: String(err.message || err), code: err.code || 'error' });
@@ -416,7 +427,8 @@ function batch_(ss, ops) {
   var cats = Object.keys(touched).map(function (name) {
     return readCategory_(ss.getSheetByName(name), fotos);
   });
-  return { ok: true, results: results, categorias: cats, fums: readFums_(ss), liberaciones: readLiberaciones_(ss) };
+  later.forEach(function (op) { results.push({ id: op.id, ok: false, error: 'Lote largo: se envía en la próxima tanda', code: 'retry' }); });
+  return { ok: true, results: results, categorias: cats, fums: readFums_(ss), liberaciones: readLiberaciones_(ss), pines: readPines_(ss) };
 }
 
 /* ------------------------------------------------------------------ */
@@ -425,7 +437,7 @@ function batch_(ss, ops) {
 
 function isCategorySheet_(name) {
   return name !== PIE.DATOS_SHEET && name !== PIE.FOD_SHEET && name !== PIE.FUM_SHEET_OLD && name.charAt(0) !== '_' &&
-    key_(name) !== key_(PIE.EQUIPOS_SHEET) && name !== PIE.LIB_SHEET &&
+    key_(name) !== key_(PIE.EQUIPOS_SHEET) && name !== PIE.LIB_SHEET && name !== PIE.PINES_SHEET &&
     !/^F\.?U\.?M\b/i.test(name);
 }
 
@@ -485,23 +497,23 @@ function fotosSheet_(ss) {
   var sh = ss.getSheetByName(PIE.FOTOS_SHEET);
   if (!sh) {
     sh = ss.insertSheet(PIE.FOTOS_SHEET);
-    sh.appendRow(['fecha', 'planilla', 'fila_tarea', 'offset', 'fila', 'criterio', 'elemento', 'inspector', 'archivo_id', 'enlace']);
+    sh.appendRow(['fecha', 'planilla', 'fila_tarea', 'offset', 'fila', 'criterio', 'elemento', 'inspector', 'archivo_id', 'enlace', 'nota']);
     sh.hideSheet();
   }
   return sh;
 }
 
-/** { planilla: { filaTarea: { offset: [[id, url], ...] } } } */
+/** { planilla: { filaTarea: { offset: [[id, url, fecha, inspector, nota], ...] } } } (fecha, inspector y nota llegan con la beta.5) */
 function readFotosIndex_(ss) {
   var sh = ss.getSheetByName(PIE.FOTOS_SHEET);
   var out = {};
   if (!sh || sh.getLastRow() < 2) return out;
-  sh.getRange(2, 1, sh.getLastRow() - 1, 10).getValues().forEach(function (r) {
+  sh.getRange(2, 1, sh.getLastRow() - 1, 11).getValues().forEach(function (r) {
     var s = String(r[1]), h = Number(r[2]), off = Number(r[3]);
     if (!s || !h) return;
     out[s] = out[s] || {};
     out[s][h] = out[s][h] || {};
-    (out[s][h][off] = out[s][h][off] || []).push([String(r[8]), String(r[9])]);
+    (out[s][h][off] = out[s][h][off] || []).push([String(r[8]), String(r[9]), Object.prototype.toString.call(r[0]) === '[object Date]' ? Utilities.formatDate(r[0], Session.getScriptTimeZone(), 'yyyy-MM-dd') : isoDate_(r[0]), String(r[7]), String(r[10] || '')]);
   });
   return out;
 }
@@ -662,13 +674,224 @@ function opLiberar_(ss, log, op) {
   var found = resolveBlock_(sh, log, op);
   var blk = found.blk;
   if (!op.etapa) throw pieError_('Falta la etapa a liberar', 'bad_request');
-  var fecha = isoDate_(op.fecha) || Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  var prevLib = readLiberaciones_(ss).filter(function (l) { return l[0] === String(op.sheet) && l[1] === blk.tareaRow && l[2] === txt_(op.etapa); })[0];
+  if (prevLib) return { h: blk.tareaRow, warnings: ['La etapa ' + op.etapa + ' ya estaba liberada el ' + prevLib[3] + ' por ' + prevLib[4]] };
+  var verified = betaCheckRelease_(ss, blk, op);
+  // fecha en que se decidió (sin señal puede enviarse días después); nunca adelantada ni anterior a los controles.
+  // La hora real de registro queda en la columna «Registrada».
+  var fecha = RL.iso(op.fecha);
+  if (!fecha || fecha > verified.hoy || (verified.ultima && fecha < verified.ultima)) fecha = verified.hoy;
+  var obs = [txt_(op.obs)].concat(verified.avisos.length ? ['Avisos: ' + verified.avisos.join(' · ')] : []).filter(Boolean).join(' · ');
   var ls = libSheet_(ss);
   var hd = blk.header || {};
   ls.appendRow([toCellValue_('fecha', fecha), op.sheet, found.title || '', blk.tareaRow, safeText_(hd.elemento || op.elemento || ''),
-    safeText_(hd.piso || ''), safeText_(hd.sector || ''), safeText_(op.etapa), safeText_(op.by || ''), safeText_(op.resumen || ''),
-    safeText_(op.plano || ''), safeText_(op.obs || ''), new Date(), op.id]);
-  return { h: blk.tareaRow };
+    safeText_(hd.piso || ''), safeText_(hd.sector || ''), safeText_(op.etapa), safeText_(op.by || ''), safeText_(verified.resumen),
+    safeText_(op.plano || ''), safeText_(obs.slice(0, 2000)), new Date(), op.id]);
+  return { h: blk.tareaRow, warnings: verified.avisos.length ? [verified.avisos.length + ' aviso(s) anotados en LIBERACIONES'] : [] };
+}
+
+/* ------------------------------------------------------------------ */
+/*  Pines sobre planos (v2.0 beta)                                      */
+/* ------------------------------------------------------------------ */
+
+function planosFolder_(ss) {
+  return subFolder_(photoRoot_(ss), PIE.PLANOS_FOLDER);
+}
+
+/** La carpeta de planos si ya existe (leer el catálogo no crea carpetas en Drive). */
+function planosFolderIfAny_() {
+  var id = PropertiesService.getScriptProperties().getProperty('PIE_FOTOS_FOLDER');
+  if (!id) return null;
+  try {
+    var it = DriveApp.getFolderById(id).getFoldersByName(PIE.PLANOS_FOLDER);
+    return it.hasNext() ? it.next() : null;
+  } catch (e) { return null; }
+}
+
+/**
+ * Láminas disponibles, de planos.json en la carpeta de planos:
+ * [{id, planilla, titulo, sub, rev, w, h, v}]. Si falta o está mal, no hay pestaña Planos (no rompe el catálogo).
+ */
+/** El archivo más nuevo con ese nombre que no esté en la papelera (getFilesByName también devuelve los borrados). */
+function liveFile_(folder, name) {
+  var it = folder.getFilesByName(name), file = null;
+  while (it.hasNext()) {
+    var f = it.next();
+    if (f.isTrashed && f.isTrashed()) continue;
+    if (!file || f.getLastUpdated() > file.getLastUpdated()) file = f;
+  }
+  return file;
+}
+
+/** strict: una falla de Drive se informa como «retry» en vez de devolver la lista vacía. */
+function readPlanos_(strict) {
+  try {
+    var folder = planosFolderIfAny_();
+    if (!folder) return [];
+    var file = liveFile_(folder, PIE.PLANOS_MANIFEST);
+    if (!file) return [];
+    var list = JSON.parse(file.getBlob().getDataAsString('UTF-8'));
+    return (Array.isArray(list) ? list : []).filter(function (p) {
+      return p && /^[A-Za-z0-9._-]{3,80}$/.test(String(p.id)) && p.planilla !== '' && p.planilla != null && Number(p.w) > 0 && Number(p.h) > 0;
+    }).map(function (p) {
+      return { id: String(p.id), planilla: String(p.planilla), titulo: txt_(p.titulo) || String(p.id), sub: txt_(p.sub), rev: txt_(p.rev),
+        w: Number(p.w), h: Number(p.h), v: txt_(p.v), codigo: txt_(p.codigo), hoja: txt_(p.hoja),
+        documentos: Array.isArray(p.documentos) ? p.documentos.filter(function (v) { return typeof v === "string"; }).map(function (v) { return v.trim(); }).filter(Boolean) : [] };
+    });
+  } catch (e) {
+    if (strict) throw pieError_('No se pudo leer la carpeta de planos en Drive: se reintenta solo (' + (e && e.message || e) + ')', 'retry');
+    return [];
+  }
+}
+
+/** Imagen de un plano, en base64, desde la carpeta de planos de Drive (la app la guarda en el celular). */
+function planoData_(ss, id) {
+  id = String(id || '');
+  if (!/^[A-Za-z0-9._-]{3,80}$/.test(id)) throw pieError_('Plano desconocido: ' + id, 'bad_request');
+  var file = liveFile_(planosFolder_(ss), id + '.webp');
+  if (!file) throw pieError_('Falta la imagen del plano ' + id + ' en Drive. Subí «' + id + '.webp» a la carpeta de planos (menú PIE › Planos: abrir carpeta y verificar).', 'not_found');
+  var bytes = file.getBlob().getBytes();
+  if (bytes.length > PIE.PLANO_MAX_BYTES) throw pieError_('La imagen del plano ' + id + ' pesa demasiado (máximo 6 MB)', 'bad_request');
+  return { ok: true, id: id, mime: 'image/webp', data: Utilities.base64Encode(bytes) };
+}
+
+/** Menú PIE › Planos: muestra el enlace de la carpeta y cuáles de las imágenes están. */
+function verificarPlanos() {
+  var folder = planosFolder_(SpreadsheetApp.getActiveSpreadsheet());
+  var man = !!liveFile_(folder, PIE.PLANOS_MANIFEST);
+  var lams = readPlanos_();
+  var estado = lams.map(function (p) {
+    return (liveFile_(folder, p.id + '.webp') ? '✔ ' : '✘ falta ') + p.id + '.webp  (planilla ' + p.planilla + ')';
+  });
+  var msg = (man ? lams.length + ' láminas en ' + PIE.PLANOS_MANIFEST + ':\n' + estado.join('\n')
+      : '✘ falta ' + PIE.PLANOS_MANIFEST + ' (o está mal escrito)') +
+    '\n\nCarpeta de planos en Drive:\n' + folder.getUrl() +
+    '\n\nSubí ahí los .webp y el planos.json que arma herramientas/pdf-a-planos.py (carpeta «planos» de la v2.1).';
+  try { SpreadsheetApp.getUi().alert(msg); } catch (e) { Logger.log(msg); }
+}
+
+// alcance: 'reg' (todo el registro) | 'etapa' (alc = PRE, DURANTE, POST o DOC) | 'tarea' (alc = 'ETAPA|Tarea'). Las columnas 13 y 14 llegan con la v2.1.
+// puntos (v2.2): vacío = pin; JSON [[x, y], …] = zona rayada (x, y del pin = centro de la zona).
+var PINES_HEAD = ['pin_id', 'fecha', 'planilla', 'fila_tarea', 'elemento', 'piso', 'plano', 'x', 'y', 'puso', 'estado', 'op_id', 'alcance', 'alc', 'puntos', 'color'];
+var PIN_ALCANCES = ['reg', 'etapa', 'tarea'];
+var PIN_COLORS = ['auto', 'azul', 'violeta', 'naranja', 'turquesa', 'rosa'];
+function pinColor_(v) {
+  if (v == null || v === '') return 'auto';
+  if (typeof v !== 'string' || PIN_COLORS.indexOf(v) < 0) throw pieError_('Color de marca inválido', 'bad_request');
+  return v;
+}
+var ZONA_MAX_PUNTOS = 80;
+
+/** Vértices de una zona validados y redondeados; null si es un pin. */
+function zonaPts_(pts) {
+  if (pts == null || pts === '') return null;
+  if (!Array.isArray(pts) || pts.length < 3 || pts.length > ZONA_MAX_PUNTOS) throw pieError_('La zona tiene que tener entre 3 y ' + ZONA_MAX_PUNTOS + ' puntos', 'bad_request');
+  var q = pts.map(function (p) {
+    if (!Array.isArray(p) || p.length !== 2) throw pieError_('Punto de zona inválido', 'bad_request');
+    return [pinCoord_(p[0]), pinCoord_(p[1])];
+  });
+  // un doble toque deja dos vértices iguales seguidos: se juntan (también el último con el primero)
+  q = q.filter(function (p, i) { var a = q[(i + q.length - 1) % q.length]; return q.length < 2 || p[0] !== a[0] || p[1] !== a[1]; });
+  if (q.length < 3) throw pieError_('La zona tiene que tener al menos 3 puntos distintos', 'bad_request');
+  return betaPolygon_(q);
+}
+function readZonaPts_(v) {
+  if (!v) return null;
+  try { var a = JSON.parse(String(v)); return Array.isArray(a) && a.length >= 3 ? a : null; } catch (e) { return null; }
+}
+
+/** Los pines guardan el elemento al crearse: si se corrige en el registro, se actualiza también ahí. */
+function syncPinElemento_(ss, sheet, h, elemento) {
+  var sh = ss.getSheetByName(PIE.PINES_SHEET);
+  if (!sh || sh.getLastRow() < 2) return;
+  var vals = sh.getRange(2, 1, sh.getLastRow() - 1, 5).getValues();
+  vals.forEach(function (r, i) {
+    if (String(r[2]) === String(sheet) && Number(r[3]) === Number(h) && txt_(r[4]) !== txt_(elemento)) sh.getRange(i + 2, 5).setValue(safeText_(txt_(elemento)));
+  });
+}
+
+function pinesSheet_(ss) {
+  var sh = ss.getSheetByName(PIE.PINES_SHEET);
+  if (!sh) {
+    sh = ss.insertSheet(PIE.PINES_SHEET);
+    sh.getRange(1, 1, 1, PINES_HEAD.length).setValues([PINES_HEAD]).setFontWeight('bold');
+    sh.setFrozenRows(1);
+    sh.hideSheet();
+  } else {
+    if (sh.getMaxColumns() < PINES_HEAD.length) sh.insertColumnsAfter(sh.getMaxColumns(), PINES_HEAD.length - sh.getMaxColumns());
+    if (sh.getRange(1, 15).getValues()[0][0] !== PINES_HEAD[14]) {
+      sh.getRange(1, 13, 1, 3).setValues([[PINES_HEAD[12], PINES_HEAD[13], PINES_HEAD[14]]]).setFontWeight('bold');
+    }
+    if (sh.getRange(1, 16).getValues()[0][0] !== 'color') sh.getRange(1, 16).setValue('color').setFontWeight('bold');
+  }
+  return sh;
+}
+
+/**
+ * [[pin_id, planilla, fila_tarea, plano, x, y, elemento, piso, puso, alcance, alc, puntos|null]] de los pines y zonas activos.
+ * x e y van de 0 a 1 sobre la imagen de la lámina.
+ */
+function readPines_(ss) {
+  var sh = ss.getSheetByName(PIE.PINES_SHEET);
+  if (!sh || sh.getLastRow() < 2) return [];
+  return readValues_(sh).slice(1).filter(function (r) { return r[0] !== '' && r[10] === 'activo'; }).map(function (r) {
+    return [txt_(r[0]), txt_(r[2]), Number(r[3]), txt_(r[6]), Number(r[7]), Number(r[8]), txt_(r[4]), txt_(r[5]), txt_(r[9]),
+      PIN_ALCANCES.indexOf(txt_(r[12])) >= 0 ? txt_(r[12]) : 'reg', txt_(r[13]), readZonaPts_(r[14]), PIN_COLORS.indexOf(r[15]) >= 0 ? r[15] : 'auto'];
+  });
+}
+
+function pinRow_(sh, id) {
+  var hit = sh.getRange('A:A').createTextFinder(String(id)).matchEntireCell(true).findNext();
+  return hit ? hit.getRow() : 0;
+}
+
+function pinCoord_(v) {
+  if (typeof v !== 'number' && (typeof v !== 'string' || !v.trim())) throw pieError_('Falta una coordenada válida', 'bad_request');
+  var n = Number(v);
+  if (!isFinite(n) || n < 0 || n > 1) throw pieError_('La posición del pin queda fuera del plano', 'bad_request');
+  return Math.round(n * 100000) / 100000;
+}
+
+/**
+ * op = {op:'pin', accion:'poner'|'mover'|'quitar'|'color', pin, sheet, h|ref, sig, elemento, piso, plano, x, y, by, alc:{k, v}, pts?}.
+ * 'poner' (pin = id de la operación) agrega un pin o, con pts, una zona; un registro puede tener varios, de cualquier alcance.
+ * 'mover' de una zona trae los pts ya trasladados.
+ */
+function opPin_(ss, log, op) {
+  var color = (op.accion === 'poner' || op.accion === 'color') ? pinColor_(op.color) : 'auto';
+  var ps = pinesSheet_(ss);
+  var now = new Date();
+  if (op.accion === 'quitar' || op.accion === 'mover' || op.accion === 'color') {
+    var row = pinRow_(ps, op.pin);
+    if (!row) throw pieError_('El pin ya no existe', 'conflict');
+    var saved = ps.getRange(row, 1, 1, PINES_HEAD.length).getValues()[0];
+    if (String(saved[2]) !== String(op.sheet) || saved[10] !== 'activo') throw pieError_('El pin no pertenece a esta planilla o ya fue quitado', 'conflict');
+    if (op.accion === 'mover' && saved[14] && !op.pts) throw pieError_('Mover una zona requiere todos sus vértices', 'bad_request');
+    if (op.accion === 'color') ps.getRange(row, 16).setValue(color);
+    else if (op.accion === 'quitar') ps.getRange(row, 11).setValue('quitado');
+    else {
+      var mpts = zonaPts_(op.pts);
+      ps.getRange(row, 8, 1, 2).setValues([[pinCoord_(op.x), pinCoord_(op.y)]]);
+      if (mpts) ps.getRange(row, 15).setValue(JSON.stringify(mpts));
+    }
+    return { h: Number(ps.getRange(row, 4).getValues()[0][0]), noTouch: true };
+  }
+  if (op.accion !== 'poner') throw pieError_('Acción de pin desconocida', 'bad_request');
+  var plano = safeText_(op.plano);
+  if (!plano) throw pieError_('Falta el plano del pin', 'bad_request');
+  if (!readPlanos_(true).some(function (p) { return p.id === op.plano && p.planilla === String(op.sheet); })) throw pieError_('El plano no está disponible para esta planilla', 'conflict');
+  var found = resolveBlock_(sheetOrThrow_(ss, op.sheet), log, op);
+  var blk = found.blk;
+  var hd = blk.header || {};
+  var x = pinCoord_(op.x), y = pinCoord_(op.y);
+  var alc = op.alc || {};
+  var alcK = PIN_ALCANCES.indexOf(alc.k) >= 0 ? alc.k : 'reg';
+  var alcV = alcK === 'reg' ? '' : safeText_(String(alc.v || '').slice(0, 120));
+  if (alcK !== 'reg' && !alcV) throw pieError_('Falta qué etapa o tarea marca el pin', 'bad_request');
+  var pts = zonaPts_(op.pts);
+  ps.appendRow([String(op.pin || op.id), now, op.sheet, blk.tareaRow, safeText_(hd.elemento || op.elemento || ''), safeText_(hd.piso || ''),
+    plano, x, y, safeText_(op.by || ''), 'activo', op.id, alcK, alcV, pts ? JSON.stringify(pts) : '', color]);
+  return { h: blk.tareaRow, noTouch: true };
 }
 
 /* ------------------------------------------------------------------ */
@@ -734,6 +957,7 @@ function opUpdate_(ss, log, op) {
     if (op.header) writeHeader_(sh, blk, op.header, false);
     if (op.items) warnings = writeItems_(sh, blk, op.items, false);
   });
+  if (op.header && op.header.hasOwnProperty('elemento')) syncPinElemento_(ss, op.sheet, blk.tareaRow, op.header.elemento);
   return { h: blk.tareaRow, warnings: warnings };
 }
 
@@ -749,17 +973,28 @@ function opPhoto_(ss, log, op) {
   var found = resolveBlock_(sh, log, op);
   var blk = found.blk;
   var warnings = [];
-  var req = {};
-  req[op.off] = { criterio: op.criterio, tarea: op.tarea };
-  var offs = Object.keys(resolveItemOffsets_(blk, req, warnings));
-  if (!offs.length) throw pieError_('No se encontró el control de la foto en la planilla', 'conflict');
-  var off = Number(offs[0]);
+  var general = op.scope === 'registro';
+  if (op.scope != null && op.scope !== '' && !general) throw pieError_('Alcance de foto inválido', 'bad_request');
+  var off, item;
+  if (general) {
+    off = 0;
+    item = { tarea: 'Registro', criterio: 'Foto general del registro' };
+  } else {
+    // Compatibilidad: las fotos pendientes de versiones anteriores conservan su control.
+    var req = {};
+    req[op.off] = { criterio: op.criterio, tarea: op.tarea };
+    var offs = Object.keys(resolveItemOffsets_(blk, req, warnings));
+    if (!offs.length) throw pieError_('No se encontró el control de la foto en la planilla', 'conflict');
+    off = Number(offs[0]);
+    item = blk.items.filter(function (it) { return it.off === off; })[0] || {};
+  }
   var row = blk.tareaRow + off;
-  var item = blk.items.filter(function (it) { return it.off === off; })[0] || {};
   var tz = Session.getScriptTimeZone();
   // fecha y hora de la toma (las manda el celular), o la de ahora
   var tm = /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})/.exec(op.takenAt || '');
-  var dia = tm ? tm[1] : Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+  var hoyF = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+  if (tm && (!RL.iso(tm[1]) || tm[1] > hoyF)) tm = null;   // fecha del celular inválida o adelantada
+  var dia = tm ? tm[1] : hoyF;
   var hora = tm ? tm[2] + tm[3] : Utilities.formatDate(new Date(), tz, 'HHmm');
   var prev = (readFotosIndex_(ss)[String(op.sheet)] || {})[blk.tareaRow] || {};
   var nro = ((prev[off] || []).length + 1);
@@ -778,15 +1013,19 @@ function opPhoto_(ss, log, op) {
       'en Apps Script elegí la función "autorizar", tocá Ejecutar y aceptá; después Implementar › Administrar implementaciones › ✏️ › Nueva versión, ' +
       'y tocá Reintentar. Detalle: ' + m, auth ? 'auth_drive' : 'error');
   }
+  var notaTxt = String(op.nota || '').replace(/\s+/g, ' ').trim().slice(0, 200);
+  var nota = safeText_(notaTxt);
   file.setDescription('PIE planilla ' + op.sheet + ' (' + found.title + ') · fila ' + row + ' · ' + (blk.header.elemento || '') +
     (blk.header.piso ? ' · piso ' + blk.header.piso : '') + ' · ' + (item.tarea ? item.tarea + ': ' : '') + (item.criterio || '') +
-    ' · ' + dia + ' ' + hora + ' · ' + (op.by || ''));
+    ' · ' + dia + ' ' + hora.slice(0, 2) + ':' + hora.slice(2) + ' · ' + (op.by || '') + (notaTxt ? ' · Nota: ' + notaTxt : ''));
   var url = file.getUrl();
-  var cell = sh.getRange(row, blk.cols.obs || blk.cols.estado || blk.cols.criterio);
-  var note = cell.getNote();
-  cell.setNote((note ? note + '\n' : '') + 'Foto ' + Utilities.formatDate(new Date(), tz, 'dd/MM/yy') + ': ' + url);
-  fotosSheet_(ss).appendRow([new Date(), op.sheet, blk.tareaRow, off, row, safeText_(item.criterio || ''), safeText_(blk.header.elemento || ''),
-    safeText_(op.by || ''), file.getId(), url]);
+  if (!general) {
+    var cell = sh.getRange(row, blk.cols.obs || blk.cols.estado || blk.cols.criterio);
+    var note = cell.getNote();
+    cell.setNote((note ? note + '\n' : '') + 'Foto ' + Utilities.formatDate(new Date(), tz, 'dd/MM/yy') + ': ' + url);
+  }
+  fotosSheet_(ss).appendRow([toCellValue_('fecha', dia), op.sheet, blk.tareaRow, off, row, safeText_(item.criterio || ''), safeText_(blk.header.elemento || ''),
+    safeText_(op.by || ''), file.getId(), url, nota]);
   return { h: blk.tareaRow, url: url, warnings: warnings };
 }
 

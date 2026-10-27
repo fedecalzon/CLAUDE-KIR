@@ -1,110 +1,67 @@
-# PIE · Carga móvil de inspecciones (FOP 01)
+# PIE 2.3.0 · Carga de inspecciones y planos (FOP 01)
 
-App para cargar los **Planes de Inspección y Ensayo** de la planilla `PIE - CORE` desde el celular, con o sin señal.
+App para cargar desde el celular los **Planes de Inspección y Ensayo** de la planilla `PIE - CORE`, con o sin señal, y marcarlos sobre las láminas de la obra. Backend: **Google Apps Script sobre la planilla** (no usa otra base de datos).
 
-- Muestra las planillas **agrupadas por rubro** (Estructuras, Instalaciones, Terminaciones…) y, en cada una, los **requisitos** (PRE / DURANTE / POST / DOC → tarea → criterio, método e instrumento) y los **registros** ya ejecutados con su avance (AP / RZ / N/A / pendientes).
-- **Nuevo registro**: copia el bloque modelo de esa planilla (formato, celdas combinadas, validaciones y alto de filas) y lo pega **debajo del último registro**, respetando la separación que ya usa la hoja. Completa RESPONSABLE, PISO, SECTOR, ETAPA, ELEMENTO A VERIFICAR y el DOCUMENTO de referencia.
-- **Documento desde el FOD 02**: botón “FOD 02” en el alta, en “Documento al aprobar” y en cada control. Despliega el Registro de Control y Distribución de Documentos mostrando **sólo la última revisión de cada código** (buscador + filtro por categoría, avisa si figura “No vigente” o “No aprobado”) y escribe `CÓDIGO-Rnn` en la columna DOCUMENTO. También acepta texto libre.
-- **Fotos de control**: en el detalle de cada control, botones Cámara / Galería. La foto se achica en el celular (~1600 px), queda guardada sin señal y se sube sola a Drive (carpeta `PIE - Fotos de control - …/<planilla>`). En la planilla queda una **nota en la celda de OBSERVACIONES** con el enlace, y un índice en la hoja oculta `_PIE_FOTOS`.
-- **Documento superado**: cada DOCUMENTO cargado se cruza con el FOD 02 (entiende `-R06`, `_07`, ` REV. 12`, varios documentos separados por `//`). Si un control pendiente usa una revisión reemplazada avisa “Documento superado · vigente R07” con botón **Usar R07**; si un control ya hecho se registró con una revisión que ya estaba reemplazada ese día, lo marca en rojo. Al marcar AP/RZ con un documento superado pregunta si usar la revisión vigente. Las planillas y registros afectados muestran “⚠ doc. superado”.
-- **FUM (rechazos) en el FOG 01**: al marcar **RZ** se abre una FUM. Si el **FOG 01 (Formulario Único de Mejoras)** está vinculado (menú **PIE › Vincular FOG 01**), se agrega una fila con el formato de las anteriores y el número correlativo del FOG (sigue después del último), con Origen “Inspección Interna”, Procesos “Producción”, fecha, descripción del desvío (planilla, elemento, piso, criterio y observación), quién lo registró, acción inmediata (Reparar / Recambio / Recalificar / Dejar como está), descripción y plazo en días. Si la tabla llega a la leyenda de abajo, inserta filas en vez de pisarla. El número se escribe en la columna FUM N° del PIE. Al marcar **AP** en la reinspección se completa “Cierre de la Acción Inmediata” y su fecha; desmarcar el RZ la anula. El análisis de causa, la acción de mejora y la verificación de eficacia se siguen completando en el FOG 01. Si alguien cierra la acción inmediata a mano en el FOG 01, la app lo toma. Pantalla **Rechazos · FUM** con las abiertas, días abiertas y reinspecciones vencidas. Funciona sin señal (se numera al sincronizar). La relación FUM ↔ control del PIE se guarda en la hoja oculta `_PIE_FUM`.
-- **Instrumento con N° de serie**: en el detalle del control se elige el instrumento de la lista de **DATOS (columna INSTRUMENTO)**, primero los del mismo tipo (p. ej. `NIVEL LASER (1167)`), y se escribe en la columna INSTRUMENTO en lugar de “INDIQUE NO. SERIAL”. La app recuerda tu elección y la completa sola en los próximos controles de ese tipo; si falta, avisa “Indicar N° de serie”. Para que aparezcan tus equipos, agregalos con su número en DATOS › INSTRUMENTO.
-- **Fotos rastreables**: cada foto se guarda en `PIE - Fotos de control › <planilla> › Fila <fila del registro> - <elemento> - <piso>` con nombre `PIE-<planilla>_F<fila del control>_<elemento>_<tarea>_<fecha>_<hora>_<inspector>_<nn>.jpg` (ej. `PIE-6_F780_Bajo-recorrido-TN1-TN2-LN3-LN2_Encofrados_2026-10-18_0941_FC_01.jpg`), con la descripción completa del control en el archivo. Sólo se aceptan imágenes de hasta ~10 MB.
-- **Siguiente pendiente**: barra inferior que lleva al próximo control sin marcar (se esconde con el teclado o con un detalle abierto); las etapas PRE / DURANTE / POST / DOC se pliegan tocando su banda, que queda fija arriba mientras se recorre. Botones AP / RZ / N/A de 56 px con ícono, color y texto (no dependen sólo del color) y contraste AA en modo claro y oscuro, para usar al sol y con guantes.
-- **Plano único por registro**: el plano (FOD 02) se elige una sola vez arriba del registro y se aplica a todos los controles pendientes; se pueden sumar más planos (“＋ Otro plano”, quedan separados por `//`). Si se cambia, se actualizan los pendientes y los ya controlados conservan el plano con el que se hicieron (trazabilidad). Los controles ya no tienen campo de documento propio; sólo muestran “Plano: …” cuando difiere del del registro.
-- **Checklist**: botones AP / RZ / N/A por criterio. AP/RZ completan solos FECHA (hoy), RESP. (tus iniciales) y DOCUMENTO; RZ abre FUM N° y observaciones. N/A escribe `NA` en FECHA, como se viene haciendo.
-- **Marcado seguro (v1.6)**: un doble toque no desmarca; una RZ por error corregida con el detalle abierto no llega al FOG 01; **Borrar carga** pregunta y ofrece **Deshacer**; con un filtro activo, lo recién marcado no desaparece bajo el dedo. Las preguntas usan una hoja propia con botones que dicen qué pasa (no los cuadros del navegador). El plano superado se pregunta una sola vez por registro.
-- **Atajos (v1.6)**: «Aprobar los N pendientes» al final de cada etapa, **N/A a la tarea** (con Deshacer), fecha de reinspección de un toque (Mañana / +3 días / +1 semana) y **Seguir** en Inicio con los últimos registros abiertos.
-- **Indicador de envíos**: «Al día» (todo en el PIE), «Sin enviar · n» (hay cambios sólo en el celular), «Sin señal · n» y «Revisar» en rojo si un envío falló; tocándolo se envía o se va a Ajustes › Envíos pendientes. **Apariencia** Automático / Claro / Oscuro en Ajustes.
-- **Búsqueda global (v1.7)**: el buscador de Inicio encuentra, sin señal, planillas, registros de todas las planillas («losa 5P»), FUM («FUM 4») y planos del FOD 02 con su veredicto: «S12P R06» responde **R06 SUPERADA · rige R07 desde …** o **R07 VIGENTE**, y en cuántos registros se usa (y cuántos tienen pendientes con la revisión vieja).
-- **Equipos de medición y calibración (v1.7)**: menú **PIE › Crear hoja de equipos de medición** arma la hoja `EQUIPOS DE MEDICIÓN` (EQUIPO · N° DE SERIE · CALIBRACIÓN VENCE · CERTIFICADO · OBSERVACIONES) con los equipos que ya tienen número en DATOS. Completá la fecha de vencimiento y agregá una fila por equipo. La app los ofrece al elegir el instrumento (marcando «calibración vencida / por vencer»), muestra el vencimiento y el enlace al certificado en el detalle, avisa en Inicio los equipos vencidos o que vencen en 15 días, y marca con un chip rojo el control hecho con un equipo vencido ese día (ISO 9001 7.1.5).
-- **Liberación de etapa (v1.7)**: cuando una etapa no tiene pendientes aparece **Liberar PRE** (o DURANTE, POST, DOC) con un checklist: sin pendientes, sin RZ ni FUM abiertas, plano vigente en el FOD 02, instrumentos con N° de serie y calibración al día. Si algo falla no deja liberar y lleva al primer control a corregir. La liberación queda en la hoja `LIBERACIONES` (fecha, planilla, fila, elemento, piso, sector, etapa, quién liberó, resumen de controles y plano), se puede deshacer durante 6 s y funciona sin señal.
-- **Glosario de la app**: *enviar* = del celular al PIE; *actualizar* = del PIE al celular; *plano* = el documento del FOD 02; *planilla* = la hoja numerada; *control* = cada línea con AP / RZ / N/A.
-- **Sin señal**: todo queda guardado en el celular y se envía solo al volver la conexión. Los envíos no se duplican aunque se corte a mitad de camino (cada operación tiene un id registrado en la hoja oculta `_PIE_LOG`).
+## Qué hace
+- **Planillas y registros**: las planillas por rubro, los registros con su avance y los requisitos (PRE / DURANTE / POST / DOC). Registro nuevo debajo del último, con el formato del modelo.
+- **Controles AP / RZ / N/A** de 56 px, con marcado seguro: un doble toque no desmarca, «Borrar carga» con Deshacer y «Aprobar los N pendientes» / «N/A a la tarea».
+- **FUM en el FOG 01** al marcar RZ, cerradas al aprobar la reinspección. Hay una agenda de rechazos.
+- **Plano del registro (FOD 02)**: uno por registro, con aviso de revisión superada.
+- **Visor de planos dentro del registro**:
+  - hojas, zoom, pellizco y pantalla completa;
+  - **pines y zonas** por registro, etapa o tarea, con colores y filtro por estado;
+  - AP / RZ / N/A desde la marca;
+  - borrar con Deshacer;
+  - láminas **disponibles sin conexión** (✓ / ↓ y «Bajar las que faltan»).
+- **Fotos del registro** con nota, fecha (la de la toma) y autor. Se guardan en Drive con nombre rastreable.
+- **Equipos de medición**: la hoja `EQUIPOS DE MEDICIÓN` guarda el N° de serie y el vencimiento de calibración de cada equipo. La app avisa los vencidos y los que están por vencer.
+- **Liberación de etapa** con checklist. Las **mismas reglas** corren en el celular y en el servidor, así que lo que el celular muestra en verde es lo que el PIE acepta. La liberación queda en la hoja `LIBERACIONES`.
+- **Búsqueda global**: registros, FUM y planos del FOD 02, con el veredicto de revisión (vigente o superada).
+- **Sin señal**: todo queda en el celular y se envía solo, en tandas de 25. Una operación no se duplica aunque se corte a mitad de camino.
 
-## Contenido
+## Reglas para liberar una etapa
+Bloquean (hay que corregir antes):
+- controles pendientes;
+- controles en RZ;
+- FUM abiertas;
+- un AP sin fecha válida o sin responsable;
+- un instrumento sin N° de serie;
+- un equipo que no figura en EQUIPOS DE MEDICIÓN, que no tiene el vencimiento cargado o que estaba vencido el día del control;
+- un plano controlado con una revisión ya superada, no vigente o no aprobado en el FOD 02;
+- el plano del registro superado.
 
-| Carpeta | Qué es |
+No bloquean, pero quedan anotados como avisos en `LIBERACIONES`:
+- un plano que no figura en el FOD 02;
+- un plano sin revisión escrita, o con una revisión más nueva que la del FOD 02;
+- un código ambiguo;
+- una FUM indicada que no está en el índice;
+- un FOD 02 que no se pudo consultar.
+
+La fecha de la liberación es la del día en que se decidió (sin adelantar ni antes de los controles). La columna «Registrada» guarda la hora real de llegada al PIE. Una etapa ya liberada no se duplica.
+
+## Estructura
+| Carpeta | Contenido |
 |---|---|
-| `apps-script/` | Lo que se pega en el editor de Apps Script de la planilla: `Code.gs`, `Index.html`, `appsscript.json`. |
-| `app/` | La misma app como PWA instalable (abre sin señal): `index.html`, `sw.js`, `manifest.webmanifest`, íconos. |
-| `test/` | Pruebas con un simulador de Google Sheets cargado con el libro real (no hace falta para usar la app). |
+| `apps-script/` | Se pega en el editor de Apps Script de la planilla: `Code.gs`, `Beta.gs` (reglas de liberación, zonas y lotes; obligatorio), `Index.html` y `appsscript.json`. |
+| `pwa/` | La misma app como sitio instalable (opcional): `index.html` (copia exacta de `apps-script/Index.html`), `sw.js`, manifiesto e íconos. |
+| `planos/` | `planos.json`, que vincula cada lámina con sus documentos del FOD 02. Las imágenes `.webp` de la obra no están en el repositorio: van en la carpeta Planos de Drive y en el zip de entrega. |
+| `tests/` | Pruebas de reglas, gestos, colores y fotos (Node, sin dependencias). |
+| `herramientas/` | Simulador de Apps Script (`test-v2/`), comprobación de sintaxis y conversión de PDF a láminas. |
 
-`apps-script/Index.html` es una copia exacta de `app/index.html`: si modificás una, copiá a la otra.
+## Instalar o actualizar
+Ver [`INSTALAR.md`](INSTALAR.md).
 
-## 1. Pasar la planilla a Google Sheets
-
-Apps Script sólo funciona sobre Google Sheets (el archivo hoy está en SharePoint).
-
-1. Subí `PIE - CORE.xlsx` a Google Drive → clic derecho → **Abrir con › Hojas de cálculo de Google** → **Archivo › Guardar como Hojas de cálculo de Google**.
-2. Revisá que la hoja `DATOS` tenga los responsables (D12:E…) y sus abreviaturas. Algunas fórmulas de la columna A en bloques viejos apuntan a otro libro (`[1]DATOS`); en los bloques nuevos la app escribe `=IFERROR(VLOOKUP(B…,DATOS!$D$12:$E$60,2,0),"")`.
-
-## 2. Instalar el script
-
-1. En la planilla: **Extensiones › Apps Script**.
-2. Reemplazá el contenido de `Código.gs` por `apps-script/Code.gs`.
-3. **＋ › HTML**, nombre `Index` (sin `.html`), pegá `apps-script/Index.html`.
-4. **Configuración del proyecto › Mostrar el archivo de manifiesto "appsscript.json"** y pegá `apps-script/appsscript.json`.
-5. Guardá. En la barra de arriba del editor elegí la función **autorizar** y tocá **▶ Ejecutar**: Google pide los permisos (planillas, Drive y menús) y hace una prueba de escritura en Drive (la necesitan las fotos); aceptalos (si dice "Google no verificó esta app": Configuración avanzada › Ir a …). Volvé a la planilla y recargala: aparece el menú **PIE**.
-6. **PIE › Configurar clave de acceso**: la clave es **obligatoria** (si no hay, se genera una al azar). La pide la app del celular; **PIE › Ver enlace de la app** muestra la URL y la clave juntas. Los textos que empiezan con `=`, `+` o `@` se guardan siempre como texto (no como fórmula).
-
-7. **PIE › Vincular FOD 02**: pegá el enlace del FOD 02 que está en Google Drive (Hoja de cálculo de Google, o el .xlsx subido a Drive: el script lo convierte solo y lo vuelve a convertir cuando subís una versión nueva). No sirve un enlace de SharePoint. Alternativa: copiar la pestaña del FOD 02 dentro de la planilla del PIE y dejar el enlace vacío (la encuentra aunque se llame "Copia de FOD-02"). El cartel de respuesta dice qué archivo, qué pestaña y cuántos documentos encontró, o por qué no pudo.
-8. La primera foto pide permiso de Google Drive (el script crea la carpeta de fotos en tu Drive). Compartí esa carpeta con quien tenga que ver las fotos.
-
-Con eso ya podés usar **PIE › Abrir carga PIE (panel)** desde la compu (botón “Ver fila” lleva al bloque en la planilla).
-
-## 3. Publicar para el celular
-
-En Apps Script: **Implementar › Nueva implementación › Aplicación web**
-
-- Ejecutar como: **Yo**
-- Quién tiene acceso: **Cualquier persona** (la protección es la clave del paso 2.6)
-
-Copiá la URL que termina en `/exec`.
-
-### Opción A — abrir la URL directo (más simple)
-Abrís la URL `/exec` en el celular y la agregás a la pantalla de inicio. Si se corta la señal **con la app abierta**, seguís cargando y se envía al volver. Lo que no puede es *abrirse* sin señal (Google no permite service workers en Apps Script).
-
-### Opción B — PWA instalable (abre sin señal desde cero)  ✅ recomendada para obra
-1. Publicá la carpeta `app/` en cualquier hosting HTTPS estático (al actualizar, volvé a subir la carpeta entera), por ejemplo:
-   - **Netlify Drop** (app.netlify.com/drop): arrastrás la carpeta `app` y te da una URL.
-   - **GitHub Pages** en un repo público con la carpeta `app/`.
-2. Abrí una vez en el celular: `https://TU-HOSTING/index.html?api=URL_EXEC&token=TU_CLAVE`
-   (la app guarda la conexión y borra los parámetros de la barra). Ese enlace podés mandárselo al resto del equipo.
-3. iPhone/Safari: compartir › **Agregar a inicio** (abrí siempre la app desde ese ícono: así iOS no borra lo cargado sin señal). Chrome Android: menú ⋮ › **Instalar app**.
-4. Con señal, tocá **Enviar y actualizar ahora** en Ajustes: a partir de ahí abre y carga sin conexión.
-
-**Al pasar a la v1.6 en el iPhone**: antes de borrar el ícono, abrí la app con señal y esperá «Al día» (que no quede nada sin enviar). Después borrá el ícono y volvé a hacer **Agregar a inicio**: iOS fija los colores de la barra de estado al instalar. Cuando hay una versión nueva, la app avisa «Hay una versión nueva de la app» con el botón **Recargar**.
-
-Cada vez que publiques una nueva versión del script, usá **Implementar › Administrar implementaciones › editar › Nueva versión** para conservar la misma URL.
-
-## Validaciones de datos de la planilla
-
-Las hojas traen validaciones en modo “rechazar” con listas que quedaron cortas: ESTADO sólo admite `DATOS!$J$15:$J$15` (= sólo “AP”) y RESPONSABLE sólo `DATOS!$D$12:$D$14` (3 nombres, sin “N/A”). En Google Sheets eso hacía fallar la app con *“Los datos que ingresaste en la celda J.. infringen las reglas de validación”* al marcar RZ o elegir otro responsable. Desde la v1.1 el script quita esas validaciones sólo mientras escribe y las restaura iguales. Si querés que también funcionen bien a mano, ampliá los rangos en la planilla (ESTADO → `DATOS!$J$15:$J$16`, RESPONSABLE → `DATOS!$D$12:$D$16`).
-
-Si un alta falla a mitad de camino, el bloque copiado se borra para que el reintento no lo duplique, y el error se muestra en el registro con botón **Reintentar**.
-
-## Cómo decide dónde y qué copiar
-
-- Un bloque se reconoce por la fila **TAREA**; el encabezado (RESPONSABLE, PISO, SECTOR, ETAPA, ELEMENTO A VERIFICAR) se busca en las filas de arriba. Las columnas se ubican por el rótulo, así funciona aunque una hoja las tenga corridas (p. ej. la 16 usa L/M/N/O para RESP./ESTADO/FUM/OBS.).
-- **Modelo**: por defecto el último registro de la hoja; si ese bloque no tiene la fila de título RESPONSABLE (pasa en la hoja 20), usa el último que sí la tenga con los mismos criterios. En el formulario podés elegir otra variante de criterios si la hoja tiene más de una (p. ej. hormigón con “Preparación de superficie para refuerzo”).
-- **Ubicación**: debajo de la última fila con contenido + la misma cantidad de filas vacías que separa los dos últimos bloques (entre 1 y 3).
-- Si la planilla estaba **oculta**, se vuelve a mostrar al crear un registro.
-- Las actualizaciones verifican que cada fila siga teniendo el mismo criterio; si alguien insertó filas a mano, lo busca por texto. Si no lo encuentra, el envío queda marcado en **Ajustes › Envíos pendientes** para reintentar o descartar.
-
-Para cambiar la agrupación por rubro, editá `PIE.RUBROS` al principio de `Code.gs`.
-
-## Pruebas (opcional, para desarrollo)
-
-```bash
-# exportar el libro a JSON (python3 + openpyxl) y correr las pruebas del backend
-python3 test/export_xlsx.py "PIE - CORE.xlsx" wb.json
-python3 test/export_xlsx.py "FOD-02 Rev. 3 Registro de Control y Distribución de Documentos.xlsx" fod.json
-python3 test/export_xlsx.py "FOG 01 - FORM. DE MEJORAS.xlsx" fog.json
-node test/backend.test.js wb.json fod.json fog.json
-# pruebas estáticas: copia para Apps Script, versión del service worker, sin confirm() ni recursos externos
-node test/static.test.js
-# servidor local que simula la web app + prueba E2E en celular emulado (Playwright)
-node test/server.js wb.json 8080 fod.json fog.json &
-node test/e2e.test.js capturas/
+## Pruebas (para desarrollo)
+```sh
+node herramientas/comprobar.mjs          # sintaxis y Index.html == pwa/index.html
+node tests/beta.test.mjs && node tests/gestures.test.mjs && node tests/pin_colors.test.mjs && node tests/beta4.test.mjs
+# contra el libro real exportado a JSON (ver herramientas/test-v2/export_xlsx.py):
+PIE_VER=. PIE_PLANOS=<carpeta con las .webp> node herramientas/test-v2/final.test.js wb.json fod.json
 ```
+El bloque `/* <reglas-liberacion> … */` tiene que quedar **idéntico** en `apps-script/Beta.gs` y en `pwa/index.html`; `final.test.js` lo comprueba. `Index.html` y `pwa/index.html` también tienen que ser iguales.
+
+## Límites conocidos
+- La clave es compartida: no hay usuarios ni roles individuales. Por eso es para el equipo interno, no para subcontratistas ni para aprobar pagos.
+- Dos celulares que cambian el mismo control sin señal: gana el último que envía.
+- Las zonas se dibujan sobre la imagen. No miden m² reales hasta calibrar la escala de cada lámina.
+- El pellizco con dos dedos y el selector de fotos de iOS se prueban en el iPhone; acá se probaron en un celular emulado.

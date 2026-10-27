@@ -7,7 +7,10 @@
   3. Recordarle que desde la nube no se puede escribir directo en su computadora: tiene que descargar el archivo del chat.
 - Preferir un único zip por versión, con carpetas numeradas por paso de instalación.
 
-## Estructura
-- `pie-app/apps-script/` → se pega en el editor de Apps Script (Code.gs, Index.html, appsscript.json).
-- `pie-app/app/` → PWA que se sube a Netlify. `apps-script/Index.html` es copia exacta de `app/index.html`.
-- `pie-app/test/` → simulador de Google Sheets y pruebas (`node test/backend.test.js wb.json fod.json fog.json`).
+## Estructura (2.3.0)
+- Backend: **Google Apps Script sobre la planilla**. Federico pidió no migrar a Supabase: la rama `claude/dazzling-lovelace-r5zs5t` no se usa.
+- `pie-app/apps-script/` → se pega en el editor de Apps Script: Code.gs, **Beta.gs** (obligatorio), Index.html, appsscript.json.
+- `pie-app/pwa/` → la misma app como sitio instalable (opcional; Federico usa el enlace `/exec`, sin Netlify). `apps-script/Index.html` es copia exacta de `pwa/index.html`.
+- El bloque `/* <reglas-liberacion> */` es idéntico en Beta.gs y en pwa/index.html (reglas de liberación compartidas).
+- `pie-app/planos/planos.json` → vínculo láminas ↔ FOD 02. Las `.webp` no van al repositorio (es público): van en el zip.
+- Pruebas: `node herramientas/comprobar.mjs`, `node tests/*.mjs` y `PIE_VER=. PIE_PLANOS=<webp> node herramientas/test-v2/final.test.js wb.json fod.json`.

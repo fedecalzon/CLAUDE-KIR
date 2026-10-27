@@ -449,7 +449,7 @@
   .more .ic { transition: transform .15s; }
   .more[aria-expanded=true] { border-color: var(--focus); color: var(--ink); }
   .more[aria-expanded=true] .ic { transform: rotate(180deg); }
-  /* punto: el control tiene fotos u observación (se ven al abrir el detalle) */
+  /* punto: el control tiene una observación (se ve al abrir el detalle) */
   .more.has::after { content: ""; position: absolute; top: 6px; right: 6px; width: 8px; height: 8px; border-radius: 50%; background: var(--sync); }
   .filled {
     margin: 10px 0 0; font-size: 14px; line-height: 1.4; color: var(--muted); overflow-wrap: anywhere;
@@ -585,6 +585,164 @@
     .toast, .bbar, .more .ic, .fold .chev, details.hid > summary .chev { transition: none; }
     button:active, .btn:active, .row:active { transform: none; }
   }
+
+  /* ---------- Planos y pines (v2.0 beta) ---------- */
+  .pl-entry { margin-bottom: 12px; }
+  .pl-keys { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 6px; }
+  .pl-key { font-size: 14px; font-weight: 600; color: var(--ink); display: inline-flex; align-items: center; gap: 5px; }
+  .pl-key i, .pl-chip i { font-style: normal; width: 20px; height: 20px; border-radius: 50%; display: inline-grid; place-items: center; font-size: 12px; font-weight: 800; color: #fff; flex: none; }
+  .pl-key.rz i, .pl-chip.rz i { background: var(--rz-fill); }
+  .pl-key.ap i, .pl-chip.ap i { background: var(--ap-fill); }
+  .pl-key.enc i, .pl-chip.enc i { background: #F5B000; color: #1B1300; }
+  .pl-key.sin i, .pl-chip.sin i { background: #5B6678; }
+  .pl-chip.x i { background: #fff; color: #5B6678; box-shadow: inset 0 0 0 2px #5B6678; }
+
+  .pl-wrap { overflow-y: auto; position: fixed; left: 0; right: 0; bottom: 0; z-index: 12; display: flex; flex-direction: column; background: var(--bg); padding-bottom: env(safe-area-inset-bottom); }
+  .reg-plan { margin: 12px 0; overflow: hidden; }
+  .pl-wrap.pl-inline { position: relative; inset: auto; z-index: 0; height: auto; overflow: visible; padding-bottom: 0; }
+  .pl-inline .pl-sheet, .pl-inline .pl-sheet.tall { flex: none; max-height: none; overflow: visible; }
+  .pl-inline .pl-bar { flex-wrap: wrap; }
+  .pl-inline .pl-lams, .pl-inline .pl-capas { flex-shrink: 0; }
+  .reg-docs { margin: 12px 0; padding: 16px; border-left: 5px solid var(--primary); }
+  .reg-doc { margin: 12px 0; }
+  .reg-doc .dr { margin-bottom: 10px; overflow-wrap: anywhere; }
+  .reg-doc .docrow { width: auto; display: inline-flex; min-height: 48px; border: 1.5px solid var(--border-strong); border-radius: var(--r-md); padding: 0 16px; margin: 0; }
+  .pl-tools { flex: none; background: var(--surface); padding: 8px var(--gutter); border-bottom: 1px solid var(--line); }
+  .pl-tools .f { margin: 0; }
+  .pl-tools select { max-width: 100%; }
+  .pl-bar { flex-wrap: wrap; }
+  .pl-bar .pl-hint { flex-basis: 100%; }
+  .reg-docs h2 { margin: 0 0 8px; font-size: 16px; }
+  .pl-active { flex: none; padding: 16px var(--gutter); background: var(--surface); border-bottom: 2px solid var(--primary); }
+  .pl-active small { display: block; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  .pl-active strong { display: block; font-size: 19px; line-height: 1.35; margin: 4px 0; overflow-wrap: anywhere; }
+  .pl-active .code { display: block; overflow-wrap: anywhere; }
+  .pl-active p { margin: 5px 0 0; }
+  .pl-palette { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+  .pl-color { min-height: 44px; padding: 6px 12px; display: inline-flex; align-items: center; gap: 8px; border: 2px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); }
+  .pl-color[aria-pressed=true] { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); font-weight: 700; }
+  .pl-color i { width: 18px; height: 18px; border-radius: 50%; background: var(--mark-color); border: 1px solid currentColor; }
+  #plPins .pin.manual .pin-dot { background: var(--mark-color); color: #fff; }
+  .pl-view:focus-visible { outline: 3px solid var(--focus); outline-offset: -3px; }
+  .pl-view.dragging { cursor: grabbing; }
+  #regPhotos { margin: 12px 0; }
+  #regPhotos select { max-width: 100%; }
+  .pl-view { position: relative; flex: 0 0 clamp(320px, 55vh, 580px); min-height: 320px; overflow: hidden; touch-action: none; background: #fff; cursor: grab; -webkit-user-select: none; user-select: none; }
+  .pl-stage { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; }
+  .pl-stage img { display: block; width: 100%; height: 100%; pointer-events: none; -webkit-user-drag: none; }
+  .pl-err { position: absolute; left: 12px; right: 12px; top: 64px; }
+
+  .pin { position: absolute; width: 44px; height: 44px; margin: -22px 0 0 -22px; display: grid; place-items: center; transform: scale(var(--iz, 1)); cursor: pointer; }
+  .pin-dot { position: relative; width: 28px; height: 28px; border-radius: 50%; border: 3px solid #fff; box-shadow: 0 0 0 1px rgba(14, 23, 38, .55), 0 2px 5px rgba(14, 23, 38, .45); display: grid; place-items: center; font: 800 14px/1 var(--font); color: #fff; }
+  .pin.rz .pin-dot { background: var(--rz-fill); }
+  .pin.ap .pin-dot { background: var(--ap-fill); }
+  .pin.enc .pin-dot { background: #F5B000; color: #1B1300; }
+  .pin.sin .pin-dot { background: #5B6678; }
+  .pin.x .pin-dot { background: #fff; color: #5B6678; border-style: dashed; border-color: #5B6678; }
+  .pin.sel .pin-dot { box-shadow: 0 0 0 4px #1D3557, 0 0 0 6px #fff; }
+  .pin.loc .pin-dot::after { content: ""; position: absolute; right: -6px; top: -6px; width: 10px; height: 10px; border-radius: 50%; background: #2F6FED; border: 2px solid #fff; }
+  .pin.draft .pin-dot { background: #fff; color: #1D3557; border: 3px dashed #1D3557; font-size: 18px; }
+
+  .pl-leg { position: absolute; left: 8px; right: 60px; top: 8px; display: flex; flex-wrap: wrap; gap: 6px; pointer-events: none; }
+  .pl-leg > * { pointer-events: auto; }
+  .pl-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 12px 0 8px; border-radius: var(--r-pill); border: 1.5px solid var(--border-strong); background: var(--surface); color: var(--ink); font: 700 15px/1 var(--font); font-variant-numeric: tabular-nums; box-shadow: var(--sh-1); }
+  .pl-chip[aria-pressed=false] { opacity: .5; text-decoration: line-through; }
+  .pl-chip.hint { padding: 0 12px; font-weight: 600; color: var(--muted); }
+  .pl-zoom { position: absolute; right: 8px; top: 8px; display: flex; flex-direction: column; gap: 8px; }
+  .pl-zoom button { width: 44px; height: 44px; padding: 0; border-radius: var(--r-md); border: 1.5px solid var(--border-strong); background: var(--surface); color: var(--ink); display: grid; place-items: center; box-shadow: var(--sh-1); }
+
+  .pl-bar { flex: none; display: flex; align-items: center; gap: 12px; padding: 8px var(--gutter); background: var(--surface); border-top: 1px solid var(--line); }
+  .pl-hint { flex: 1; font-size: 15px; font-weight: 600; color: var(--ink); line-height: 1.3; }
+  .pl-bar .btn { min-height: 48px; }
+  .pl-sheet { flex: none; max-height: none; overflow: visible; padding: 12px var(--gutter) 14px; background: var(--surface); border-top: 1px solid var(--line); box-shadow: var(--sh-bar); }
+  .pl-sheet[hidden], .pl-bar[hidden] { display: none; }
+  .pl-sh-h { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 8px; }
+  .pl-sh-h .grow { min-width: 0; flex: 1; }
+  .pl-sh-h .chip { flex: none; white-space: nowrap; }
+  .pl-sh-h b { display: block; font-size: 17px; line-height: 1.25; }
+  .pl-sh-btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .pl-sh-btns .btn { min-height: 48px; }
+  #plList { margin-top: 8px; }
+
+  /* ---------- Planos v2.2: láminas, alcance del pin y marcado desde la lámina ---------- */
+  .seg button { padding: 0 6px; }
+  .pl-lams { display: flex; gap: 6px; overflow-x: auto; padding: 8px var(--gutter); background: var(--surface); border-bottom: 1px solid var(--line); -webkit-overflow-scrolling: touch; }
+  .pl-lams:empty { display: none; }
+  .pl-lam { flex: none; max-width: 280px; min-height: 44px; padding: 0 14px; border-radius: var(--r-pill); border: 1.5px solid var(--border-strong); background: var(--surface); color: var(--ink); font: 600 15px/1.2 var(--font); display: inline-flex; align-items: center; gap: 8px; }
+  .pl-lam[aria-selected=true] { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+  .pl-lam b { flex: none; min-width: 22px; padding: 2px 6px; border-radius: var(--r-pill); background: rgba(127, 127, 127, .25); font-size: 13px; text-align: center; }
+  .pin-dot i { font-style: normal; }
+  .pin.at-etapa .pin-dot { border-radius: 8px; }
+  .pin.at-tarea .pin-dot { border-radius: 6px; transform: rotate(45deg); }
+  .pin.at-tarea .pin-dot i { transform: rotate(-45deg); }
+  .pl-sheet.tall { max-height: none; }
+  .pl-sc { width: 100%; text-align: left; }
+  .pl-sc.stage { background: var(--surface-2); }
+  .pl-sc.task { padding-left: 30px; }
+  .pl-its { margin-top: 6px; }
+  .pl-it { padding: 10px 0; border-top: 1px solid var(--line); }
+  .pl-crit { margin: 0 0 8px; font-size: 15px; line-height: 1.35; }
+  .pl-mks { display: flex; gap: 8px; }
+  .pl-mk { flex: 1; min-height: 48px; padding: 0 8px; }
+  .pl-mk.m-ap[aria-pressed=true] { background: var(--ap-fill); border-color: var(--ap-fill); color: var(--on-state); }
+  .pl-mk.m-rz[aria-pressed=true] { background: var(--rz-fill); border-color: var(--rz-fill); color: var(--on-state); }
+  .pl-mk.m-na[aria-pressed=true] { background: var(--na-fill); border-color: var(--na-fill); color: var(--on-state); }
+  /* ---------- v2.2: zonas rayadas y capas por etapa ---------- */
+  .pl-zones { position: absolute; left: 0; top: 0; overflow: visible; }
+  .pl-z { stroke-width: calc(3px * var(--iz, 1)); stroke-linejoin: round; cursor: pointer; }
+  .pl-z.sel { stroke-width: calc(6px * var(--iz, 1)); }
+  .pl-z.draft { fill: rgba(29, 53, 87, .10); stroke: #1D3557; stroke-dasharray: calc(10px * var(--iz, 1)) calc(6px * var(--iz, 1)); pointer-events: none; }
+  polyline.pl-z.draft { fill: none; }
+  .pl-v { r: calc(7px * var(--iz, 1)); fill: #fff; stroke: #1D3557; stroke-width: calc(3px * var(--iz, 1)); pointer-events: none; }
+  .pin.zona .pin-dot { width: 24px; height: 24px; font-size: 12px; }
+  .pl-capas { display: flex; gap: 4px; padding: 6px var(--gutter); background: var(--surface); border-bottom: 1px solid var(--line); overflow-x: auto; }
+  .pl-capa { flex: 1 0 auto; min-height: 40px; padding: 0 12px; border-radius: var(--r-md); border: 1.5px solid var(--border-strong); background: var(--surface); color: var(--ink); font: 700 14px/1 var(--font); }
+  .pl-capa[aria-selected=true] { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+  .pl-bar .btn { padding: 0 14px; }
+
+  /* ---------- beta.5: pantalla completa, disponibilidad sin conexión, notas de foto, accesibilidad ---------- */
+  .pl-wrap.pl-full, .pl-wrap.pl-inline.pl-full { position: fixed; inset: 0; top: 0 !important; z-index: 70; height: 100vh; height: 100dvh; overflow: hidden; padding-top: env(safe-area-inset-top); background: var(--bg); }
+  .pl-full .pl-view { flex: 1 1 auto; min-height: 0; }
+  .pl-full .pl-active, .pl-full .pl-lams, .pl-full #plOff { display: none; }
+  .pl-full .pl-tools { padding: 4px var(--gutter); }
+  .pl-full .pl-tools .f > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .pl-full .pl-capas { padding-top: 4px; padding-bottom: 4px; }
+  .pl-full .pl-sheet, .pl-full .pl-sheet.tall { max-height: 40vh; max-height: 40dvh; overflow-y: auto; overscroll-behavior: contain; }
+  body.pl-full-open { overflow: hidden; }
+  /* con el plano a pantalla completa, la hoja de confirmación y los avisos quedan por encima */
+  body.pl-full-open .modal { z-index: 80; }
+  body.pl-full-open .toast { z-index: 85; }
+  /* el botón de salir queda siempre a la vista arriba, aunque la hoja de la marca achique el plano */
+  .pl-full .pl-zoom [data-act=pl-full] { position: fixed; z-index: 72; top: calc(env(safe-area-inset-top) + 4px); right: 8px; }
+  .pl-full .pl-capas { padding-right: 60px; }
+  .pl-zoom button[aria-pressed=true] { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+  .pl-off { flex: none; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 6px var(--gutter); background: var(--surface); border-bottom: 1px solid var(--line); font-size: 14px; color: var(--ink); }
+  .pl-off .grow { flex: 1; min-width: 0; }
+  .pl-off .btn { min-height: 44px; }
+  .pl-lam .off { flex: none; font-size: 13px; font-weight: 700; }
+  .pl-lam .off.ok { color: var(--ap); }
+  .pl-lam[aria-selected=true] .off.ok { color: inherit; }
+  .pl-lam .off.no { color: var(--pend); }
+  .pl-lam[aria-selected=true] .off.no { color: inherit; }
+  .photo-note { margin: 8px 0; }
+  .photo-note .in { width: 100%; }
+  .photos { display: flex; flex-direction: column; gap: 10px; margin: 0 0 10px; }
+  .photo { display: flex; gap: 12px; align-items: flex-start; }
+  .photo .thumbs { margin: 0; flex: none; }
+  .photo .cap { flex: 1; min-width: 0; font-size: 14px; line-height: 1.4; color: var(--muted); overflow-wrap: anywhere; }
+  .photo .cap b { display: block; color: var(--ink); font-weight: 600; }
+  .skip-link { position: fixed; left: 8px; top: -80px; z-index: 100; min-height: 44px; padding: 0 16px; border-radius: var(--r-md); border: 2px solid var(--on-brand); background: var(--brand); color: var(--on-brand); font: 700 16px/1 var(--font); }
+  .skip-link:focus { top: calc(8px + env(safe-area-inset-top)); }
+  .net { height: 44px; }
+  .chip[data-act], button.chip { min-height: 44px; }
+  .pl-chip { min-height: 44px; }
+  .pl-capa { min-height: 44px; }
+  /* Detalles de movimiento: sólo propiedades baratas, curva de salida fuerte y nada que se anime con el teclado. */
+  .pin-dot { transition: scale 120ms cubic-bezier(0.23, 1, 0.32, 1); }
+  .pin:active .pin-dot { scale: 0.88; }
+  .pl-lam, .pl-capa, .pl-chip, .pl-zoom button { transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease, transform 80ms, filter 80ms; }
+  @media (prefers-reduced-motion: reduce) { .pin-dot, .pl-lam, .pl-capa, .pl-chip, .pl-zoom button { transition: none; } .pin:active .pin-dot { scale: 1; } }
+  .chip[data-act]:focus-visible, .pl-chip:focus-visible, .pl-capa:focus-visible, .pl-lam:focus-visible, .pl-color:focus-visible { outline-offset: 3px; }
 </style>
 </head>
 <body>
@@ -616,8 +774,9 @@
 <symbol id="i-ext" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></symbol>
 <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></symbol>
 </svg>
+<button type="button" class="skip-link" id="skipLink">Saltar al contenido</button>
 <header class="top" id="top"></header>
-<main id="view"></main>
+<main id="view" tabindex="-1"></main>
 <div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true"><svg class="ic" aria-hidden="true" focusable="false"><use href="#i-info"/></svg><span class="msg"></span><button class="act" type="button" hidden></button></div>
 <script>/*PIE_BOOT*/</script>
 <script>
@@ -630,7 +789,7 @@
   var BOOT = window.PIE_BOOT || {};
   var IN_GAS = !!(window.google && google.script && google.script.run);
   var MODE = IN_GAS ? (BOOT.mode || 'webapp') : 'pwa';
-  var APP_VERSION = '1.7.0';
+  var APP_VERSION = '2.3.0';
   var ETAPAS = ['PRE', 'DURANTE', 'POST', 'DOC'];
   var FIELDS = ['documento', 'fecha', 'resp', 'estado', 'fum', 'obs', 'instrumento'];
   // movimiento reducido (iPhone › Accesibilidad › Movimiento): los desplazamientos van sin animación
@@ -732,6 +891,16 @@
           throw e || new Error('sin espacio');
         });
       },
+      /** Sólo IndexedDB: sin respaldo en localStorage ni copia en memoria (láminas, miniaturas). */
+      setBig: function (k, v) {
+        return tx('readwrite', function (st) { st.put(v, k); });
+      },
+      /** Claves guardadas que empiezan con prefix ([] si IndexedDB no responde). */
+      keys: function (prefix) {
+        return tx('readonly', function (st) { return st.getAllKeys ? st.getAllKeys() : null; }).then(function (ks) {
+          return (ks || []).map(String).filter(function (k) { return k.indexOf(prefix) === 0; });
+        }, function () { return []; });
+      },
       del: function (k) {
         delete mem[k];
         LS.del('kvlocal.' + k);
@@ -763,7 +932,7 @@
     storageError: false,    // falló guardar la cola en el celular
     // lastMark: 'clave:off' -> hora del último toque de AP/RZ/N/A (bloqueo de 700 ms por control)
     // keep: clave -> {off: true}, controles marcados con un filtro puesto que siguen a la vista
-    ui: { tab: {}, filter: {}, open: {}, search: '', regSearch: {}, folded: {}, renderOnBlur: false, lastMark: {}, keep: {} }
+    ui: { tab: {}, filter: {}, open: {}, search: '', regSearch: {}, folded: {}, renderOnBlur: false, lastMark: {}, keep: {}, photoNote: {}, picking: 0 }
   };
   if (BOOT.token) S.settings.token = BOOT.token;
 
@@ -1089,7 +1258,7 @@
     var e = String(it.estado || '').toUpperCase();
     if (e === 'AP') return 'ap';
     if (e === 'RZ') return 'rz';
-    if (e === 'NA' || String(it.fecha || '').toUpperCase() === 'NA') return 'na';
+    if (e === 'NA' || e === 'N/A' || /^(NA|N\/A)$/.test(String(it.fecha || '').toUpperCase())) return 'na';
     return 'pend';
   }
   function stats(items) {
@@ -1125,6 +1294,8 @@
     };
     renPrefix(S.ui.open, ':');
     ren(S.ui.open, 'hdr:' + pk, 'hdr:' + hk);
+    ['plano:', 'photo:'].forEach(function (pre) { ren(S.ui.open, pre + sheet + ':' + pk, pre + sheet + ':' + hk); });
+    if (PL && PL.sheet === sheet && PL.regKey === pk) PL.regKey = hk;
     ren(S.ui.filter, pk, hk);
     renPrefix(S.ui.folded, '|');
     ren(S.ui.keep, pk, hk);
@@ -1304,7 +1475,7 @@
   /** Texto que se escribe en la columna DOCUMENTO: código + "-Rnn" (como ya se usa en la planilla). */
   function docRef(d) {
     var code = d[0], rev = String(d[1] == null ? '' : d[1]).trim();
-    if (rev === '' || /-R\w+$/i.test(code)) return code;
+    if (/^(|-+|S\/?N|S\/?R)$/i.test(rev) || /[-_.\s]R(EV)?[-.]?\d+$/i.test(code)) return code;
     return code + '-R' + (/^\d$/.test(rev) ? '0' + rev : rev);
   }
   function isNo(v) { return /^no$/i.test(String(v || '').trim()); }
@@ -1520,7 +1691,7 @@
     var rest = all.filter(function (x) { return same.indexOf(x) < 0; });
     var opt = function (x) {
       var cs = equiposOf(x).map(function (e) { return calState(e); });
-      var tag = cs.indexOf('vencida') >= 0 ? ' · calibración vencida' : cs.indexOf('soon') >= 0 ? ' · calibración por vencer' : '';
+      var tag = cs.indexOf('vencida') >= 0 ? ' · calibración vencida' : calFalta(x).length ? ' · sin calibración cargada' : cs.indexOf('soon') >= 0 ? ' · calibración por vencer' : '';
       return '<option value="' + esc(x) + '"' + (x === it.instrumento ? ' selected' : '') + '>' + esc(x + tag) + '</option>';
     };
     var cur = all.indexOf(it.instrumento) < 0 && same.indexOf(it.instrumento) < 0 ? '<option selected>' + esc(it.instrumento) + '</option>' : '';
@@ -1562,6 +1733,10 @@
   /** Estado de calibración del instrumento del control (en el detalle, debajo del instrumento). */
   function calHtml(it) {
     var eqs = equiposOf(it.instrumento);
+    var falta = calFalta(it.instrumento);
+    if (falta.length) {
+      return '<p class="cal t-pend">' + ic('alert', 'ic-16') + '<span>' + esc('Para liberar la etapa: ' + falta.join(' · ') + '. Cargalo en la hoja EQUIPOS DE MEDICIÓN.') + '</span></p>';
+    }
     if (!eqs.length) return '';
     var at = (itemState(it) === 'ap' || itemState(it) === 'rz') ? it.fecha : '';
     return eqs.map(function (e) {
@@ -1576,6 +1751,18 @@
     var st = itemState(it);
     if (st !== 'ap' && st !== 'rz') return false;
     return equiposOf(it.instrumento).some(function (e) { return calState(e, it.fecha) === 'vencida'; });
+  }
+  /** Equipo con N° de serie que no está en EQUIPOS DE MEDICIÓN o no tiene vencimiento cargado (no se puede liberar). */
+  function calFalta(instr) {
+    var out = [];
+    String(instr || '').replace(/\(([^)]+)\)/g, function (m, ser) {
+      if (/INDIQUE/i.test(ser)) return m;
+      var eqs = equiposAll().filter(function (e) { return serialKey(e.serie) === serialKey(ser); });
+      if (!eqs.length) out.push('el N° ' + ser + ' no está en EQUIPOS DE MEDICIÓN');
+      else if (!eqs.some(function (e) { return e.vence; })) out.push('el N° ' + ser + ' no tiene cargado el vencimiento de calibración');
+      return m;
+    });
+    return out;
   }
   /** Aviso en Inicio: equipos vencidos o que vencen en 15 días o menos. */
   function calAlertHtml() {
@@ -1769,43 +1956,71 @@
   /* ================================================================
    *  Fotos de control
    * ================================================================ */
+  /** La imagen reducida a max px del lado mayor, como JPEG (dataURL). */
+  function scaledJpeg(img, max, q) {
+    var w = img.naturalWidth, h = img.naturalHeight;
+    var k = Math.min(1, max / Math.max(w, h));
+    var c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(w * k));
+    c.height = Math.max(1, Math.round(h * k));
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    return c.toDataURL('image/jpeg', q);
+  }
+  /** { full: JPEG de 1600 px que se envía, thumb: miniatura de 240 px para la galería }. */
   function compressImage(file) {
     return new Promise(function (res, rej) {
       var url = URL.createObjectURL(file);
       var img = new Image();
       img.onload = function () {
-        var max = 1600;
-        var w = img.naturalWidth, h = img.naturalHeight;
-        var k = Math.min(1, max / Math.max(w, h));
-        var c = document.createElement('canvas');
-        c.width = Math.round(w * k);
-        c.height = Math.round(h * k);
-        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        var out = { full: scaledJpeg(img, 1600, 0.72), thumb: scaledJpeg(img, 240, 0.6) };
         URL.revokeObjectURL(url);
-        res(c.toDataURL('image/jpeg', 0.72));
+        res(out);
       };
       img.onerror = function () { URL.revokeObjectURL(url); rej(new Error('Imagen inválida')); };
       img.src = url;
     });
   }
+  /** Miniatura de una foto ya guardada (las de antes de la v2.3 no tienen 'thumb:<id>'). */
+  function thumbFrom(src) {
+    return new Promise(function (res) {
+      var img = new Image();
+      img.onload = function () { try { res(scaledJpeg(img, 240, 0.6)); } catch (e) { res(null); } };
+      img.onerror = function () { res(null); };
+      img.src = src;
+    });
+  }
+  /** Borra del celular una foto pendiente (la imagen que se envía y su miniatura). */
+  function photoForget(o) {
+    if (o.img) KV.del(o.img);
+    KV.del('thumb:' + o.id);
+    delete S.thumbs[o.id];
+  }
   /** La foto entra en la cola sólo si quedó guardada en el celular. */
   function addPhotos(reg, off, files) {
-    var it = reg.items.filter(function (x) { return x.off === off; })[0];
-    if (!it || !files.length) return;
+    var it = { criterio: 'Foto general del registro', tarea: 'Registro' };
+    off = 0;
+    if (!files.length) return;
     toast(files.length === 1 ? 'Procesando la foto…' : 'Procesando ' + files.length + ' fotos…');
     var added = 0, unread = 0, noSpace = false;
+    var notaEl = document.getElementById('photoNote');
+    var nota = String(notaEl && notaEl.value || S.ui.photoNote[reg.key] || '').trim().slice(0, 200);   // la nota vale para todas las fotos de esta tanda
+    delete S.ui.photoNote[reg.key];
     [].slice.call(files).reduce(function (p, f) {
       return p.then(function () {
         if (noSpace) return;   // sin espacio: no tiene sentido seguir con las demás
-        return compressImage(f).then(function (dataUrl) {
+        return compressImage(f).then(function (pic) {
           var id = uid();
           var op = {
-            id: id, op: 'photo', sheet: reg.sheet, off: off, criterio: it.criterio, tarea: it.tarea, mime: 'image/jpeg',
+            id: id, op: 'photo', scope: 'registro', sheet: reg.sheet, off: off, criterio: it.criterio, tarea: it.tarea, mime: 'image/jpeg',
             img: 'img:' + id, status: 'pending', createdAt: Date.now(), by: S.settings.inspector, takenAt: localStamp()
           };
+          if (nota) op.nota = nota;
           if (reg.pending) op.ref = reg.opId; else { op.h = reg.h; op.sig = reg.sig; op.elemento = reg.elemento; }
-          S.thumbs[id] = dataUrl;
-          return KV.set(op.img, dataUrl).then(function () { S.queue.push(op); added++; }, function () {
+          S.thumbs[id] = pic.thumb;
+          return KV.set(op.img, pic.full).then(function () {
+            S.queue.push(op); added++;
+            KV.setBig('thumb:' + id, pic.thumb).catch(function () { /* se rehace desde la foto al abrir */ });
+          }, function () {
             delete S.thumbs[id];
             noSpace = true;
           });
@@ -1815,12 +2030,44 @@
       if (added) {
         queueChanged();
         var fresh = getReg(reg.sheet, reg.key);
-        if (fresh) refreshItem(fresh, off);
+        if (fresh) render({ keepScroll: true });
       }
       if (noSpace) toast('No se pudo guardar la foto en el celular: falta espacio. Liberá espacio y sacala de nuevo.', { kind: 'err' });
       else if (unread) toast('No se pudo leer la foto. Sacala de nuevo o elegila de la galería.', { kind: 'err' });
       else toast(navigator.onLine || IN_GAS ? 'Foto guardada · enviando…' : 'Foto guardada en el celular · se envía al tener señal', { kind: 'ok' });
     });
+  }
+  /** Miniatura de una foto ya enviada (sin señal la de Drive no carga: queda el ícono). */
+  function photoThumbSent(f) {
+    return '<a class="t" href="' + esc(f[1]) + '" target="_blank" rel="noopener" aria-label="Ver foto en Drive">' + ic('image') +
+      (navigator.onLine || IN_GAS ? '<img src="https://drive.google.com/thumbnail?id=' + encodeURIComponent(f[0]) + '&sz=w200" alt="" onerror="this.remove()">' : '') + '</a>';
+  }
+  function photoThumbLocal(o) {
+    return '<button class="t" data-act="rmphoto" data-id="' + esc(o.id) + '" aria-label="Foto sin enviar. Tocá para quitarla.">' +
+      (S.thumbs[o.id] ? '<img src="' + esc(S.thumbs[o.id]) + '" alt="" loading="lazy" decoding="async">' : ic('image')) +
+      '<i>' + ic(o.status === 'error' ? 'alert' : 'clock') + '</i></button>';
+  }
+  /** Galería del registro: cada foto con fecha, quién la sacó y su nota (las anteriores a la beta.5 salen sin nota). */
+  function regPhotosHtml(reg) {
+    var list = [];
+    Object.keys(reg.fotos || {}).forEach(function (off) {
+      ((reg.fotos || {})[off] || []).forEach(function (f) { list.push({ thumb: photoThumbSent(f), fecha: f[2] || '', por: f[3] || '', nota: f[4] || '', local: false }); });
+    });
+    Object.keys(reg.localFotos || {}).forEach(function (off) {
+      ((reg.localFotos || {})[off] || []).forEach(function (o) { list.push({ thumb: photoThumbLocal(o), fecha: String(o.takenAt || '').slice(0, 10), por: o.by || '', nota: o.nota || '', local: true }); });
+    });
+    var attrs = ' data-photo="1" data-key="' + esc(reg.key) + '"';
+    var cards = list.map(function (x) {
+      var cab = [fmtDate(x.fecha), x.por].filter(Boolean).join(' · ') || 'Sin fecha';
+      return '<div class="photo"><div class="thumbs">' + x.thumb + '</div><div class="cap"><b>' + esc(cab) + (x.local ? ' · sin enviar' : '') + '</b>' +
+        (x.nota ? esc(x.nota) : '<span class="muted">Sin nota</span>') + '</div></div>';
+    }).join('');
+    return '<section class="card pad" id="regPhotos"><h2 class="sec">Fotos del registro' + (list.length ? ' · ' + list.length : '') + '</h2>' +
+      '<p class="help">Fotos generales para la trazabilidad manual de este registro. Cada una guarda fecha, quién la sacó y la nota que escribas.</p>' +
+      (list.length ? '<div class="photos">' + cards + '</div>' : '<p class="help">Todavía no hay fotos.</p>') +
+      '<label class="f photo-note"><span>Nota para las fotos que saques ahora (opcional)</span><input class="in" id="photoNote" data-input="photoNote" data-key="' + esc(reg.key) + '" maxlength="200" autocomplete="off" placeholder="Ej.: armadura antes de hormigonar" value="' + esc(S.ui.photoNote[reg.key] || '') + '"></label>' +
+      '<div class="grid2"><label class="btn file-btn">' + ic('camera') + 'Cámara<input type="file" accept="image/*" capture="environment"' + attrs + '></label>' +
+      '<label class="btn file-btn">' + ic('image') + 'Galería<input type="file" accept="image/*" multiple' + attrs + '></label></div></section>';
   }
   function photoThumbs(reg, it) {
     var server = (reg.fotos && reg.fotos[it.off]) || [];
@@ -1831,7 +2078,7 @@
         (navigator.onLine || IN_GAS ? '<img src="https://drive.google.com/thumbnail?id=' + encodeURIComponent(f[0]) + '&sz=w200" alt="" onerror="this.remove()">' : '') + '</a>';
     }).concat(local.map(function (o) {
       return '<button class="t" data-act="rmphoto" data-id="' + esc(o.id) + '" aria-label="Foto sin enviar. Tocá para quitarla.">' +
-        (S.thumbs[o.id] ? '<img src="' + S.thumbs[o.id] + '" alt="">' : ic('image')) +
+        (S.thumbs[o.id] ? '<img src="' + esc(S.thumbs[o.id]) + '" alt="" loading="lazy" decoding="async">' : ic('image')) +
         '<i>' + ic(o.status === 'error' ? 'alert' : 'clock') + '</i></button>';
     })).join('');
   }
@@ -1863,7 +2110,7 @@
   }
   /** Error de una operación del lote; null si el texto del PIE ya alcanza. */
   function opErrText(r, op) {
-    if (r.code === 'bad_request') return ERR.badRequest;
+    if (r.code === 'bad_request') return r.error || ERR.badRequest;
     if (r.code === 'conflict' && (op.op === 'create' || op.op === 'update')) return ERR.conflict;
     return null;
   }
@@ -1890,7 +2137,6 @@
       body: JSON.stringify(req)
     });
     return p.then(function (r) {
-      clearTimeout(t);
       return r.text().then(function (txt) {
         var data;
         try { data = JSON.parse(txt); } catch (e) {
@@ -1899,9 +2145,15 @@
         if (!data || !data.ok) throw apiFail(data);
         return data;
       });
-    }, function () {
-      clearTimeout(t);
+    }).catch(function (e) {
+      if (e && e.code) throw e;
       throw apiError(ERR.network, 'network');
+    }).then(function (data) {
+      clearTimeout(t);
+      return data;
+    }, function (e) {
+      clearTimeout(t);
+      throw e;
     });
   }
 
@@ -1916,6 +2168,8 @@
 
   /** Hay un formulario o campo en edición que un re-render borraría. */
   function isEditing() {
+    // eligiendo una foto (Cámara o Galería): redibujar reemplazaría el campo y la foto se perdería
+    if (S.ui.picking && Date.now() - S.ui.picking < 60000) return true;
     // Ajustes se vuelve a dibujar al terminar un envío (la lista de envíos queda al día), salvo con la
     // conexión a medio escribir
     if (S.route === '/ajustes' && cfgDirty()) return true;
@@ -1950,7 +2204,7 @@
       if (!op) return;
       if (r.ok) {
         if (op.op === 'create') S.resolved[op.id] = { sheet: r.sheet || op.sheet, h: r.h };
-        if (op.op === 'photo') { KV.del(op.img); delete S.thumbs[op.id]; }
+        if (op.op === 'photo') photoForget(op);
         (r.warnings || []).forEach(function (w) { toast(warnText(w), { kind: 'warn' }); });
         if (op.op === 'fum' && op.accion === 'abrir' && r.fum != null && !r.dup) fumNums.push(r.fum);
         S.queue.splice(S.queue.indexOf(op), 1);
@@ -1970,6 +2224,7 @@
     adoptResolved();   // ya: la retención de la FUM, lo abierto y la ruta siguen al registro real
     if (res.fums && S.catalog) S.catalog.fums = res.fums;
     if (res.liberaciones && S.catalog) S.catalog.liberaciones = res.liberaciones;
+    if (res.pines && S.catalog) S.catalog.pines = res.pines;
     mergeCategories(res.categorias);
     saveQueue();
     fumNums.forEach(function (n) { toast('FUM N° ' + n + ' abierta en el FOG 01', { kind: 'ok' }); });
@@ -1982,7 +2237,6 @@
       return p.then(function () {
         if (o.ref && pendingCreate(o.ref)) return; // espera a que exista el registro
         return KV.get(o.img, true).then(function (data) {
-          data = data || S.thumbs[o.id];
           if (!data) { o.status = 'error'; o.error = ERR.photoLost; saveQueue(); return; }
           o.status = 'sending';
           o.sent = true;
@@ -2020,7 +2274,7 @@
     if (!S.catalog && S.route !== '/ajustes') render();
     var t0 = Date.now();
     // primero altas y cambios en un solo lote; las fotos van después, de a una. Lo retenido espera.
-    var sending = S.queue.filter(function (o) { return o.status === 'pending' && o.op !== 'photo' && !isHeld(o); });
+    var sending = S.queue.filter(function (o) { return o.status === 'pending' && o.op !== 'photo' && !isHeld(o); }).slice(0, 25);
     var chain = Promise.resolve();
     if (sending.length) {
       // sent: ya salió al menos una vez (se guarda con la cola y sobrevive a un cierre de la app)
@@ -2037,6 +2291,7 @@
         return callApi({ action: 'catalog' }).then(function (c) {
           S.catalog = c;
           KV.set('catalog', c).catch(function () { /* se vuelve a descargar */ });
+          plPrune();
         });
       }
     }).then(function () {
@@ -2071,6 +2326,7 @@
   window.addEventListener('scroll', function () { lastScroll = Date.now(); }, { passive: true });
   function finishRender() {
     clearTimeout(finT);
+    if (PL && (PL.gestureActive || Date.now() - (PL.lastGestureAt || 0) < 400)) { renderTop(); finT = setTimeout(finishRender, 400); return; }
     if (Date.now() - lastScroll < 400) { renderTop(); finT = setTimeout(finishRender, 400); return; }
     var a = document.activeElement;
     if (isEditing()) {
@@ -2132,6 +2388,9 @@
    *  Render
    * ================================================================ */
   var view = document.getElementById('view');
+  document.getElementById('skipLink').addEventListener('click', function () {
+    try { view.focus({ preventScroll: false }); } catch (e) { /* noop */ }
+  });
 
   /*
    * Cambios guardados sólo en el celular (§4.2): cuenta cambios, no operaciones de la cola.
@@ -2234,12 +2493,12 @@
   if (vv) vv.addEventListener('resize', function () { kbCheck(); fitPicker(); });
   var detIO = ('IntersectionObserver' in window) ? new IntersectionObserver(function (es) {
     es.forEach(function (e) { e.target._vis = e.isIntersecting; });
-    document.body.classList.toggle('det-vis', [].some.call(view.querySelectorAll('.det'), function (d) { return d._vis; }));
+    document.body.classList.toggle('det-vis', [].some.call(view.querySelectorAll('.det, .reg-plan'), function (d) { return d._vis; }));
   }) : null;
   function watchDets() {
     if (!detIO) return;
     detIO.disconnect();
-    var dets = view.querySelectorAll('.det');
+    var dets = view.querySelectorAll('.det, .reg-plan');
     // si hay detalles, la clase la corrige el primer aviso del observador (así la barra no parpadea)
     if (!dets.length) { document.body.classList.remove('det-vis'); return; }
     [].forEach.call(dets, function (d) { detIO.observe(d); });
@@ -2285,6 +2544,7 @@
    * se conserva el desplazamiento.
    */
   function render(o) {
+    if (PL && PL.dispose) PL.dispose();
     o = o || {};
     S.ui.renderOnBlur = false;
     clearTimeout(finT);   // lo que esperaba para dibujarse ya queda dibujado ahora
@@ -2303,6 +2563,7 @@
           (S.lastError ? noteHtml('err', esc(S.lastError)) : '') +
           '<div class="empty-btns"><button type="button" class="btn primary lg" data-act="sync" data-full="1" data-manual="1">Descargar el PIE</button>' +
           (MODE === 'pwa' ? '<button type="button" class="btn" data-act="go" data-to="/ajustes">Configurar conexión</button>' : '') + '</div></div>';
+      plFullCheck();
       afterRender();
       return;
     }
@@ -2314,10 +2575,11 @@
     else if ((m = /^\/c\/([^/]+)\/nuevo$/.exec(r))) renderNew(m[1]);
     else if ((m = /^\/c\/([^/]+)\/r\/([ph].+)$/.exec(r))) renderReg(m[1], m[2]);
     else { S.route = '/'; renderHome(); }
+    plFullCheck();
     afterRender();
     // si al dibujar se pasó a otra pantalla (p. ej. el registro ya no existe), esa arranca donde la dejó nav()
     if (o.keepScroll && screenOf(S.route) === scr0) {
-      var n = anchor && document.getElementById(anchor.id);
+      var n = !PL.full && anchor && document.getElementById(anchor.id);   // a pantalla completa no se ancla
       if (n) window.scrollBy(0, n.getBoundingClientRect().top - anchor.top);
       else window.scrollTo(0, y);
     }
@@ -2335,6 +2597,873 @@
     return '<div class="empty">' + (icon ? '<div class="ico' + (spin ? ' spin' : '') + '">' + ic(icon, 'ic-24') + '</div>' : '') + '<p>' + esc(txt) + '</p></div>';
   }
   function searchTerms(s) { return norm(String(s || '').trim()).split(/\s+/).filter(Boolean); }
+
+  /* ================================================================
+   *  Planos, pines y zonas (v2.2)
+   *  Pestaña «Planos» dentro de cada planilla que tenga láminas en planos.json (carpeta «Planos» de Drive).
+   *  Un pin (o una zona rayada, con pts) ubica en la lámina un registro (todo), una etapa (PRE/DURANTE/POST/DOC)
+   *  o una tarea; un registro puede tener varios. El color sale del estado de lo que marca. Capas por etapa:
+   *  en una capa se ven sólo las marcas de esa etapa, y las de «todo el registro» con el estado de esa etapa.
+   *  Viajan como operaciones de la misma cola offline (op 'pin') y quedan en la hoja oculta _PIE_PINES.
+   *  Posición x/y y vértices: de 0 a 1 sobre la imagen de la lámina.
+   * ================================================================ */
+  var PL_TXT = { rz: 'Con rechazo (RZ)', enc: 'En curso', ap: 'Completo', sin: 'Sin iniciar', x: 'No se encontró' };
+  var PL_GLYPH = { rz: '!', enc: '◐', ap: '✓', sin: '○', x: '?' };
+  var PL_ORDER = ['rz', 'enc', 'ap', 'sin'];
+  var PL_COLORS = { auto: {label: 'Por estado', hex: '#5B6678'}, azul: {label: 'Azul', hex: '#2563A6'}, violeta: {label: 'Violeta', hex: '#7542A8'}, naranja: {label: 'Naranja', hex: '#A64B08'}, turquesa: {label: 'Turquesa', hex: '#087D80'}, rosa: {label: 'Rosa', hex: '#AC3269'} };
+  var PL_HEX = { rz: '#B3202A', enc: '#C98F00', ap: '#13703A', sin: '#5B6678', x: '#5B6678' };
+  var PL = { full: false, off: {}, sheet: null, id: null, z: 0, fit: 0, tx: 0, ty: 0, mode: 'ver', draft: null, sel: null, moving: false, hide: {}, q: '', center: null, capa: 'all', zpts: null };
+
+  function plAll() { return (S.catalog && S.catalog.planos) || []; }
+  function plLams(sheet) { return plAll().filter(function (p) { return p.planilla === String(sheet); }); }
+  // Coincidencia de código completo y revisión; nunca por fragmento ni por revisión más nueva.
+  function planoDocKey(value) { return normDoc(String(value || '').replace(/\.(dwg|pdf|webp)$/i, '')).replace(/-R0+(\d+)$/, '-R$1'); }
+  function plForDoc(sheet, doc) {
+    var key = planoDocKey(doc);
+    return key ? plLams(sheet).filter(function (p) {
+      var refs = (p.documentos || []).concat([p.id, p.sub]);
+      if (p.codigo) refs.push(p.codigo + (p.rev ? '-' + p.rev : ''));
+      return refs.some(function (ref) { return planoDocKey(ref) === key; });
+    }) : [];
+  }
+  function regPlanKey(reg) { return 'plano:' + reg.sheet + ':' + liveKey(reg.key); }
+  /* Disponibilidad sin conexión de cada lámina: índice en el celular (LS) de las que ya se bajaron. */
+  function plKey(l) { return 'plano.' + l.id + '.' + (l.v || l.rev); }
+  function plOffMap() { return LS.get('planosOk', {}); }
+  function plIsOff(l) { return !!plOffMap()[plKey(l)]; }
+  function plMarkOff(l, on) {
+    var m = plOffMap();
+    if (on) m[plKey(l)] = Date.now(); else delete m[plKey(l)];
+    LS.set('planosOk', m);
+  }
+  function plNum(n, uno, varios) { return n + ' ' + (n === 1 ? uno : varios); }
+  /** Resumen y botón «Bajar las que faltan» sobre las láminas visibles. */
+  function plOffDraw() {
+    var box = document.getElementById('plOff');
+    if (!box) return;
+    var lams = plVisibleLams(), falta = lams.filter(function (l) { return !plIsOff(l); });
+    if (PL.bajando) {
+      box.innerHTML = '<span class="grow" role="status">Bajando láminas… ' + PL.bajando + '</span>';
+      return;
+    }
+    box.innerHTML = '<span class="grow" role="status">' + (falta.length
+      ? 'Sin conexión: <b>' + (lams.length - falta.length) + ' de ' + lams.length + '</b> ' + (lams.length === 1 ? 'lámina disponible' : 'láminas disponibles')
+      : (lams.length === 1 ? 'La lámina está disponible' : 'Las ' + lams.length + ' láminas están disponibles') + ' sin conexión') + '</span>' +
+      (falta.length ? '<button type="button" class="btn sm" data-act="pl-bajar">Bajar las que faltan (' + falta.length + ')</button>' : '');
+  }
+  function plNoSpace(e) { return !!e && (e.name === 'QuotaExceededError' || e.code === 22 || /quota|espacio/i.test(String(e.message || ''))); }
+  /** Baja y guarda en el celular las láminas que faltan, de a una (cada una es un pedido a Drive). */
+  function plBajar() {
+    var falta = plVisibleLams().filter(function (l) { return !plIsOff(l); });
+    if (!falta.length || PL.bajando) return;
+    if (!navigator.onLine && !IN_GAS) { toast('Sin señal: conectate para bajar las láminas.', { kind: 'info' }); return; }
+    var hechas = 0, red = 0, espacio = false;
+    falta.reduce(function (p, l, i) {
+      return p.then(function () {
+        if (espacio) return;   // sin espacio no tiene sentido seguir con las demás
+        PL.bajando = (i + 1) + ' de ' + falta.length; plOffDraw();
+        return callApi({ action: 'plano', id: l.id }).then(function (r) {
+          return KV.setBig(plKey(l), 'data:' + r.mime + ';base64,' + r.data).then(function () { plMarkOff(l, true); hechas++; }, function () { espacio = true; });
+        }, function () { red++; });
+      });
+    }, Promise.resolve()).then(function () {
+      PL.bajando = '';
+      plOffDraw(); plDraw();
+      if (espacio) toast('No hay espacio en el celular para guardar más láminas' + (hechas ? ' (se guardaron ' + hechas + ')' : '') + '. Liberá espacio y probá de nuevo.', { kind: 'err' });
+      else if (red) toast((red === 1 ? 'No se pudo bajar 1 lámina' : 'No se pudieron bajar ' + red + ' láminas') + ' por la señal. Probá de nuevo con mejor señal.', { kind: 'err' });
+      else toast('Listo: ' + plNum(hechas, 'lámina disponible', 'láminas disponibles') + ' sin conexión.', { kind: 'ok' });
+    });
+  }
+  /** Al llegar el catálogo: se borran del celular las láminas de versiones que ya no están en planos.json. */
+  function plPrune() {
+    var ls = plAll();
+    if (!ls.length) return;   // sin láminas en el catálogo (o no llegó la lista): no se toca nada
+    var ok = {};
+    ls.forEach(function (l) { ok[plKey(l)] = true; });
+    KV.keys('plano.').then(function (ks) { ks.forEach(function (k) { if (!ok[k]) KV.del(k); }); });
+    var m = plOffMap(), cambio = false;
+    Object.keys(m).forEach(function (k) { if (!ok[k]) { delete m[k]; cambio = true; } });
+    if (cambio) LS.set('planosOk', m);
+    // copias que versiones anteriores dejaron en localStorage
+    try {
+      Object.keys(localStorage).forEach(function (k) {
+        var mm = /^pie\.kv(local)?\.(plano\..+)$/.exec(k);
+        if (mm && !ok[mm[2]]) localStorage.removeItem(k);
+      });
+    } catch (e) { /* bloqueado */ }
+  }
+  /** Pantalla completa del visor (la barra y la hoja de marcas quedan; se ocultan encabezado y pestañas). */
+  function plToggleFull(on) {
+    var was = PL.full;
+    PL.full = on == null ? !PL.full : !!on;
+    var w = document.getElementById('plWrap'), btn = document.querySelector('[data-act=pl-full]');
+    if (!w) { PL.full = false; document.body.classList.remove('pl-full-open'); return; }
+    PL.fullCtx = PL.ctx;
+    if (PL.full && !was) PL.fullY = window.scrollY;   // al salir, la página vuelve a donde estaba
+    w.classList.toggle('pl-full', PL.full);
+    document.body.classList.toggle('pl-full-open', PL.full);
+    if (btn) {
+      btn.setAttribute('aria-pressed', String(PL.full));
+      btn.setAttribute('aria-label', PL.full ? 'Salir de pantalla completa' : 'Plano a pantalla completa');
+    }
+    var pl = planoOf(PL.id);
+    if (pl) { var fitted = Math.abs(PL.z - PL.fit) < 0.001; plFit(pl, fitted); plApply(pl); }
+    if (!PL.full && was && PL.fullY != null) window.scrollTo(0, PL.fullY);
+    if (btn) { try { btn.focus({ preventScroll: true }); } catch (e) { /* noop */ } }
+  }
+  /** Después de dibujar: sin visor en pantalla (otra ruta, otra pestaña) la pantalla completa se apaga. */
+  function plFullCheck() {
+    if (PL.full && document.getElementById('plWrap')) return;
+    PL.full = false;
+    document.body.classList.remove('pl-full-open');
+  }
+  function plVisibleLams() {
+    return PL.regKey ? plForDoc(PL.sheet, PL.doc) : plLams(PL.sheet);
+  }
+  function planoOf(id) { return plAll().filter(function (p) { return p.id === id; })[0] || null; }
+  function r5(n) { return Math.round(n * 100000) / 100000; }
+
+  /** Pines vigentes de una lámina: los del PIE más lo que está en la cola sin enviar. */
+  function plPins(planoId) {
+    var out = {}, order = [];
+    var put = function (p) { if (!out[p.id]) order.push(p.id); out[p.id] = p; };
+    ((S.catalog && S.catalog.pines) || []).forEach(function (r) {
+      put({ id: r[0], sheet: r[1], h: r[2], plano: r[3], x: r[4], y: r[5], elemento: r[6], piso: r[7], por: r[8], at: { k: r[9] || 'reg', v: r[10] || '' }, pts: r[11] || null, color: PL_COLORS[r[12]] ? r[12] : 'auto', local: false });
+    });
+    S.queue.forEach(function (o) {
+      if (o.op !== 'pin') return;
+      if (o.accion === 'quitar' && o.status === 'error') { if (out[o.pin]) out[o.pin].err = o.error || 'error'; return; }   // no se borró en el PIE
+      if (o.accion === 'poner') put({ id: o.pin, sheet: o.sheet, h: o.h || null, ref: o.ref || null, plano: o.plano, x: o.x, y: o.y, elemento: o.elemento, piso: o.piso, por: o.by, at: o.alc || { k: 'reg', v: '' }, pts: o.pts || null, color: o.color || 'auto', local: true });
+      else if (o.accion === 'color' && out[o.pin]) { out[o.pin].color = o.color || 'auto'; out[o.pin].local = true; }
+      else if (o.accion === 'mover' && out[o.pin]) { out[o.pin].x = o.x; out[o.pin].y = o.y; if (o.pts) out[o.pin].pts = o.pts; out[o.pin].local = true; }
+      else if (o.accion === 'quitar') { delete out[o.pin]; }
+      if (o.status === 'error' && out[o.pin]) out[o.pin].err = o.error || 'error';
+    });
+    return order.filter(function (id) { return out[id] && out[id].plano === planoId; }).map(function (id) { return out[id]; });
+  }
+  /**
+   * Registro vivo de un pin: el de su fila (el PIE actualiza el elemento del pin al corregirlo, pero el catálogo
+   * local puede estar atrasado); si la fila ya no está, lo busca por elemento y piso.
+   */
+  function plRegOf(p) {
+    if (p.ref) return getReg(p.sheet, liveKey('p' + p.ref)) || null;
+    var reg = p.h != null && p.h !== '' ? getReg(p.sheet, 'h' + p.h) : null;
+    if (reg) return reg;
+    if (!norm(p.elemento)) return null;   // sin elemento no hay con qué buscarlo
+    return listRegs(p.sheet).filter(function (r) { return norm(r.elemento) === norm(p.elemento) && norm(r.piso) === norm(p.piso); })[0] || null;
+  }
+  /** Controles que marca un pin: todo el registro, una etapa o una tarea («ETAPA|Tarea»). */
+  function plScopeItems(reg, at) {
+    if (at.k === 'etapa') return reg.items.filter(function (it) { return (it.etapa || '—') === at.v; });
+    if (at.k === 'tarea') {
+      var i = at.v.indexOf('|'), e = at.v.slice(0, i), t = at.v.slice(i + 1);
+      return reg.items.filter(function (it) { return (it.etapa || '—') === e && (it.tarea || '—') === t; });
+    }
+    return reg.items;
+  }
+  function plAtLabel(at) {
+    if (at.k === 'etapa') return 'Etapa ' + at.v;
+    if (at.k === 'tarea') { var i = at.v.indexOf('|'); return at.v.slice(i + 1) + ' · ' + at.v.slice(0, i); }
+    return 'Todo el registro';
+  }
+  /** rz: algún RZ · enc: en curso · ap: todo hecho · sin: nada hecho · x: no hay controles (se movió o se borró). */
+  function plItemsColor(items) {
+    if (!items.length) return 'x';
+    var s = stats(items);
+    if (s.rz) return 'rz';
+    if (s.total - s.pend === 0) return 'sin';
+    return s.pend ? 'enc' : 'ap';
+  }
+  function plColor(reg, at) { return reg ? plItemsColor(plScopeItems(reg, at)) : 'x'; }
+  /** Etapa de una marca (null si es de todo el registro). */
+  function plEtapaOf(at) { return at.k === 'etapa' ? at.v : at.k === 'tarea' ? at.v.slice(0, at.v.indexOf('|')) : null; }
+  /**
+   * Cómo se ve una marca en la capa actual: las de etapa o tarea sólo en su capa; las de todo el registro
+   * en todas, con el estado de los controles de esa etapa (y no se muestran si el registro no la tiene).
+   */
+  function plView(p) {
+    var reg = plRegOf(p), e = plEtapaOf(p.at);
+    if (PL.capa === 'all') return { show: true, c: plColor(reg, p.at) };
+    if (e) return { show: e === PL.capa, c: plColor(reg, p.at) };
+    if (!reg) return { show: true, c: 'x' };
+    var its = reg.items.filter(function (it) { return (it.etapa || '—') === PL.capa; });
+    return { show: its.length > 0, c: plItemsColor(its) };
+  }
+  /**
+   * Valida una zona antes de aceptarla, igual que el PIE (zonaPts_ y betaPolygon_ de Code.gs/Beta.gs):
+   * junta vértices repetidos seguidos (también el último con el primero) y pide un polígono simple con superficie.
+   * Devuelve { pts } o { error }.
+   */
+  function plZonaPts(pts) {
+    var q = pts.map(function (p) { return [p[0], p[1]]; });
+    q = q.filter(function (p, i) { var a = q[(i + q.length - 1) % q.length]; return q.length < 2 || p[0] !== a[0] || p[1] !== a[1]; });
+    if (q.length < 3) return { error: 'La zona necesita al menos 3 puntos distintos: tocá más esquinas.' };
+    var eps = 1e-12;
+    var cross = function (a, b, c) { return (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]); };
+    var on = function (a, b, p) { return Math.abs(cross(a, b, p)) <= eps &&
+      p[0] >= Math.min(a[0], b[0]) - eps && p[0] <= Math.max(a[0], b[0]) + eps &&
+      p[1] >= Math.min(a[1], b[1]) - eps && p[1] <= Math.max(a[1], b[1]) + eps; };
+    var intersects = function (a, b, c, d) {
+      var x = cross(a, b, c), y = cross(a, b, d), z = cross(c, d, a), w = cross(c, d, b);
+      return (x > eps && y < -eps || x < -eps && y > eps) && (z > eps && w < -eps || z < -eps && w > eps) ||
+        on(a, b, c) || on(a, b, d) || on(c, d, a) || on(c, d, b);
+    };
+    var area = 0;
+    for (var i = 0; i < q.length; i++) {
+      var a = q[i], b = q[(i + 1) % q.length];
+      for (var j = i + 1; j < q.length; j++) {
+        if (a[0] === q[j][0] && a[1] === q[j][1]) return { error: 'La zona pasa dos veces por el mismo punto: marcá los vértices en orden alrededor del área.' };
+        if (j === i + 1 || i === 0 && j === q.length - 1) continue;
+        if (intersects(a, b, q[j], q[(j + 1) % q.length])) return { error: 'Los bordes de la zona se cruzan: marcá los vértices en orden alrededor del área.' };
+      }
+      // un borde que vuelve sobre el anterior
+      var c = q[(i + 2) % q.length];
+      if (on(a, b, c) || on(b, c, a)) return { error: 'Los bordes de la zona se superponen: marcá los vértices en orden alrededor del área.' };
+      area += a[0] * b[1] - b[0] * a[1];
+    }
+    if (Math.abs(area) <= eps) return { error: 'La zona no tiene superficie: los puntos quedaron en línea.' };
+    return { pts: q };
+  }
+  /** Centro de una zona (promedio de los vértices: alcanza para el rótulo y para tocarla). */
+  function plCenter(pts) {
+    var x = 0, y = 0;
+    pts.forEach(function (q) { x += q[0]; y += q[1]; });
+    return { x: r5(x / pts.length), y: r5(y / pts.length) };
+  }
+  function plCounts(planoId) {
+    var c = { rz: 0, enc: 0, ap: 0, sin: 0, x: 0, total: 0 };
+    plPins(planoId).forEach(function (p) { c[plColor(plRegOf(p), p.at)]++; c.total++; });
+    return c;
+  }
+  function plChip(c) { return chipHtml(c === 'ap' ? 'ap' : c === 'rz' ? 'rz' : c === 'enc' ? 'pend' : '', PL_TXT[c]); }
+  function plHasPin(reg) {
+    var key = liveKey(reg.key);
+    return plLams(reg.sheet).some(function (l) { return plPins(l.id).some(function (pn) { var r = plRegOf(pn); return r && liveKey(r.key) === key; }); });
+  }
+  /** Si el punto queda tapado por la hoja inferior o fuera de la vista, lo lleva al centro. */
+  function plReveal(pt) {
+    var pl = planoOf(PL.id), v = document.getElementById('plView');
+    if (!pl || !v || !pt) return;
+    var sx = PL.tx + pt.x * pl.w * PL.z, sy = PL.ty + pt.y * pl.h * PL.z;
+    if (sx < 40 || sx > v.clientWidth - 40) PL.tx += v.clientWidth / 2 - sx;
+    if (sy < 70 || sy > v.clientHeight - 70) PL.ty += v.clientHeight / 2 - sy;
+    plApply(pl);
+  }
+
+  /** Pestaña Planos de una planilla (se dibuja debajo de las pestañas, ocupando el resto de la pantalla). */
+  function plMount(sheet, reg, doc) {
+    if (PL.dispose) PL.dispose();
+    var previousContext = PL.regKey || '';
+    PL.regKey = reg ? reg.key : null;
+    PL.doc = reg ? doc : null;
+    PL.sheet = String(sheet);
+    var host = document.getElementById('plHost'), lams = plVisibleLams();
+    // la pantalla completa sigue al redibujar el mismo visor (envío automático, marca desde el plano);
+    // se apaga al cambiar de ruta, de registro o de planilla
+    PL.ctx = S.route + '|' + (PL.regKey ? liveKey(PL.regKey) : '') + '|' + PL.sheet + '|' + (PL.doc || '');
+    if (PL.full && PL.fullCtx !== PL.ctx) PL.full = false;
+    if (!host || !lams.length) { PL.full = false; return; }
+    var cur = planoOf(PL.id);
+    if (!cur || !lams.some(function (p) { return p.id === cur.id; }) || previousContext !== (PL.regKey || '')) { PL.id = lams[0].id; PL.z = 0; PL.mode = 'ver'; PL.sel = null; PL.draft = null; PL.moving = false; PL.q = ''; PL.hide = {}; PL.stateFilter = 'all'; PL.zpts = null; PL.capa = 'all'; }
+    PL.sheet = String(sheet);
+    var pl = planoOf(PL.id);
+    if (!reg) window.scrollTo(0, 0);
+    var top = reg ? 0 : Math.round(view.querySelector('.seg').getBoundingClientRect().bottom + 8);
+    host.innerHTML = '<div class="pl-wrap' + (reg ? ' pl-inline' : '') + (PL.full ? ' pl-full' : '') + '" id="plWrap" style="top:' + top + 'px">' +
+      '<div class="pl-active" id="plActive"><small>Hoja activa</small><strong>' + esc(pl.titulo) + '</strong><span class="code">' + esc(pl.codigo || pl.id) + '</span><p class="meta">' + esc([pl.hoja ? 'Hoja ' + pl.hoja : '', pl.rev ? 'Revisión de hoja ' + pl.rev : ''].filter(Boolean).join(' · ')) + '</p><p class="help">Arrastrá para mover · +/− para zoom · Ctrl/⌘ + rueda para acercar. Desplazá la página fuera de la imagen.</p></div>' +
+      '<div class="pl-lams" id="plLams" role="tablist" aria-label="Láminas"></div>' +
+      '<div class="pl-off" id="plOff"></div>' +
+      '<div class="pl-capas" id="plCapas" role="tablist" aria-label="Capas por etapa"></div><div class="pl-tools" id="plLeg"></div>' +
+      '<div class="pl-view" id="plView" tabindex="0" role="region" aria-label="Plano interactivo. Flechas para desplazar, más y menos para zoom, cero para ajustar."><div class="pl-stage" id="plStage" style="width:' + pl.w + 'px;height:' + pl.h + 'px">' +
+      '<img id="plImg" width="' + pl.w + '" height="' + pl.h + '" alt="Plano ' + esc(pl.titulo) + '" draggable="false">' +
+      '<svg class="pl-zones" id="plZones" width="' + pl.w + '" height="' + pl.h + '" viewBox="0 0 ' + pl.w + ' ' + pl.h + '" aria-hidden="true">' + plHatchDefs() + '<g id="plZoneG"></g></svg>' +
+      '<div id="plPins"></div></div>' +
+      '<div class="pl-zoom"><button type="button" data-act="pl-zoom" data-f="1.4" aria-label="Acercar">' + ic('plus', 'ic-24') + '</button>' +
+      '<button type="button" data-act="pl-zoom" data-f="0.7" aria-label="Alejar">' + ic('minus', 'ic-24') + '</button>' +
+      '<button type="button" data-act="pl-fit" aria-label="Ver la lámina completa">' + ic('image', 'ic-24') + '</button>' +
+      '<button type="button" data-act="pl-full" aria-pressed="' + !!PL.full + '" aria-label="' + (PL.full ? 'Salir de pantalla completa' : 'Plano a pantalla completa') + '">' + ic('ext', 'ic-24') + '</button></div></div>' +
+      '<div class="pl-bar" id="plBar"></div><div class="pl-sheet" id="plSheet" hidden></div></div>';
+    document.body.classList.toggle('pl-full-open', !!PL.full);
+    var v = document.getElementById('plView');
+    plLoadImg(pl);
+    plGestures(v, pl);
+    plDraw();   // Medir después de dibujar las pestañas y la hoja inferior.
+    plFit(pl, !PL.z);
+    plApply(pl);
+    if (PL.center) {
+      var cp = plPins(pl.id).filter(function (p) { return p.id === PL.center; })[0];
+      if (cp) {
+        PL.z = Math.min(1.6, Math.max(PL.fit, 0.5));
+        PL.tx = v.clientWidth / 2 - cp.x * pl.w * PL.z;
+        PL.ty = v.clientHeight / 2 - cp.y * pl.h * PL.z;
+        plApply(pl);
+      }
+      PL.center = null;
+    }
+  }
+  /** Imagen de la lámina: de memoria si ya se mostró; si no, del celular si ya se bajó; si no, de Drive (una vez, con señal). */
+  function plLoadImg(pl) {
+    var img = document.getElementById('plImg'), v = document.getElementById('plView');
+    var key = plKey(pl);
+    var note = function (h) {
+      var n = document.getElementById('plNote');
+      if (n) n.remove();
+      if (h) v.insertAdjacentHTML('beforeend', '<div class="pl-err" id="plNote">' + h + '</div>');
+    };
+    var show = function (u) {
+      if (document.getElementById('plImg') !== img) return;
+      note('');
+      img.src = u;
+    };
+    // cada redibujo vuelve a montar el visor: la lámina ya decodificada no se relee del celular
+    if (PL.img && PL.img.key === key) return show(PL.img.url);
+    KV.get(key, true).catch(function () { return null; }).then(function (u) {
+      if (u) { plMarkOff(pl, true); return u; }
+      var perdida = plIsOff(pl);
+      plMarkOff(pl, false);   // el celular la perdió (o nunca la tuvo): vuelve a «falta bajar»
+      if (perdida) plDraw();   // la pestaña y el resumen dejan de decir que está disponible
+      if (!navigator.onLine && !IN_GAS) throw apiError(PL_NO_LAM, 'network');
+      if (document.getElementById('plImg') === img) note(noteHtml('info', 'Descargando la lámina… (una sola vez; después se ve sin señal)', 'sync'));
+      return callApi({ action: 'plano', id: pl.id }).then(function (r) {
+        var d = 'data:' + r.mime + ';base64,' + r.data;
+        KV.setBig(key, d).then(function () { plMarkOff(pl, true); plDraw(); }, function () { /* se vuelve a bajar */ });
+        return d;
+      });
+    }).then(function (u) {
+      return plCache(key, u).then(show);
+    }).catch(function (e) {
+      if (document.getElementById('plImg') !== img) return;
+      var msg = e && e.code === 'network' ? PL_NO_LAM : (e && e.message) || 'No se pudo bajar la lámina.';
+      note(noteHtml('err', '<p>' + esc(msg) + '</p><div class="btns"><button type="button" class="btn sm" data-act="pl-retry">Reintentar</button></div>'));
+    });
+  }
+  var PL_NO_LAM = 'Esta lámina no está en el celular. Conectate y tocá Reintentar o Bajar las que faltan.';
+  /** Lámina en memoria como blob (una sola a la vez: la anterior se libera). */
+  function plCache(key, d) {
+    return fetch(d).then(function (r) { return r.blob(); }).then(function (b) { return URL.createObjectURL(b); }, function () { return d; }).then(function (url) {
+      if (PL.img && PL.img.url !== url && /^blob:/.test(PL.img.url)) { try { URL.revokeObjectURL(PL.img.url); } catch (e) { /* noop */ } }
+      PL.img = { key: key, url: url };
+      return url;
+    });
+  }
+  function plFit(pl, reset) {
+    var v = document.getElementById('plView');
+    var fit = v && pl.w > 0 && pl.h > 0 ? Math.min(v.clientWidth / pl.w, v.clientHeight / pl.h) : 0;
+    PL.fit = isFinite(fit) && fit > 0 ? fit : (PL.fit > 0 ? PL.fit : 0.1);
+    if (reset || !isFinite(PL.z) || PL.z <= 0) { PL.z = PL.fit; PL.tx = 0; PL.ty = 0; }
+  }
+  function plApply(pl) {
+    var v = document.getElementById('plView'), st = document.getElementById('plStage');
+    if (!v || !st) return;
+    if (!(PL.fit > 0) || !isFinite(PL.z) || PL.z <= 0) plFit(pl, true);
+    PL.z = Math.min(Math.max(1.6, PL.fit), Math.max(PL.fit, PL.z));
+    if (!isFinite(PL.tx)) PL.tx = 0;
+    if (!isFinite(PL.ty)) PL.ty = 0;
+    var sw = pl.w * PL.z, sh = pl.h * PL.z, cw = v.clientWidth, ch = v.clientHeight;
+    if (cw <= 0 || ch <= 0) return;
+    PL.tx = sw <= cw ? (cw - sw) / 2 : Math.min(40, Math.max(cw - sw - 40, PL.tx));
+    PL.ty = sh <= ch ? (ch - sh) / 2 : Math.min(40, Math.max(ch - sh - 40, PL.ty));
+    st.style.transform = 'translate(' + PL.tx + 'px,' + PL.ty + 'px) scale(' + PL.z + ')';
+    st.style.setProperty('--iz', String(1 / PL.z));
+  }
+  function plZoomAt(pl, f, cx, cy, defer) {
+    if (!(f > 0) || !isFinite(f)) return;
+    if (!(PL.z > 0) || !(PL.fit > 0)) plFit(pl, true);
+    var z0 = PL.z, z1 = Math.min(Math.max(1.6, PL.fit), Math.max(PL.fit, z0 * f));
+    PL.tx = cx - (cx - PL.tx) * (z1 / z0);
+    PL.ty = cy - (cy - PL.ty) * (z1 / z0);
+    PL.z = z1;
+    if (!defer) plApply(pl);
+  }
+  /** Un dibujo por frame. La rueda normal desplaza la página; Ctrl/⌘+rueda hace zoom. */
+  function plGestures(v, pl) {
+    var ptrs = {}, tap = null, frame = null, disposed = false, handlers = [];
+    var ids = function () { return Object.keys(ptrs); };
+    var stamp = function () { PL.gestureActive = ids().length > 0; PL.lastGestureAt = Date.now(); };
+    var draw = function () {
+      if (frame != null || disposed) return;
+      frame = requestAnimationFrame(function () { frame = null; if (!disposed && v.isConnected) plApply(pl); });
+    };
+    var flush = function () { if (frame != null) { cancelAnimationFrame(frame); frame = null; plApply(pl); } };
+    var bind = function (target, name, fn, opts) { target.addEventListener(name, fn, opts); handlers.push([target, name, fn, opts]); };
+    var mid = function () { var a = ptrs[ids()[0]], b = ptrs[ids()[1]]; return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, d: Math.hypot(a.x - b.x, a.y - b.y) }; };
+    var reset = function () {
+      var captured = ids(); ptrs = {}; tap = null;
+      if (captured.length) stamp();
+      PL.gestureActive = false; v.classList.remove('dragging');
+      captured.forEach(function (id) { try { v.releasePointerCapture(Number(id)); } catch (e) { /* ya liberado */ } });
+    };
+    bind(v, 'pointerdown', function (e) {
+      if ((e.pointerType === 'mouse' && e.button !== 0) || e.target.closest('.pl-leg, .pl-zoom, .pl-err')) return;
+      try { v.setPointerCapture(e.pointerId); } catch (err) { /* sin captura */ }
+      ptrs[e.pointerId] = { x: e.clientX, y: e.clientY };
+      if (ids().length === 1) tap = { t: Date.now(), x: e.clientX, y: e.clientY, ok: true };
+      else if (tap) tap.ok = false;
+      stamp();
+    });
+    bind(v, 'pointermove', function (e) {
+      var p = ptrs[e.pointerId];
+      if (!p) return;
+      if (e.pointerType === 'mouse' && e.buttons === 0) { reset(); return; }
+      var r = v.getBoundingClientRect();
+      if (ids().length >= 2) {
+        var m0 = mid(); p.x = e.clientX; p.y = e.clientY; var m1 = mid();
+        PL.tx += m1.x - m0.x; PL.ty += m1.y - m0.y;
+        if (m0.d > 0) plZoomAt(pl, m1.d / m0.d, m1.x - r.left, m1.y - r.top, true);
+      } else {
+        PL.tx += e.clientX - p.x; PL.ty += e.clientY - p.y;
+        p.x = e.clientX; p.y = e.clientY;
+        if (tap && Math.hypot(e.clientX - tap.x, e.clientY - tap.y) > 8) tap.ok = false;
+      }
+      v.classList.add('dragging'); stamp(); draw();
+    });
+    bind(v, 'pointerup', function (e) {
+      if (!ptrs[e.pointerId]) return;
+      var tapped = tap && tap.ok && ids().length === 1 && Date.now() - tap.t < 500;
+      delete ptrs[e.pointerId]; stamp(); flush();
+      try { v.releasePointerCapture(e.pointerId); } catch (err) { /* ya liberado */ }
+      if (!ids().length) { tap = null; v.classList.remove('dragging'); }
+      if (tapped) plTap(e.clientX, e.clientY);
+    });
+    ['pointercancel', 'lostpointercapture'].forEach(function (event) {
+      bind(v, event, function (e) { if (ptrs[e.pointerId]) { reset(); flush(); } });
+    });
+    bind(window, 'blur', function () { reset(); flush(); });
+    bind(document, 'visibilitychange', function () { if (document.hidden) { reset(); flush(); } });
+    bind(v, 'wheel', function (e) {
+      if (!(e.ctrlKey || e.metaKey) || !e.deltaY) return;
+      e.preventDefault();
+      var r = v.getBoundingClientRect(), delta = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? v.clientHeight : 1);
+      plZoomAt(pl, Math.exp(-Math.max(-200, Math.min(200, delta)) * 0.002), e.clientX - r.left, e.clientY - r.top, true);
+      stamp(); draw();
+    }, {passive: false});
+    bind(document, 'keydown', function (e) {
+      if (e.key === 'Escape' && PL.full && !document.getElementById('ask') && !document.getElementById('modal')) plToggleFull(false);
+    });
+    // pines con teclado o lector de pantalla: Enter o Espacio hacen lo mismo que tocarlos
+    bind(v, 'keydown', function (e) {
+      var pe = e.target.closest && e.target.closest('#plPins [data-pin]');
+      if (!pe || (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar')) return;
+      e.preventDefault();
+      var id = pe.dataset.pin, rc = pe.getBoundingClientRect();
+      plTap(rc.left + rc.width / 2, rc.top + rc.height / 2, pe);
+      var again = document.querySelector('#plPins [data-pin="' + (window.CSS && CSS.escape ? CSS.escape(id) : id) + '"]');
+      if (again && !document.getElementById('ask')) { try { again.focus({ preventScroll: true }); } catch (err) { /* noop */ } }
+    });
+    bind(v, 'keydown', function (e) {
+      if (e.target !== v) return;
+      var k = e.key;
+      if (['+', '=', '-', '0', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].indexOf(k) < 0) return;
+      e.preventDefault();
+      if (k === '0') plFit(pl, true);
+      else if (k === '+' || k === '=' || k === '-') plZoomAt(pl, k === '-' ? 1/1.25 : 1.25, v.clientWidth/2, v.clientHeight/2, true);
+      else { PL.tx += k === 'ArrowLeft' ? 40 : k === 'ArrowRight' ? -40 : 0; PL.ty += k === 'ArrowUp' ? 40 : k === 'ArrowDown' ? -40 : 0; }
+      stamp(); draw();
+    });
+    var resize = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(function () {
+      if (disposed || !v.isConnected) return;
+      var fitted = Math.abs(PL.z - PL.fit) < 0.001;
+      plFit(pl, fitted); draw();
+    }) : null;
+    if (resize) resize.observe(v);
+    PL.dispose = function () {
+      disposed = true; reset();
+      // PL.full se conserva: plMount lo repone si se vuelve a montar el mismo visor (render() lo apaga si no)
+      if (frame != null) cancelAnimationFrame(frame);
+      if (resize) resize.disconnect();
+      handlers.forEach(function (h) { h[0].removeEventListener(h[1], h[2], h[3]); });
+      PL.dispose = null;
+    };
+  }
+  function plPoint(cx, cy) {
+    var stage = document.getElementById('plStage');
+    if (!stage) return null;
+    var r = stage.getBoundingClientRect();
+    if (r.width <= 0 || r.height <= 0) return null;
+    var x = (cx - r.left) / r.width, y = (cy - r.top) / r.height;
+    return x >= 0 && x <= 1 && y >= 0 && y <= 1 ? { x: r5(x), y: r5(y) } : null;
+  }
+  function plSelPin() { return PL.sel && plPins(PL.id).filter(function (p) { return p.id === PL.sel; })[0] || null; }
+  /** Toque en el plano; pe0: la marca ya elegida (desde el teclado). */
+  function plTap(cx, cy, pe0) {
+    var el = pe0 ? null : document.elementFromPoint(cx, cy);
+    var pe = pe0 || (el && el.closest ? el.closest('[data-pin]') : null);
+    if (PL.mode === 'borrar') {
+      var toDelete = pe && plPins(PL.id).filter(function (p) { return p.id === pe.dataset.pin; })[0];
+      if (toDelete) plRequestDelete(toDelete);
+      return;
+    }   // un pin, el rótulo de una zona o la zona misma
+    if (PL.moving) {
+      var pt0 = plPoint(cx, cy), cur = plSelPin();
+      if (pt0 && cur) { plMovePin(cur, pt0); toast((cur.pts ? 'Zona movida' : 'Pin movido') + ' · se envía al tener señal', { kind: 'ok' }); }
+      PL.moving = false;
+      return plDraw();
+    }
+    if (PL.mode === 'zona') {
+      var zp = plPoint(cx, cy);
+      if (zp && PL.zpts.length < 80) { PL.zpts.push([zp.x, zp.y]); plDraw(); }
+      return;
+    }
+    if (pe) {
+      PL.sel = pe.dataset.pin; PL.draft = null; PL.mode = 'ver';
+      plDraw();
+      return plReveal(plSelPin());
+    }
+    var pt = plPoint(cx, cy);
+    if (PL.mode === 'poner' && pt) { PL.draft = { x: pt.x, y: pt.y, key: PL.regKey || null }; PL.sel = null; PL.q = ''; plDraw(); return plReveal(pt); }
+    PL.sel = null; PL.draft = null;
+    plDraw();
+  }
+
+  /** Láminas, pines, leyenda, barra y hoja inferior. No toca la imagen ni el zoom. */
+  function plDraw() {
+    var pl = planoOf(PL.id), box = document.getElementById('plPins');
+    if (!pl || !box) return;
+    var pins = plPins(pl.id), counts = { rz: 0, enc: 0, ap: 0, sin: 0, x: 0 };
+    var html = '', zones = '';
+    var poly = function (pts) { return pts.map(function (q) { return (q[0] * pl.w).toFixed(1) + ',' + (q[1] * pl.h).toFixed(1); }).join(' '); };
+    pins.forEach(function (p) {
+      var vw = plView(p), c = vw.c;
+      if (!vw.show) return;
+      counts[c]++;
+      if (PL.hide[c] && p.id !== PL.sel) return;
+      var sel = p.id === PL.sel, manual = p.color && p.color !== 'auto' && PL_COLORS[p.color], hue = manual ? 'custom-' + p.color : c, ink = manual ? PL_COLORS[p.color].hex : PL_HEX[c];
+      if (p.pts) {
+        zones += '<polygon class="pl-z' + (sel ? ' sel' : '') + '" points="' + poly(p.pts) + '" fill="url(#plh-' + hue + ')" stroke="' + ink + '" data-pin="' + esc(p.id) + '"/>';
+      }
+      html += '<div class="pin ' + c + (manual ? ' manual' : '') + ' at-' + p.at.k + (p.pts ? ' zona' : '') + (sel ? ' sel' : '') + (p.local ? ' loc' : '') + '" role="button" tabindex="0" data-pin="' + esc(p.id) + '"' +
+        ' style="--mark-color:' + ink + ';left:' + (p.x * pl.w) + 'px;top:' + (p.y * pl.h) + 'px" aria-label="' + esc((p.pts ? 'Zona · ' : '') + (p.elemento || 'Registro') + ' · ' + plAtLabel(p.at) + ' · ' + PL_TXT[c] + (manual ? ' · Color ' + PL_COLORS[p.color].label : '') + (p.err ? ' · Rechazada por el PIE' : '')) + '"><span class="pin-dot"><i>' + PL_GLYPH[c] + '</i></span></div>';
+    });
+    // zona en dibujo: vértices y contorno; zona cerrada esperando el registro: contorno punteado
+    var dz = PL.zpts || (PL.draft && PL.draft.pts);
+    if (dz && dz.length) {
+      zones += (dz.length > 1 ? '<' + (PL.zpts ? 'polyline' : 'polygon') + ' class="pl-z draft" points="' + poly(dz) + '"/>' : '') +
+        (PL.zpts ? dz.map(function (q) { return '<circle class="pl-v" cx="' + (q[0] * pl.w).toFixed(1) + '" cy="' + (q[1] * pl.h).toFixed(1) + '"/>'; }).join('') : '');
+    }
+    if (PL.draft) html += '<div class="pin draft" style="left:' + (PL.draft.x * pl.w) + 'px;top:' + (PL.draft.y * pl.h) + 'px"><span class="pin-dot"><i>＋</i></span></div>';
+    box.innerHTML = html;
+    document.getElementById('plZoneG').innerHTML = zones;
+    var etapas = {};
+    listRegs(PL.sheet).forEach(function (r) { r.items.forEach(function (it) { etapas[it.etapa || '—'] = true; }); });
+    document.getElementById('plCapas').innerHTML = ['all'].concat(ETAPAS.filter(function (e) { return etapas[e]; })).map(function (k) {
+      return '<button type="button" role="tab" class="pl-capa" aria-selected="' + (PL.capa === k) + '" data-act="pl-capa" data-c="' + k + '">' + (k === 'all' ? 'Todas' : k) + '</button>';
+    }).join('');
+    var lams = plVisibleLams();
+    document.getElementById('plLams').innerHTML = lams.length < 2 ? '' : lams.map(function (l) {
+      var n = plPins(l.id).length;
+      return '<button type="button" role="tab" class="pl-lam" aria-selected="' + (l.id === PL.id) + '" data-act="pl-lam" data-id="' + esc(l.id) + '" title="' + esc(l.titulo) + '" aria-label="' + esc((l.hoja ? 'Hoja ' + l.hoja + ' · ' : '') + l.titulo + (plIsOff(l) ? ' · disponible sin conexión' : ' · no descargada')) + '">' + esc(l.hoja ? 'Hoja ' + l.hoja : l.codigo || l.id) +
+        '<span class="off ' + (plIsOff(l) ? 'ok' : 'no') + '" role="img" aria-label="' + (plIsOff(l) ? 'Disponible sin conexión' : 'Falta bajarla para usarla sin conexión') + '">' + (plIsOff(l) ? '✓' : '↓') + '</span>' +
+        (n ? '<b>' + n + '</b>' : '') + '</button>';
+    }).join('');
+    plOffDraw();
+    var shownCount = Object.keys(counts).reduce(function (n, k) { return n + counts[k]; }, 0);
+    document.getElementById('plLeg').innerHTML = '<label class="f"><span>Mostrar marcas por estado</span><select class="in" data-input="pl-state" aria-label="Mostrar marcas por estado">' +
+      '<option value="all"' + (!PL.stateFilter || PL.stateFilter === 'all' ? ' selected' : '') + '>Todas (' + shownCount + ')</option>' +
+      PL_ORDER.concat(counts.x ? ['x'] : []).map(function (k) { return '<option value="' + k + '"' + (PL.stateFilter === k ? ' selected' : '') + '>' + esc(PL_TXT[k]) + ' (' + counts[k] + ')</option>'; }).join('') + '</select></label>';
+    var bar, cancel = '<button type="button" class="btn" data-act="pl-cancel">Cancelar</button>';
+    if (PL.mode === 'borrar') bar = '<span class="pl-hint">Modo borrar: tocá un pin o una zona</span><button type="button" class="btn" data-act="pl-cancel">Terminar</button>';
+    else if (PL.moving) bar = '<span class="pl-hint">Tocá el nuevo lugar' + (plSelPin() && plSelPin().pts ? ' (centro de la zona)' : ' del pin') + '</span>' + cancel;
+    else if (PL.mode === 'zona') {
+      var n = PL.zpts.length;
+      bar = '<span class="pl-hint">' + (n < 3 ? 'Tocá las esquinas de la zona (' + n + ' de al menos 3)' : n + ' puntos · cerrá la zona') + '</span>' +
+        (n ? '<button type="button" class="btn" data-act="pl-zundo" aria-label="Borrar el último punto">' + ic('undo') + '</button>' : '') +
+        (n >= 3 ? '<button type="button" class="btn primary" data-act="pl-zcerrar">Cerrar zona</button>' : cancel);
+    } else if (PL.mode === 'poner') bar = '<span class="pl-hint">' + (PL.draft ? 'Elegí qué registro y qué marca' : 'Tocá la lámina donde va el pin') + '</span>' + cancel;
+    else bar = '<span class="pl-hint">Tocá una marca para ver qué controla</span>' +
+      '<button type="button" class="btn danger" data-act="pl-delete-mode">Borrar marcas</button>' +
+      '<button type="button" class="btn" data-act="pl-zona">Zona</button>' +
+      '<button type="button" class="btn primary" data-act="pl-mode">' + ic('plus') + 'Pin</button>';
+    var pb = document.getElementById('plBar');
+    pb.innerHTML = bar;
+    // con la hoja de una marca abierta la barra «Tocá una marca…» sobra (la hoja tiene «Cerrar») y le quita lugar al plano
+    pb.hidden = PL.mode === 'ver' && !PL.moving && !PL.draft && !!plSelPin();
+    plSheet();
+  }
+  function plSheet() {
+    var sh = document.getElementById('plSheet'), pin = plSelPin(), tall = false;
+    if (PL.draft && !PL.draft.key) {
+      sh.hidden = false;
+      sh.innerHTML = '<div class="pl-sh-h"><b>' + (PL.draft.pts ? '¿Qué registro va en esta zona?' : '¿Qué registro va en este punto?') + '</b></div>' +
+        '<label class="search-box">' + ic('search') + '<input class="search" type="search" data-input="plq" placeholder="Buscar elemento, piso o sector" aria-label="Buscar registro" autocomplete="off" autocorrect="off" value="' + esc(PL.q) + '"></label>' +
+        '<div id="plList"></div>' +
+        '<div class="pl-sh-btns"><button type="button" class="btn" data-act="pl-new">' + ic('plus') + 'Nuevo registro acá</button></div>';
+      plList();
+    } else if (PL.draft) {
+      var dreg = getReg(PL.sheet, PL.draft.key);
+      if (!dreg) { PL.draft.key = null; return plSheet(); }
+      sh.hidden = false;
+      sh.innerHTML = '<div class="pl-sh-h"><div class="grow"><b>' + esc(dreg.elemento || 'Registro') + '</b><span class="meta">' + (PL.draft.pts ? '¿Qué marca esta zona?' : '¿Qué marca este pin?') + (PL.capa !== 'all' ? ' · capa ' + esc(PL.capa) : '') + '</span></div>' +
+        (PL.regKey ? '' : '<button type="button" class="btn sm" data-act="pl-rechoose">Cambiar registro</button>') + '</div>' + plScopesHtml(dreg);
+      tall = true;
+    } else if (pin && !PL.moving) {
+      var reg = plRegOf(pin), c = plColor(reg, pin.at), items = reg ? plScopeItems(reg, pin.at) : [], s = stats(items);
+      var meta = [(pin.pts ? 'Zona · ' : '') + plAtLabel(pin.at), reg && reg.piso ? 'Piso ' + reg.piso : '', reg && reg.sector, reg && reg.h ? 'fila ' + reg.h : ''].filter(Boolean).join(' · ');
+      sh.hidden = false;
+      sh.innerHTML = '<div class="pl-sh-h"><div class="grow"><b>' + esc((reg && reg.elemento) || pin.elemento || 'Registro') + '</b>' +
+        '<span class="meta">' + esc(meta) + '</span></div>' + plChip(c) + '</div>' +
+        (items.length ? '<div class="bar-row">' + barHtml(s) + '<span class="n">' + (s.total - s.pend) + '/' + s.total + '</span></div>'
+          : '<p class="help">No se encontró lo que marcaba este pin en la planilla ' + esc(pin.sheet) + ' (¿se movieron filas o cambió la tarea?). Podés quitar el pin y ponerlo de nuevo.</p>') +
+        (pin.at.k === 'tarea' && reg ? plMarksHtml(reg, items) : '') +
+        plPalette(pin) +
+        (pin.err ? noteHtml('err', esc('Rechazada por el PIE: ' + pin.err)) :
+          pin.local ? '<p class="help">' + (pin.pts ? 'Zona sin enviar · se manda sola' : 'Pin sin enviar · se manda solo') + ' al tener señal.</p>' : '') +
+        '<div class="pl-sh-btns">' + (reg ? '<button type="button" class="btn primary" data-act="pl-open">Abrir registro</button>' : '') +
+        '<button type="button" class="btn" data-act="pl-move">Mover</button>' +
+        '<button type="button" class="btn ghost danger" data-act="pl-quit">' + (pin.pts ? 'Borrar zona' : 'Borrar pin') + '</button>' +
+        '<button type="button" class="btn ghost" data-act="pl-cancel">Cerrar</button></div>';
+      tall = pin.at.k === 'tarea';
+    } else { sh.hidden = true; sh.innerHTML = ''; }
+    sh.classList.toggle('tall', tall);
+    document.getElementById('plWrap').classList.toggle('with-sheet', !sh.hidden);
+  }
+  /** Rayado de las zonas: un patrón por color (las líneas se ven finas al alejar y separadas al acercar). */
+  function plHatchDefs() {
+    var hues = Object.assign({}, PL_HEX);
+    Object.keys(PL_COLORS).filter(function (k) { return k !== 'auto'; }).forEach(function (k) { hues['custom-' + k] = PL_COLORS[k].hex; });
+    return '<defs>' + Object.keys(hues).map(function (k) {
+      return '<pattern id="plh-' + k + '" patternUnits="userSpaceOnUse" width="34" height="34" patternTransform="rotate(45)">' +
+        '<rect width="34" height="34" fill="' + hues[k] + '" fill-opacity=".14"/><rect width="9" height="34" fill="' + hues[k] + '" fill-opacity=".5"/></pattern>';
+    }).join('') + '</defs>';
+  }
+  /** Opciones de alcance de una marca nueva: todo el registro, cada etapa y cada tarea (con una capa elegida, sólo las de esa etapa). */
+  function plScopesHtml(reg) {
+    var row = function (k, v, txt, items, cls) {
+      return '<button type="button" class="row pl-sc ' + (cls || '') + '" data-act="pl-scope" data-k="' + k + '" data-v="' + esc(v) + '"><span class="grow"><span class="ttl2">' + esc(txt) + '</span></span>' +
+        plChip(plItemsColor(items)) + '</button>';
+    };
+    var html = row('reg', '', 'Todo el registro', reg.items, 'all');
+    groupItems(reg.items).filter(function (st) { return PL.capa === 'all' || st.name === PL.capa; }).forEach(function (st) {
+      var all = [];
+      st.tasks.forEach(function (t) { all = all.concat(t.items); });
+      html += row('etapa', st.name, 'Etapa ' + st.name + ' (toda)', all, 'stage');
+      st.tasks.forEach(function (t) { html += row('tarea', st.name + '|' + t.name, t.name, t.items, 'task'); });
+    });
+    return '<div class="list">' + html + '</div>';
+  }
+  /** Controles de una tarea con AP / RZ / N/A para marcar desde la lámina. */
+  function plMarksHtml(reg, items) {
+    return '<div class="pl-its">' + items.map(function (it) {
+      var cur = itemState(it);
+      return '<div class="pl-it"><p class="pl-crit">' + esc(recorte(it.criterio) || it.tarea || 'Control') + '</p><div class="pl-mks">' +
+        ['ap', 'rz', 'na'].map(function (st) {
+          return '<button type="button" class="btn pl-mk m-' + st + '" aria-pressed="' + (cur === st) + '" data-act="pl-mark" data-key="' + esc(reg.key) + '" data-off="' + it.off + '" data-st="' + st + '">' + EST[st] + '</button>';
+        }).join('') + '</div></div>';
+    }).join('') + '</div>';
+  }
+  /** Lista de registros de la planilla para elegir (sólo ella se redibuja al escribir). */
+  function plList() {
+    var box = document.getElementById('plList');
+    if (!box) return;
+    var terms = searchTerms(PL.q);
+    var regs = listRegs(PL.sheet).filter(function (r) {
+      var hay = norm([r.elemento, r.piso, r.sector, r.etapa].join(' '));
+      return terms.every(function (t) { return hay.indexOf(t) >= 0; });
+    });
+    box.innerHTML = !regs.length ? '<p class="help">Ningún registro coincide. Podés crear uno nuevo.</p>' :
+      '<div class="list">' + regs.slice(0, 40).map(function (r) {
+        return '<button type="button" class="row" data-act="pl-pick" data-key="' + esc(r.key) + '"><span class="grow"><span class="ttl2">' + esc(r.elemento || 'Sin elemento') + '</span>' +
+          '<span class="meta">' + esc([r.piso ? 'Piso ' + r.piso : '', r.sector, r.h ? 'fila ' + r.h : 'nuevo'].filter(Boolean).join(' · ')) + '</span>' +
+          '<span class="chips">' + plChip(plItemsColor(r.items)) + '</span></span>' + ic('chev-r', 'chev') + '</button>';
+      }).join('') + '</div>' + (regs.length > 40 ? '<p class="help">Hay más de 40: escribí para acotar.</p>' : '');
+  }
+
+  function plPalette(pin) {
+    return '<fieldset class="sec"><legend>Color de la marca</legend><p class="help">El color organiza las marcas; el símbolo y el estado siguen indicando el resultado del control.</p><div class="pl-palette">' + Object.keys(PL_COLORS).map(function (key) {
+      var color = PL_COLORS[key];
+      return '<button type="button" class="pl-color" data-act="pl-color" data-color="' + key + '" aria-pressed="' + ((pin.color || 'auto') === key) + '"><i aria-hidden="true" style="--mark-color:' + color.hex + '"></i>' + color.label + '</button>';
+    }).join('') + '</div></fieldset>';
+  }
+  function plSetColor(pin, color) {
+    if (!Object.prototype.hasOwnProperty.call(PL_COLORS, color)) return;
+    var pending = S.queue.filter(function (o) { return o.op === 'pin' && o.pin === pin.id && plUnsent(o) && (o.accion === 'poner' || o.accion === 'color'); });
+    if (pending.length) pending[pending.length - 1].color = color;
+    else S.queue.push(pinOp('color', pin.id, { sheet: pin.sheet, elemento: pin.elemento, piso: pin.piso }, {color: color}));
+    queueChanged();
+    plDraw();
+  }
+  function pinOp(accion, pin, reg0, extra) {
+    var op = { id: uid(), op: 'pin', accion: accion, sheet: reg0.sheet, status: 'pending', createdAt: Date.now(), by: S.settings.inspector,
+      plano: PL.id, elemento: reg0.elemento, piso: reg0.piso };
+    if (pin) op.pin = pin;
+    Object.keys(extra || {}).forEach(function (k) { op[k] = extra[k]; });
+    return op;
+  }
+  function plAddPin(reg, at, pt) {
+    var op = pinOp('poner', null, reg, { x: pt.x, y: pt.y, alc: { k: at.k, v: at.v } });
+    if (pt.pts) op.pts = pt.pts;
+    op.pin = op.id;
+    if (reg.pending) op.ref = reg.opId; else { op.h = reg.h; op.sig = reg.sig; }
+    S.queue.push(op);
+    queueChanged();
+    PL.sel = op.id;
+  }
+  /** Mueve un pin; una zona se traslada entera (su centro va al punto tocado, sin salirse de la lámina). */
+  function plMovePin(p, pt) {
+    var ex = { x: pt.x, y: pt.y };
+    if (p.pts) {
+      // se limita el desplazamiento (no cada vértice): la zona conserva su forma y no se sale de la lámina
+      var xs = p.pts.map(function (q) { return q[0]; }), ys = p.pts.map(function (q) { return q[1]; });
+      var lim = function (d, vs) { return Math.min(1 - Math.max.apply(null, vs), Math.max(-Math.min.apply(null, vs), d)); };
+      var dx = lim(pt.x - p.x, xs), dy = lim(pt.y - p.y, ys);
+      ex.pts = p.pts.map(function (q) { return [r5(q[0] + dx), r5(q[1] + dy)]; });
+      var c = plCenter(ex.pts);
+      ex.x = c.x; ex.y = c.y;
+    }
+    var mine = S.queue.filter(function (o) { return o.op === 'pin' && o.pin === p.id && plUnsent(o) && (o.accion === 'poner' || o.accion === 'mover'); });
+    var last = mine[mine.length - 1];
+    if (last) { last.x = ex.x; last.y = ex.y; if (ex.pts) last.pts = ex.pts; queueChanged(); return; }
+    S.queue.push(pinOp('mover', p.id, { sheet: p.sheet, elemento: p.elemento, piso: p.piso }, ex));
+    queueChanged();
+  }
+  function plQuit(p) {
+    var unsent = S.queue.some(function (o) { return o.op === 'pin' && o.pin === p.id && o.accion === 'poner' && plUnsent(o); });
+    var removed = [], deletion = null, undone = false;
+    S.queue = S.queue.filter(function (o, i) {
+      var drop = o.op === 'pin' && o.pin === p.id && (unsent || ((o.accion === 'mover' || o.accion === 'color') && plUnsent(o)));
+      if (drop) removed.push({op: o, index: i});
+      return !drop;
+    });
+    if (!unsent) {
+      deletion = pinOp('quitar', p.id, { sheet: p.sheet, elemento: p.elemento, piso: p.piso });
+      S.queue.push(deletion);
+      hold(deletion, 6500);
+    }
+    queueChanged();
+    return function () {
+      if (undone) return;
+      if (deletion && (S.queue.indexOf(deletion) < 0 || deletion.status !== 'pending' || deletion.sent)) {
+        toast('El borrado ya se envió. Podés volver a colocar la marca.', {kind: 'info'}); return;
+      }
+      undone = true;
+      if (deletion) { S.queue.splice(S.queue.indexOf(deletion), 1); delete S.hold[deletion.id]; }
+      removed.forEach(function (entry) { S.queue.splice(Math.min(entry.index, S.queue.length), 0, entry.op); });
+      queueChanged(); plDraw();
+      toast('Borrado deshecho', {kind: 'ok'});
+    };
+  }
+  /** Operación de pin que todavía se puede editar o descartar: pendiente, o rechazada sin haber salido. */
+  function plUnsent(o) { return !o.sent && (o.status === 'pending' || o.status === 'error'); }
+  function plRequestDelete(pin) {
+    return ask({title: '¿Borrar ' + (pin.pts ? 'esta zona' : 'este pin') + '?',
+      body: 'Se quita la marca del plano. Los controles, sus resultados y las fotos se conservan.',
+      ok: {label: pin.pts ? 'Borrar zona' : 'Borrar pin', tone: 'danger'}}).then(function (choice) {
+      if (choice !== 'ok') return;
+      // Una sincronización puede haber cambiado la marca mientras estaba abierta la pregunta.
+      var current = plPins(pin.plano).filter(function (p) { return p.id === pin.id; })[0];
+      if (!current) return;
+      var undo = plQuit(current);
+      PL.sel = null; plDraw();
+      toast(pin.pts ? 'Zona borrada' : 'Pin borrado', {kind: 'ok', ms: 6000, action: {label: 'Deshacer', icon: 'undo', fn: undo}});
+    });
+  }
+
+  /** Acciones de los botones de la pestaña Planos (data-act="pl-*"). */
+  function plAct(a, el) {
+    var pl = planoOf(PL.id);
+    if (a === 'pl-goto') return plGoto(el.dataset.sheet, el.dataset.key);
+    if (a === 'pl-retry') return render();
+    if (a === 'pl-lam') { PL.id = el.dataset.id; PL.z = 0; PL.sel = null; PL.draft = null; PL.moving = false; PL.mode = 'ver'; PL.q = ''; PL.zpts = null; return plMount(PL.sheet, PL.regKey && getReg(PL.sheet, PL.regKey), PL.doc); }
+    if (!pl) return;
+    if (a === 'pl-zoom') { var v = document.getElementById('plView'); return plZoomAt(pl, Number(el.dataset.f), v.clientWidth / 2, v.clientHeight / 2); }
+    if (a === 'pl-color') { var pin = plSelPin(); if (pin) plSetColor(pin, el.dataset.color); return; }
+    if (a === 'pl-fit') { plFit(pl, true); return plApply(pl); }
+    if (a === 'pl-full') return plToggleFull();
+    if (a === 'pl-bajar') return plBajar();
+    if (a === 'pl-f') { PL.hide[el.dataset.c] = !PL.hide[el.dataset.c]; return plDraw(); }
+    if (a === 'pl-capa') { PL.capa = el.dataset.c; PL.sel = null; return plDraw(); }
+    if (a === 'pl-delete-mode') { PL.mode = 'borrar'; PL.sel = null; PL.draft = null; PL.moving = false; PL.zpts = null; return plDraw(); }
+    if (a === 'pl-mode') { PL.mode = 'poner'; PL.sel = null; PL.draft = null; PL.zpts = null; return plDraw(); }
+    if (a === 'pl-zona') { PL.mode = 'zona'; PL.zpts = []; PL.sel = null; PL.draft = null; return plDraw(); }
+    if (a === 'pl-zundo') { if (PL.zpts) PL.zpts.pop(); return plDraw(); }
+    if (a === 'pl-zcerrar') {
+      if (!PL.zpts || PL.zpts.length < 3) return;
+      var zv = plZonaPts(PL.zpts);
+      if (zv.error) { toast(zv.error, { kind: 'err' }); return; }   // queda abierta para corregir los puntos
+      var zc = plCenter(zv.pts);
+      PL.draft = { x: zc.x, y: zc.y, pts: zv.pts, key: PL.regKey || null };
+      PL.zpts = null; PL.mode = 'poner'; PL.q = '';
+      return plDraw();
+    }
+    if (a === 'pl-cancel') { PL.mode = 'ver'; PL.draft = null; PL.sel = null; PL.moving = false; PL.zpts = null; return plDraw(); }
+    if (a === 'pl-move') { PL.moving = true; return plDraw(); }
+    if (a === 'pl-new') { S.ui.pinDraft = { plano: PL.id, x: PL.draft.x, y: PL.draft.y, pts: PL.draft.pts || null }; return nav('/c/' + PL.sheet + '/nuevo'); }
+    if (a === 'pl-rechoose') { if (PL.draft) PL.draft.key = null; return plDraw(); }
+    if (a === 'pl-pick') {
+      if (!PL.draft || !getReg(PL.sheet, el.dataset.key)) return;
+      PL.draft.key = el.dataset.key;
+      return plDraw();
+    }
+    if (a === 'pl-scope') {
+      var reg = PL.draft && getReg(PL.sheet, PL.draft.key);
+      if (!reg) return;
+      var spt = { x: PL.draft.x, y: PL.draft.y, pts: PL.draft.pts || null };
+      plAddPin(reg, { k: el.dataset.k, v: el.dataset.v }, spt);
+      PL.draft = null; PL.mode = 'ver';
+      toast((spt.pts ? 'Zona marcada' : 'Pin puesto') + ' · se envía al tener señal', { kind: 'ok' });
+      plDraw();
+      return plReveal(spt);
+    }
+    if (a === 'pl-open') {
+      var pin = plSelPin(), oreg = pin && plRegOf(pin);
+      if (!oreg) return;
+      // abre el registro en el primer control pendiente de lo que marca el pin
+      var its = plScopeItems(oreg, pin.at);
+      var first = its.filter(function (it) { return itemState(it) === 'pend'; })[0] || its[0];
+      if (first) {
+        S.ui.filter[oreg.key] = 'all';
+        delete S.ui.folded[oreg.key + '|' + (first.etapa || '—')];
+        S.ui.focus = first.off;
+      }
+      return nav('/c/' + oreg.sheet + '/r/' + oreg.key);
+    }
+    if (a === 'pl-quit') { var qpin = plSelPin(); if (qpin) return plRequestDelete(qpin); return; }
+    if (a === 'pl-mark') {
+      var mreg = getReg(PL.sheet, el.dataset.key), off = Number(el.dataset.off), st = el.dataset.st;
+      if (!mreg) return;
+      if (!S.settings.inspector) { toast('Primero elegí quién sos', { kind: 'info' }); return nav('/quien'); }
+      var mlk = mreg.key + ':' + off, now = Date.now();
+      if (S.ui.lastMark[mlk] && now - S.ui.lastMark[mlk] < 700) return;   // rebote o doble toque con guante
+      S.ui.lastMark[mlk] = now;
+      var mit = itemOf(mreg, off);
+      if (!mit) return;
+      if (itemState(mit) === st) { toast('Ya está en ' + EST[st] + '. Para borrarlo: abrí el registro › Detalle › Borrar carga.', { kind: 'info' }); return; }
+      return decideMark(mreg, mit, st).then(function (plan) {
+        if (!plan) return;
+        var u = applyMark(plan.reg, off, st, plan);
+        if (u) markToasts(plan, u);
+        if (PL.regKey) return render({ keepScroll: true });
+        renderTop();
+        plDraw();
+      });
+    }
+  }
+  /** «Ver en el plano» desde un registro: abre la pestaña Planos en el primer pin del registro. */
+  function plGoto(sheet, key) {
+    var k = liveKey(key), found = null;
+    plLams(sheet).forEach(function (l) {
+      plPins(l.id).forEach(function (pn) { var r = plRegOf(pn); if (!found && r && liveKey(r.key) === k) found = { plano: l.id, pin: pn.id }; });
+    });
+    if (!found) return toast('Este registro todavía no tiene pines en un plano.', { kind: 'info' });
+    PL.id = found.plano; PL.sel = found.pin; PL.center = found.pin; PL.z = 0; PL.mode = 'ver'; PL.draft = null; PL.moving = false;
+    S.ui.tab[sheet] = 'planos';
+    nav('/c/' + sheet);
+  }
+  /** Registro nuevo creado desde «Nuevo registro acá»: deja el pin (todo el registro) en cola y devuelve la ruta a la que volver. */
+  function plAfterCreate(op) {
+    var d = S.ui.pinDraft;
+    S.ui.pinDraft = null;
+    // sólo vale si se vino desde la pestaña Planos (no queda un pin pendiente de una pantalla que se abandonó)
+    if (!d || S.stack[S.stack.length - 1] !== '/c/' + op.sheet || S.ui.tab[op.sheet] !== 'planos') return '';
+    var pop = { id: uid(), op: 'pin', accion: 'poner', sheet: op.sheet, status: 'pending', createdAt: Date.now(), by: S.settings.inspector,
+      plano: d.plano, x: d.x, y: d.y, elemento: op.header.elemento, piso: op.header.piso, ref: op.id,
+      // con una capa elegida, la marca nueva queda en esa etapa; si no, marca todo el registro
+      alc: PL.capa !== 'all' ? { k: 'etapa', v: PL.capa } : { k: 'reg', v: '' } };
+    if (d.pts) pop.pts = d.pts;
+    pop.pin = pop.id;
+    S.queue.push(pop);
+    PL.id = d.plano; PL.sel = pop.id; PL.center = pop.id; PL.z = 0; PL.mode = 'ver'; PL.draft = null; PL.moving = false;
+    return '/c/' + op.sheet;
+  }
 
   /* ---------- Inicio (§5.3) ---------- */
   /*
@@ -2546,10 +3675,13 @@
     if (!cat) { nav('/', { replace: true }); return; }
     renderTop(cat.titulo, 'Planilla ' + cat.sheet + (cat.rubro ? ' · ' + cat.rubro : ''));
     var tab = S.ui.tab[sheet] || 'reg';
+    var hasPl = plLams(sheet).length > 0;
+    if (tab === 'planos' && !hasPl) tab = 'reg';
     var tabBtn = function (k, label) {
       return '<button type="button" role="tab" aria-selected="' + (tab === k) + '" data-act="tab" data-sheet="' + esc(sheet) + '" data-tab="' + k + '">' + label + '</button>';
     };
-    var html = '<div class="seg" role="tablist" aria-label="' + esc('Planilla ' + cat.sheet) + '">' + tabBtn('reg', 'Registros') + tabBtn('req', 'Requisitos') + '</div>';
+    var html = '<div class="seg" role="tablist" aria-label="' + esc('Planilla ' + cat.sheet) + '">' + tabBtn('reg', 'Registros') + tabBtn('req', 'Requisitos') + (hasPl ? tabBtn('planos', 'Planos') : '') + '</div>';
+    if (tab === 'planos') { view.innerHTML = html + '<div id="plHost"></div>'; plMount(sheet); return; }
     html += tab === 'reg' ? regTab(sheet) : reqList(sheet);
     // sin registros no hay modelo para copiar: sin barra (.fab se conserva como gancho; ya no flota)
     if (cat.registros.length) html += bbar('<button class="fab btn primary lg block" data-act="go" data-to="/c/' + esc(sheet) + '/nuevo">' + ic('plus') + 'Nuevo registro</button>');
@@ -2702,7 +3834,10 @@
     };
     // teclado de iOS (eng-15): códigos sin autocorrector ni mayúscula inicial forzada
     var code = ' autocapitalize="characters" autocorrect="off" spellcheck="false" autocomplete="off"';
-    var html = '<form id="newForm" class="card pad" autocomplete="off">' +
+    var pd = S.ui.pinDraft, pdl = pd && planoOf(pd.plano);
+    var pinNote = pdl && S.stack[S.stack.length - 1] === '/c/' + sheet && S.ui.tab[sheet] === 'planos'
+      ? noteHtml('info', 'Este registro queda ubicado en la lámina «' + esc(pdl.titulo) + '».', 'image') : '';
+    var html = pinNote + '<form id="newForm" class="card pad" autocomplete="off">' +
       '<label class="f"><span>Elemento a verificar (obligatorio)</span><input class="in" name="elemento" required placeholder="Ej.: Losa sobre 3° piso, V12-V14" list="dl-el"' +
       ' autocapitalize="sentences" autocorrect="off"></label>' +
       '<datalist id="dl-el">' + sugg('elemento') + '</datalist>' +
@@ -2766,9 +3901,10 @@
         op.snapshot.forEach(function (s) { op.items[s[0]] = { criterio: s[4], tarea: s[2], documento: doc }; });
       }
       S.queue.push(op);
+      var backPlano = plAfterCreate(op);
       queueChanged();
       toast(navigator.onLine || IN_GAS ? 'Registro guardado · enviando…' : 'Guardado en el celular · se envía al tener señal', { kind: 'ok' });
-      nav('/c/' + sheet + '/r/p' + op.id, { replace: true });
+      nav(backPlano || '/c/' + sheet + '/r/p' + op.id, { replace: true });
     });
   }
 
@@ -2800,7 +3936,18 @@
     var rdoc = docDefault(reg);
     // resumen compacto (§5.6): datos, fila del plano y avance; la edición de datos va adentro de #hdr
     var html = storageNote() + '<section class="card sum"><div id="hdr">' + (S.ui.open['hdr:' + reg.key] ? headerForm(reg) : sumHead(reg)) + '</div>' +
-      docRow(reg, rdoc) + barHtml(s) + '</section>';
+      barHtml(s) + '</section>' + '<section class="card reg-docs"><h2>Documentos del registro</h2>' + docRow(reg, rdoc) + '</section>';
+    var selectedDoc = S.ui.open[regPlanKey(reg)];
+    if (selectedDoc && String(rdoc || '').split(/\/\/|;/).map(function (x) { return x.trim(); }).indexOf(selectedDoc) < 0) {
+      selectedDoc = null; delete S.ui.open[regPlanKey(reg)];
+    }
+    if (selectedDoc) {
+      html += '<section class="card reg-plan"><div class="pad"><b>' + esc(selectedDoc) + '</b>' +
+        '<p class="help">Marcá pines o zonas para este registro. Elegí una tarea para cargar AP, RZ o N/A desde el plano.</p>' +
+        '<button type="button" class="btn sm" data-act="reg-plan" data-key="' + reg.key + '" data-doc="' + esc(selectedDoc) + '">Cerrar plano</button></div>' +
+        (plForDoc(sheet, selectedDoc).length ? '<div id="plHost"></div>' : '<p class="pad">No hay imágenes vinculadas a este código y revisión. Revisá planos.json y sincronizá el PIE.</p>') + '</section>';
+    }
+    html += regPhotosHtml(reg);
     html += docBanner(reg, rdoc) + sendErrNote(reg);
     html += filtersHtml(reg, s, filter);
     groupItems(reg.items).forEach(function (g) {
@@ -2835,6 +3982,8 @@
           (lib.pend ? '<span class="meta"> · se registra al enviar</span>' : '') +
           (gs.pend || gs.rz ? '<span class="meta"> · cambió después de liberar</span>' : '') + '</span></div>';
       } else if (!gs.pend && (filter === 'all' || filter === 'pend')) {
+        var libErr = S.queue.filter(function (o) { return o.op === 'liberar' && o.status === 'error' && o.etapa === g.name && opTargets(o, reg); })[0];
+        if (libErr) html += noteHtml('err', '<p><b>' + esc('El PIE no aceptó la liberación de ' + g.name) + '</b></p><p>' + esc(libErr.error || '') + '</p>');
         html += '<button type="button" class="btn block lib" data-act="liberar" data-key="' + reg.key + '" data-stage="' + esc(g.name) + '">' + ic('check-circle') +
           esc('Liberar ' + g.name) + '</button>';
       }
@@ -2848,6 +3997,7 @@
         esc((s.rz ? 'Sin pendientes' : 'Completo') + ' · ' + s.ap + ' AP · ' + s.na + ' N/A · ' + s.rz + ' RZ') + '</span></div>' +
         '<button class="btn" data-act="go" data-to="/c/' + esc(sheet) + '">Planilla ' + esc(sheet) + '</button>');
     view.innerHTML = html;
+    if (selectedDoc && document.getElementById('plHost')) plMount(sheet, reg, selectedDoc);
     // el elemento completo va en el resumen sólo si en el header quedó cortado
     var tb = document.querySelector('#top .ttl b'), se = view.querySelector('.sum-el');
     if (tb && se && tb.scrollWidth > tb.clientWidth) se.hidden = false;
@@ -2867,6 +4017,7 @@
       '<p class="sum-foot">' + (reg.pending ? 'Planilla ' + esc(reg.sheet) + ' · nuevo, se crea en el PIE al enviarse'
         : 'Planilla ' + esc(reg.sheet) + ' · fila ' + reg.h + (reg.dirty ? ' · <span class="t-sync">cambios sin enviar</span>' : '')) + '</p></div>' +
       (MODE === 'sidebar' && !reg.pending ? '<button class="icon-btn" type="button" data-act="goto" data-sheet="' + esc(reg.sheet) + '" data-row="' + reg.h + '" aria-label="Ver fila en la planilla">' + ic('ext') + '</button>' : '') +
+      (plHasPin(reg) ? '<button class="icon-btn" type="button" data-act="pl-goto" data-sheet="' + esc(reg.sheet) + '" data-key="' + reg.key + '" aria-label="Ver en el plano">' + ic('image') + '</button>' : '') +
       '<button class="icon-btn" type="button" data-act="hdr" data-key="' + reg.key + '" aria-label="Editar datos del registro">' + ic('pencil') + '</button></div>';
   }
   /** Chip de una parte del plano del registro contra el FOD 02. */
@@ -2877,19 +4028,18 @@
     if (r.used == null) return ['', 'sin rev.'];
     return revCmp(r.used, r.doc[1]) < 0 ? ['rz', 'superado'] : ['ap', 'vigente'];
   }
-  /*
-   * Plano del registro como fila-botón (a11y-12): el código completo, que corta renglón en vez de esconder
-   * la revisión, con su chip. Abre el selector del FOD 02 (reemplazar, agregar otro o texto libre).
-   */
+  /** El código abre sus hojas dentro del registro; cambiar documento es una acción separada. */
   function docRow(reg, rdoc) {
-    var parts = String(rdoc || '').split('//').map(function (x) { return x.trim(); }).filter(Boolean);
-    var codes = parts.length ? parts.map(function (part) {
-      var c = docChip(part);
-      return '<span class="dr"><span class="code">' + esc(part) + '</span> <span class="chip ' + c[0] + '">' + esc(c[1]) + '</span></span>';
-    }).join('') : '<span class="dr"><span class="code missing">Falta plano · elegí el del FOD 02</span></span>';
-    return '<button class="docrow" type="button" data-act="docpick" data-target="default" data-key="' + reg.key + '" data-regdoc="1" data-value="' + esc(rdoc) + '"' +
-      ' aria-label="' + esc('Plano del registro: ' + (rdoc || 'sin plano') + '. Cambiar') + '">' + ic('doc') +
-      '<span class="docrow-codes">' + codes + '</span>' + ic('chev-r', 'chev') + '</button>';
+    var parts = String(rdoc || '').split(/\/\/|;/).map(function (x) { return x.trim(); }).filter(Boolean);
+    var rows = parts.map(function (part) {
+      var c = docChip(part), count = plForDoc(reg.sheet, part).length, open = S.ui.open[regPlanKey(reg)] === part;
+      return '<div class="reg-doc"><div class="dr"><span class="code">' + esc(part) + '</span> <span class="chip ' + c[0] + '">' + esc(c[1]) + '</span></div>' +
+        '<button class="btn docrow" type="button" data-act="reg-plan" data-key="' + reg.key + '" data-doc="' + esc(part) + '" aria-expanded="' + open + '">' + ic('image') +
+        (count ? (open ? 'Cerrar plano' : 'Abrir plano') + ' · ' + count + (count === 1 ? ' hoja' : ' hojas') : 'Consultar imagen no vinculada') + '</button>' +
+        (count ? '' : '<p class="help">Sin imagen vinculada a esta revisión.</p>') + '</div>';
+    }).join('');
+    return rows + '<button class="btn sm" type="button" data-act="docpick" data-target="default" data-key="' + reg.key + '" data-regdoc="1" data-value="' + esc(rdoc) + '">' + ic('pencil') +
+      (parts.length ? 'Cambiar documento' : 'Elegir documento del FOD 02') + '</button>';
   }
   /** Banner de plano superado (§7.5): queda como recordatorio mientras haya algo con una revisión vieja. */
   function docBanner(reg, rdoc) {
@@ -2993,8 +4143,6 @@
     var open = !!S.ui.open[reg.key + ':' + it.off];
     var fz = itemFum(reg, it);
     var rdocIt = docDefault(reg);
-    var nFotos = ((reg.fotos && reg.fotos[it.off]) || []).length + ((reg.localFotos && reg.localFotos[it.off]) || []).length;
-    var fotosTxt = nFotos ? nFotos + (nFotos === 1 ? ' foto' : ' fotos') : '';
     // resumen de lo cargado (sólo con el detalle cerrado): el estado primero, en palabras
     var fumTxt = fz.server
       ? 'FUM ' + fz.server[0] + (fz.closing ? (fz.closing.resultado === 'Anulada' ? ' se anula al enviar' : ' se cierra al enviar')
@@ -3004,7 +4152,6 @@
       String(it.fecha || '').toUpperCase() === 'NA' ? '' : fmtDate(it.fecha),
       it.resp,
       it.documento && it.documento !== rdocIt ? 'Plano: ' + it.documento : '',
-      fotosTxt,
       it.obs ? '“' + it.obs + '”' : ''].filter(Boolean).map(esc);
     if (st !== 'pend') filled.unshift('<b class="t-' + st + '">' + EST[st] + '</b>');
     var b = function (cls, icon) {
@@ -3014,25 +4161,26 @@
     var meta = [it.metodo, it.instrumento && it.instrumento !== 'NA' ? it.instrumento : ''].filter(Boolean).join(' · ');
     var warn = ((st === 'ap' || st === 'rz') && needsSerial(it.instrumento)
       ? '<button type="button" class="chip pend" data-act="serial" data-key="' + reg.key + '" data-off="' + it.off + '">Falta N° de serie</button>' : '') +
+      (!calVencida(it) && (st === 'ap' || st === 'rz') && calFalta(it.instrumento).length ? '<button type="button" class="chip pend" data-act="serial" data-key="' + reg.key + '" data-off="' + it.off + '">Sin calibración cargada</button>' : '') +
       (calVencida(it) ? '<button type="button" class="chip rz" data-act="serial" data-key="' + reg.key + '" data-off="' + it.off + '">' + ic('alert', 'ic-16') + 'Calibración vencida</button>' : '') +
       docWarnHtml(reg, it);
-    var moreLabel = 'Detalle del control' + (fotosTxt ? ', ' + fotosTxt : '') + (it.obs ? ', con observación' : '');
+    var moreLabel = 'Detalle del control' + (it.obs ? ', con observación' : '');
     var h = '<div class="item ' + st + (isKept(reg, it) ? ' kept' : '') + '" id="it-' + it.off + '">' +
       '<p class="crit" id="crit-' + it.off + '">' + esc(it.criterio) + '</p>' +
       (meta ? '<p class="meta">' + esc(meta) + '</p>' : '') +
       '<div class="acts' + (st !== 'pend' ? ' set' : '') + '" role="group" aria-label="Resultado del control">' + b('ap', 'check') + b('rz', 'x') + b('na', 'minus') +
-      '<button type="button" class="more' + (nFotos || it.obs ? ' has' : '') + '" data-act="more" data-key="' + reg.key + '" data-off="' + it.off + '"' +
+      '<button type="button" class="more' + (it.obs ? ' has' : '') + '" data-act="more" data-key="' + reg.key + '" data-off="' + it.off + '"' +
       ' aria-expanded="' + open + '" aria-controls="det-' + it.off + '" aria-label="' + esc(moreLabel) + '">' + ic('chev-d') + '</button></div>';
     if (filled.length && !open) h += '<p class="filled">' + filled.join(' · ') + '</p>';
     if (warn) h += '<div class="warn">' + warn + '</div>';
-    if (open) h += detailHtml(reg, it, st, fz, rdocIt, nFotos);
+    if (open) h += detailHtml(reg, it, st, fz, rdocIt);
     return h + '</div>';
   }
   /*
-   * Detalle del control (§4.7), en este orden: FUM (si hay), fotos (sin desplazarse), observaciones,
+   * Detalle del control (§4.7): FUM (si hay), observaciones,
    * datos del control y el pie con «Borrar carga» (sólo si hay algo cargado) y «Listo».
    */
-  function detailHtml(reg, it, st, fz, rdocIt, nFotos) {
+  function detailHtml(reg, it, st, fz, rdocIt) {
     var attrs = ' data-key="' + reg.key + '" data-off="' + it.off + '"';
     var abrevs = datos().responsables.map(function (x) { return x.abrev; }).filter(Boolean);
     if (it.resp && abrevs.indexOf(it.resp) < 0) abrevs.push(it.resp);
@@ -3040,11 +4188,6 @@
     var canClear = st !== 'pend' || it.fecha || it.resp || it.fum || it.obs || fz.open;
     return '<div class="det" id="det-' + it.off + '"' + attrs + '>' +
       fumBox(reg, it) +
-      '<fieldset class="sec"><legend>Fotos' + (nFotos ? ' · ' + nFotos : '') + '</legend>' +
-      '<div class="thumbs">' + photoThumbs(reg, it) + '</div>' +
-      '<div class="grid2">' +
-      '<label class="btn file-btn">' + ic('camera') + 'Cámara<input type="file" accept="image/*" capture="environment" data-photo="1"' + attrs + '></label>' +
-      '<label class="btn file-btn">' + ic('image') + 'Galería<input type="file" accept="image/*" multiple data-photo="1"' + attrs + '></label></div></fieldset>' +
       '<label class="f sec"><span>Observaciones</span><textarea class="in" data-field="obs" autocapitalize="sentences">' + esc(it.obs) + '</textarea></label>' +
       '<div class="sec"><div class="grid2">' +
       '<label class="f"><span>Fecha</span><input class="in" type="date" data-field="fecha" value="' + esc(fecha) + '">' +
@@ -3344,10 +4487,139 @@
     editItem(reg, off, patch);
     return u;
   }
-  /* ---------- Liberación de etapa (v1.7) ---------- */
+/* <reglas-liberacion> Mismo texto en Beta.gs y en la app (lo comprueba tests/reglas.test.mjs): la pantalla
+ * muestra exactamente lo que el servidor va a aceptar o rechazar al liberar una etapa. */
+var RL = (function () {
+  var ACC = { 'Á': 'A', 'É': 'E', 'Í': 'I', 'Ó': 'O', 'Ú': 'U', 'Ü': 'U', 'Ñ': 'N' };
+  function t(v) { return v == null ? '' : String(v).trim(); }
+  function k(v) { return t(v).toUpperCase().replace(/[ÁÉÍÓÚÜÑ]/g, function (c) { return ACC[c]; }); }
+  function pad(n) { return ('0' + n).slice(-2); }
+  function valid(s) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+    if (!m) return '';
+    var d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
+    return d.toISOString().slice(0, 10) === s ? s : '';
+  }
+  /** Fecha de la planilla (aaaa-mm-dd, dd/mm/aa o dd/mm/aaaa) como aaaa-mm-dd; '' si no es una fecha real. */
+  function iso(v) {
+    var s = t(v);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return valid(s);
+    var m = /^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4}|\d{2})$/.exec(s);
+    return m ? valid((m[3].length === 2 ? '20' + m[3] : m[3]) + '-' + pad(m[2]) + '-' + pad(m[1])) : '';
+  }
+  function ser(s) { return k(s).replace(/[^A-Z0-9]/g, ''); }
+  function code(s) { return k(s).replace(/[^A-Z0-9]+/g, '-').replace(/^-+|-+$/g, ''); }
+  /** «-», «S/N» o vacío en la columna de revisión del FOD 02: el documento no tiene revisión. */
+  function noRev(r) { return /^(|-+|S\/?N|S\/?R)$/i.test(t(r)); }
+  function revKey(v) {
+    var s = k(v).replace(/^0+(?=\d)/, '');
+    return /^\d+$/.test(s) ? [1, Number(s)] : [0, s];
+  }
+  function revCmp(a, b) {
+    var x = revKey(a), y = revKey(b);
+    if (x[0] !== y[0]) return x[0] - y[0];
+    return x[1] < y[1] ? -1 : x[1] > y[1] ? 1 : 0;
+  }
+  function revLabel(r) { var s = t(r); return /^\d$/.test(s) ? 'R0' + s : 'R' + s; }
+  /** Revisión escrita al final de un texto ya normalizado («-R07», «-REV-7», «_07», «-A»). */
+  function revAt(rest) {
+    var m = /^-(?:REV-?|R)?([0-9]{1,3}|[A-Z])(?=-|$)/.exec(rest);
+    return m ? m[1] : null;
+  }
+  /**
+   * Documento del FOD 02 citado en un texto: {doc, rev (escrita o null)} | {ambiguo: true} | null.
+   * Primero por código exacto (respetando «_» y «.», que distinguen códigos reales), después normalizado.
+   */
+  function findDoc(part, docs) {
+    var raw = k(part);
+    var exact = docs.filter(function (d) {
+      var c = k(d[0]);
+      return c && (raw === c || (raw.indexOf(c) === 0 && /^[\s\-_.]/.test(raw.charAt(c.length))));
+    }).sort(function (a, b) { return k(b[0]).length - k(a[0]).length; });
+    if (exact.length && (exact.length === 1 || k(exact[0][0]).length > k(exact[1][0]).length)) {
+      return { doc: exact[0], rev: revAt(code(raw.slice(k(exact[0][0]).length)) ? '-' + code(raw.slice(k(exact[0][0]).length)) : '') };
+    }
+    var n = code(part);
+    if (!n) return null;
+    var hits = docs.filter(function (d) { var c = code(d[0]); return c && (n === c || n.indexOf(c + '-') === 0); })
+      .sort(function (a, b) { return code(b[0]).length - code(a[0]).length; });
+    if (!hits.length) return null;
+    if (hits.filter(function (d) { return code(d[0]) === code(hits[0][0]); }).length > 1) return { ambiguo: true };
+    return { doc: hits[0], rev: revAt(n.slice(code(hits[0][0]).length)) };
+  }
+
+  /**
+   * Revisa los controles de una etapa. ctx = {hoy, sheet, h, docs (FOD 02), fodOk, equipos, fums,
+   * fumAbierta(it) opcional}. Devuelve {errores: [{off, cat, txt}], avisos: [...], ap, na, total, ultima}.
+   * cat: pend, rz, fum, fecha, resp, serie, cal, plano. Los avisos no impiden liberar: quedan anotados.
+   */
+  function check(items, ctx) {
+    var errores = [], avisos = [], ap = 0, na = 0, ultima = '';
+    var err = function (it, cat, txt) { errores.push({ off: it.off, cat: cat, txt: 'Control ' + it.off + ': ' + txt }); };
+    var avi = function (it, txt) { avisos.push({ off: it.off, cat: 'aviso', txt: 'Control ' + it.off + ': ' + txt }); };
+    items.forEach(function (it) {
+      var est = k(it.estado);
+      var fumTxt = /^(NA|N\/A|-+)$/i.test(t(it.fum)) ? '' : t(it.fum);
+      var rel = (ctx.fums || []).filter(function (f) {
+        return (String(f[1]) === String(ctx.sheet) && Number(f[2]) === Number(ctx.h) && Number(f[3]) === Number(it.off)) ||
+          (fumTxt && String(f[0]) === fumTxt);
+      });
+      if (rel.some(function (f) { return k(f[5]) === 'ABIERTA'; }) || (ctx.fumAbierta && ctx.fumAbierta(it))) err(it, 'fum', 'tiene una FUM abierta');
+      else if (fumTxt && !rel.length) avi(it, 'la FUM ' + fumTxt + ' no figura en el índice de FUM');
+      var isNA = est !== 'AP' && est !== 'RZ' && (est === 'NA' || est === 'N/A' || /^(NA|N\/A)$/i.test(t(it.fecha)));
+      if (isNA) { na++; return; }
+      if (est === 'RZ') { err(it, 'rz', 'está en RZ (falta la reinspección)'); return; }
+      if (est !== 'AP') { err(it, 'pend', 'está pendiente'); return; }
+      ap++;
+      var fecha = iso(it.fecha);
+      if (!fecha || fecha > ctx.hoy) err(it, 'fecha', 'AP sin fecha válida' + (t(it.fecha) ? ' («' + t(it.fecha) + '»)' : ''));
+      else if (fecha > ultima) ultima = fecha;
+      if (!t(it.resp)) err(it, 'resp', 'AP sin responsable');
+      var instr = t(it.instrumento);
+      if (/INDIQUE/i.test(instr)) err(it, 'serie', 'falta el N° de serie del instrumento');
+      var re = /\(([^)]+)\)/g, m;
+      while ((m = re.exec(instr))) {
+        var s = ser(m[1]);
+        if (!s || /INDIQUE/i.test(m[1])) continue;
+        var eqs = (ctx.equipos || []).filter(function (e) { return ser(e.serie) === s; });
+        var nombres = {};
+        eqs.forEach(function (e) { nombres[k(e.equipo)] = 1; });
+        if (!eqs.length) { err(it, 'cal', 'el equipo N° ' + t(m[1]) + ' no está en EQUIPOS DE MEDICIÓN'); continue; }
+        if (Object.keys(nombres).length > 1) { err(it, 'cal', 'el N° ' + t(m[1]) + ' figura para dos equipos distintos en EQUIPOS DE MEDICIÓN'); continue; }
+        // si se recalibró y se agregó otra fila con la misma serie, vale el vencimiento más lejano
+        var vence = eqs.map(function (e) { return iso(e.vence); }).sort().pop();
+        if (!vence) err(it, 'cal', 'el equipo N° ' + t(m[1]) + ' no tiene cargado el vencimiento de calibración');
+        else if (fecha && vence < fecha) err(it, 'cal', 'el equipo N° ' + t(m[1]) + ' tenía la calibración vencida (' + vence + ')');
+      }
+      var documento = t(it.documento);
+      if (!documento || /^(NA|N\/A|-+)$/i.test(documento)) return;
+      if (!ctx.fodOk) { avi(it, 'no se pudo consultar el FOD 02'); return; }
+      documento.split(/\/\/|;/).forEach(function (part) {
+        if (!t(part)) return;
+        var f = findDoc(part, ctx.docs || []);
+        if (!f) { avi(it, '«' + t(part) + '» no figura en el FOD 02'); return; }
+        if (f.ambiguo) { avi(it, '«' + t(part) + '» coincide con más de un código del FOD 02'); return; }
+        var d = f.doc;
+        if (/^NO$/i.test(t(d[7]))) err(it, 'plano', d[0] + ' figura como no vigente en el FOD 02');
+        if (/^NO APROBADO\b/.test(k(d[6]))) err(it, 'plano', d[0] + ' figura como no aprobado en el FOD 02');
+        if (noRev(d[1])) return;
+        if (f.rev == null) { if (!new RegExp('[-_.\\s]R(EV)?[-.\\s]?0*' + k(d[1]) + '$').test(k(d[0]))) avi(it, d[0] + ' sin revisión indicada (rige ' + revLabel(d[1]) + ')'); return; }
+        var c = revCmp(f.rev, d[1]);
+        if (c < 0) err(it, 'plano', 'controlado con ' + d[0] + ' ' + revLabel(f.rev) + ', superada por la ' + revLabel(d[1]));
+        else if (c > 0) avi(it, d[0] + ' ' + revLabel(f.rev) + ' es más nueva que la del FOD 02 (' + revLabel(d[1]) + ')');
+      });
+    });
+    return { errores: errores, avisos: avisos, ap: ap, na: na, total: items.length, ultima: ultima };
+  }
+  return { check: check, iso: iso, findDoc: findDoc, revCmp: revCmp };
+})();
+/* </reglas-liberacion> */
+
+  /* ---------- Liberación de etapa ---------- */
   /** Liberación de la etapa: la del PIE (hoja LIBERACIONES) o una encolada. null si no está liberada. */
   function liberacionOf(reg, etapa) {
     var q = S.queue.filter(function (o) { return o.op === 'liberar' && o.etapa === etapa && opTargets(o, reg); })[0];
+    if (q && q.status === 'error') return null;   // el PIE la rechazó: se muestra el motivo y se puede volver a liberar
     if (q) return { fecha: q.fecha, by: q.by, pend: true, op: q };
     if (reg.pending) return null;
     var l = ((S.catalog && S.catalog.liberaciones) || []).filter(function (x) { return x[0] === reg.sheet && x[1] === reg.h && x[2] === etapa; }).pop();
@@ -3360,29 +4632,34 @@
    */
   function stageChecks(reg, etapa) {
     var items = reg.items.filter(function (it) { return (it.etapa || '—') === etapa; });
-    var first = function (fn) { var x = items.filter(fn)[0]; return x ? x.off : null; };
-    var cnt = function (n, one, many) { return n + ' ' + (n === 1 ? one : many); };
-    var s = stats(items);
-    var fumOpen = items.filter(function (it) { return itemFum(reg, it).open; });
+    var fod = (S.catalog && S.catalog.fod) || {};
+    var r = RL.check(items, { hoy: today(), sheet: reg.sheet, h: reg.pending ? null : reg.h, docs: fodDocs(), fodOk: !!fodDocs().length && !fod.aviso,
+      equipos: equiposAll(), fums: fumsAll(), fumAbierta: function (it) { return itemFum(reg, it).open; } });
+    // además (sólo en el celular): el plano del registro, que se aplica a los controles que faltan
     var plano = docDefault(reg);
     var ds = docStatus({ documento: plano, estado: '', fecha: '' });
-    var na = regDocAlerts(items);
-    var planoOld = (ds && ds.level === 'old') || na.old || na.bad;
-    var sinSerie = items.filter(function (it) { var st = itemState(it); return (st === 'ap' || st === 'rz') && needsSerial(it.instrumento); });
-    var cal = items.filter(calVencida);
-    return [
-      { ok: !s.pend, txt: s.pend ? cnt(s.pend, 'control pendiente', 'controles pendientes') : 'Sin controles pendientes', off: first(function (it) { return itemState(it) === 'pend'; }) },
-      { ok: !s.rz, txt: s.rz ? cnt(s.rz, 'control en RZ (falta la reinspección)', 'controles en RZ (falta la reinspección)') : 'Sin controles en RZ', off: first(function (it) { return itemState(it) === 'rz'; }) },
-      { ok: !fumOpen.length, txt: fumOpen.length ? cnt(fumOpen.length, 'FUM abierta', 'FUM abiertas') : 'Sin FUM abiertas', off: fumOpen.length ? fumOpen[0].off : null },
-      { ok: !planoOld, txt: planoOld ? 'Plano superado en el FOD 02' + (ds && ds.level === 'old' ? ': rige la ' + revLabel(ds.latest) : '') : plano ? 'Plano vigente: ' + plano : 'Sin plano del FOD 02 cargado', off: null, warnOnly: !plano },
-      { ok: !sinSerie.length, txt: sinSerie.length ? cnt(sinSerie.length, 'control sin N° de serie del instrumento', 'controles sin N° de serie del instrumento') : 'Instrumentos con N° de serie', off: sinSerie.length ? sinSerie[0].off : null },
-      { ok: !cal.length, txt: cal.length ? cnt(cal.length, 'control con un equipo de calibración vencida', 'controles con equipos de calibración vencida') : 'Calibración de los equipos al día', off: cal.length ? cal[0].off : null }
+    if (ds && ds.level === 'old') r.errores.push({ off: null, cat: 'plano', txt: 'El plano del registro (' + ds.code + ' ' + revLabel(ds.used) + ') está superado: rige la ' + revLabel(ds.latest) });
+    var rows = [
+      ['pend', 'Sin controles pendientes'], ['rz', 'Sin controles en RZ'], ['fum', 'Sin FUM abiertas'],
+      ['fecha', 'Los AP tienen fecha y responsable'], ['serie', 'Instrumentos con N° de serie'],
+      ['cal', 'Equipos en EQUIPOS DE MEDICIÓN con la calibración al día'], ['plano', 'Planos vigentes en el FOD 02']
     ];
+    var chk = rows.map(function (row) {
+      var es = r.errores.filter(function (e) { return e.cat === row[0] || (row[0] === 'fecha' && e.cat === 'resp'); });
+      return { ok: !es.length, txt: es.length ? es[0].txt + (es.length > 1 ? ' (y ' + (es.length - 1) + ' más)' : '') : row[1],
+        off: es.filter(function (e) { return e.off != null; }).map(function (e) { return e.off; })[0] };
+    });
+    chk.avisos = r.avisos;
+    chk.resumen = r.total + ' controles: ' + r.ap + ' AP · ' + r.na + ' N/A';
+    return chk;
   }
   function checksHtml(chk) {
+    var av = chk.avisos || [];
     return '<ul class="chk">' + chk.map(function (c) {
       return '<li class="' + (c.ok ? 'ok' : 'no') + '">' + ic(c.ok ? 'check' : 'x', 'ic-16') + '<span>' + esc(c.txt) + '</span></li>';
-    }).join('') + '</ul>';
+    }).join('') + '</ul>' +
+      (av.length ? '<p class="help"><b>' + esc(av.length === 1 ? '1 aviso' : av.length + ' avisos') + '</b> (no impiden liberar; quedan anotados en LIBERACIONES): ' +
+        esc(av.slice(0, 3).map(function (a) { return a.txt; }).join(' · ') + (av.length > 3 ? ' · …' : '')) + '</p>' : '');
   }
   function liberarStage(reg, etapa) {
     var chk = stageChecks(reg, etapa);
@@ -3398,8 +4675,7 @@
           render();
         });
     }
-    var s = stats(reg.items.filter(function (it) { return (it.etapa || '—') === etapa; }));
-    var resumen = s.total + ' controles: ' + s.ap + ' AP · ' + s.na + ' N/A';
+    var resumen = chk.resumen;
     return ask({
       title: '¿Liberar la etapa ' + etapa + '?',
       html: checksHtml(chk) + '<p>Queda en la hoja LIBERACIONES del PIE con fecha de hoy y ' + esc(S.settings.inspector) + '.</p>',
@@ -3409,6 +4685,8 @@
       var r2 = getReg(reg.sheet, reg.key);
       if (!r2 || stageChecks(r2, etapa).some(function (c) { return !c.ok; })) { toast('La etapa cambió mientras tanto: revisala de nuevo.', { kind: 'err' }); return render({ keepScroll: true }); }
       if (liberacionOf(r2, etapa)) return;
+      // una liberación anterior rechazada por el PIE se reemplaza por esta
+      S.queue.filter(function (o) { return o.op === 'liberar' && o.status === 'error' && o.etapa === etapa && opTargets(o, r2); }).forEach(dropOp);
       var op = { id: uid(), op: 'liberar', sheet: r2.sheet, status: 'pending', createdAt: Date.now(), by: S.settings.inspector,
         etapa: etapa, fecha: today(), resumen: resumen, plano: docDefault(r2) || '', elemento: r2.elemento };
       if (r2.pending) op.ref = r2.opId; else { op.h = r2.h; op.sig = r2.sig; }
@@ -3463,6 +4741,7 @@
       return 'Cambios en ' + el + ' · ' + (n ? n + (n === 1 ? ' control' : ' controles') : 'datos del registro');
     }
     if (o.op === 'photo') return 'Foto · ' + recorte(o.criterio);
+    if (o.op === 'pin') return { poner: 'Pin en el plano', mover: 'Mover pin', quitar: 'Quitar pin', color: 'Cambiar color' }[o.accion] + ' · ' + (o.elemento || (o.h ? 'fila ' + o.h : 'registro nuevo'));
     if (o.op === 'liberar') return 'Liberar ' + o.etapa + ' · ' + (o.elemento || (o.h ? 'fila ' + o.h : 'registro nuevo'));
     var info = fumOpInfo(o);
     var acc = o.accion === 'cerrar' && o.resultado === 'Anulada' ? 'anular' : o.accion;
@@ -3546,7 +4825,7 @@
 
     if (MODE === 'pwa') {
       if (!isStandalone()) {
-        html += '<h2 class="sec">Instalar</h2><div class="card pad"><p class="m0">iPhone (Safari): Compartir → Agregar a inicio. Android (Chrome): menú ⋮ → Instalar app. Instalada, abre sin señal.</p>' +
+        html += '<h2 class="sec">Instalar</h2><div class="card pad"><p class="m0">iPhone (Safari): Compartir → Agregar a inicio. Android (Chrome): menú ⋮ → Instalar app. Abrila una vez con señal y descargá el PIE y los planos antes de usarla sin conexión.</p>' +
           (window.__piePrompt ? '<button type="button" class="btn primary block mt" data-act="install">Instalar en este celular</button>' : '') + '</div>';
       }
     } else {
@@ -3576,6 +4855,15 @@
    * menos de 350 ms y 24 px del anterior, sobre un elemento distinto, se descarta antes de que llegue a nadie.
    */
   var lastTap = null;
+  // Cámara o Galería abiertas: no se redibuja hasta que vuelva la foto (o se cancele, o pasen 60 s)
+  document.addEventListener('click', function (ev) {
+    if (ev.target.matches && ev.target.matches('input[type=file][data-photo]')) S.ui.picking = Date.now();
+  }, true);
+  document.addEventListener('cancel', function (ev) {
+    if (!ev.target.matches || !ev.target.matches('input[type=file][data-photo]')) return;
+    S.ui.picking = 0;
+    if (S.ui.renderOnBlur && !isEditing()) { S.ui.renderOnBlur = false; render({ keepScroll: true }); }
+  }, true);
   document.addEventListener('click', function (ev) {
     if (!ev.detail) return;   // teclado o lector de pantalla: no es un toque
     var now = Date.now();
@@ -3596,6 +4884,7 @@
     var reg;
     if (a === 'back') return back();
     if (a === 'go') return nav(el.dataset.to);
+    if (a.indexOf('pl-') === 0) return plAct(a, el);
     if (a === 'net') return netTap();
     if (a === 'sync') {
       clearOldErrors();
@@ -3637,13 +4926,15 @@
         // también lo que depende de lo descartado (p. ej. la FUM de un registro nuevo y su cierre)
         var ids = {};
         ids[did] = true;
+        // un pin: también sus cambios (mover, color, borrar), que sin el alta fallarían
+        if (dop.op === 'pin' && dop.pin) S.queue.forEach(function (o) { if (o.op === 'pin' && o.pin === dop.pin && o.status !== 'sending') ids[o.id] = true; });
         for (var grew = true; grew;) {
           grew = false;
           S.queue.forEach(function (o) { if (!ids[o.id] && o.ref && ids[o.ref]) { ids[o.id] = true; grew = true; } });
         }
         S.queue = S.queue.filter(function (o) {
           if (!ids[o.id]) return true;
-          if (o.img) { KV.del(o.img); delete S.thumbs[o.id]; }
+          if (o.op === 'photo') photoForget(o);
           delete S.hold[o.id];
           return false;
         });
@@ -3678,10 +4969,18 @@
         po = findPhoto();
         if (r !== 'ok' || !po || po.status === 'sending') return;   // si ya se está enviando, queda
         S.queue.splice(S.queue.indexOf(po), 1);
-        KV.del(po.img); delete S.thumbs[po.id];
+        photoForget(po);
         saveQueue();
         render({ keepScroll: true });
       });
+    }
+    if (a === 'reg-plan') {
+      var route = /^\/c\/([^/]+)\//.exec(S.route), reg = route && getReg(route[1], el.dataset.key);
+      if (!reg) return;
+      var key = regPlanKey(reg), part = el.dataset.doc;
+      S.ui.open[key] = S.ui.open[key] === part ? null : part;
+      PL.regKey = null; PL.z = 0; PL.sel = null; PL.draft = null;
+      return render({ keepScroll: true });
     }
     if (a === 'docpick') {
       var mm = /^\/c\/([^/]+)\//.exec(S.route);
@@ -3934,6 +5233,7 @@
       return { title: '¿Descartar los cambios en «' + el + '»?',
         body: (n ? n + (n === 1 ? ' control' : ' controles') + '. ' : '') + 'Vuelven a como están en el PIE.', ok: ok };
     }
+    if (o.op === 'pin') return { title: '¿Descartar este cambio de pin?', body: 'El plano queda como está en el PIE.', ok: ok };
     if (o.op === 'photo') return { title: '¿Descartar esta foto?', body: 'Todavía no se envió.', ok: ok };
     if (o.op === 'liberar') return { title: '¿Descartar la liberación de ' + o.etapa + '?', body: 'La etapa queda sin liberar.', ok: ok };
     if (o.accion === 'abrir') return { title: '¿Descartar la FUM de «' + recorte(o.criterio) + '»?', body: 'El control queda en RZ sin FUM.', ok: ok };
@@ -3943,6 +5243,8 @@
   document.addEventListener('input', function (ev) {
     var el = ev.target;
     if (el.dataset.input === 'docq' && picker) { picker.q = el.value; renderDocList(); return; }
+    if (el.dataset.input === 'plq') { PL.q = el.value; plList(); return; }
+    if (el.dataset.input === 'photoNote') { S.ui.photoNote[el.dataset.key] = el.value; return; }   // sobrevive a un redibujo
     // buscadores (§6.10): el campo no se vuelve a dibujar; sólo su lista, 150 ms después de la última tecla
     if (el.dataset.input === 'search' || el.dataset.input === 'regSearch') {
       if (el.dataset.input === 'search') S.ui.search = el.value; else S.ui.regSearch[el.dataset.sheet] = el.value;
@@ -3956,11 +5258,17 @@
 
   document.addEventListener('change', function (ev) {
     var el = ev.target;
+    if (el.dataset.input === 'pl-state') {
+      PL.stateFilter = el.value; PL.sel = null;
+      PL_ORDER.concat(['x']).forEach(function (k) { PL.hide[k] = el.value !== 'all' && el.value !== k; });
+      plDraw(); return;
+    }
     if (el.dataset.input === 'doccat' && picker) { picker.cat = el.value; renderDocList(); return; }
     if (el.dataset.photo) {
+      S.ui.picking = 0;
       var pm = /^\/c\/([^/]+)\//.exec(S.route);
       var preg = pm && getReg(pm[1], el.dataset.key);
-      if (preg) addPhotos(preg, Number(el.dataset.off), el.files || []);
+      if (preg) addPhotos(preg, 0, el.files || []);
       el.value = '';
       return;
     }
@@ -4116,8 +5424,16 @@
       queueLoaded = true;
       migrateResolved();
       render();
-      S.queue.filter(function (o) { return o.op === 'photo'; }).forEach(function (o) {
-        KV.get(o.img).then(function (d) { if (d) { S.thumbs[o.id] = d; } });
+      // miniaturas de las fotos pendientes: al terminar de leerlas se vuelve a dibujar (sin señal no llega otro aviso)
+      Promise.all(S.queue.filter(function (o) { return o.op === 'photo'; }).map(function (o) {
+        return KV.get('thumb:' + o.id).then(function (t) {
+          if (t) return t;
+          return KV.get(o.img).then(function (d) {
+            return d ? thumbFrom(d).then(function (m) { if (m) KV.setBig('thumb:' + o.id, m).catch(function () { /* noop */ }); return m; }) : null;
+          });
+        }).then(function (t) { if (t) { S.thumbs[o.id] = t; return 1; } return 0; }, function () { return 0; });
+      })).then(function (n) {
+        if (n.some(Boolean) && /\/r\//.test(S.route)) finishRender();
       });
       if (IN_GAS || navigator.onLine) {
         sync({ full: true }).then(function () {

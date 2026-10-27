@@ -42,6 +42,7 @@ class FakeRange {
     return this;
   }
   setValue(v) { this.sheet.put(this.r, this.c, v); return this; }
+  setFontWeight() { return this; }
   getDataValidations() {
     const out = Array.from({ length: this.nr }, () => Array(this.nc).fill(null));
     this._each((r, c, i, j) => { out[i][j] = this.sheet.dv.get(`${r},${c}`) || null; });
@@ -52,10 +53,6 @@ class FakeRange {
     this._each((r, c, i, j) => { if (rules[i][j]) this.sheet.dv.set(`${r},${c}`, rules[i][j]); else this.sheet.dv.delete(`${r},${c}`); });
     return this;
   }
-  setFontWeight() { return this; }
-  setBackground() { return this; }
-  setFontColor() { return this; }
-  getValue() { return this.getValues()[0][0]; }
   getNote() { return this.sheet.notes.get(`${this.r},${this.c}`) || ''; }
   setNote(n) { this.sheet.notes.set(`${this.r},${this.c}`, n); return this; }
   clear() { this._each((r, c) => { this.sheet.cells.delete(`${r},${c}`); this.sheet.formats.delete(`${r},${c}`); }); return this; }
@@ -66,16 +63,8 @@ class FakeRange {
     this.sheet.merges = this.sheet.merges.filter(m => !(m.r1 <= this.r + this.nr - 1 && m.r2 >= this.r && m.c1 <= this.c + this.nc - 1 && m.c2 >= this.c));
     return this;
   }
-  copyTo(dst, type) {
+  copyTo(dst) {
     const dr = dst.r - this.r;
-    if (type === 'PASTE_FORMAT' || type === 'PASTE_DATA_VALIDATION') {
-      this._each((r, c) => {
-        const k = `${r},${c}`, nk = `${r + dr},${c}`;
-        if (type === 'PASTE_FORMAT') { const f = this.sheet.formats.get(k); if (f) this.sheet.formats.set(nk, { ...f, copiedFrom: k }); }
-        else { const v = this.sheet.dv.get(k); if (v) this.sheet.dv.set(nk, v); else this.sheet.dv.delete(nk); }
-      });
-      return;
-    }
     const snap = [];
     this._each((r, c) => snap.push([r, c, this.sheet.cell(r, c), this.sheet.formats.get(`${r},${c}`), this.sheet.dv.get(`${r},${c}`)]));
     for (const [r, c, cell, f, dv] of snap) {
@@ -124,31 +113,21 @@ class FakeSheet {
     if (Object.prototype.toString.call(v) === '[object Date]') {
       const p = (n) => String(n).padStart(2, '0');
       this.cells.set(k, { d: `${v.getFullYear()}-${p(v.getMonth() + 1)}-${p(v.getDate())}`, v: '' });
-    } else if (typeof v === 'string' && v.startsWith("'")) this.cells.set(k, { v: v.slice(1), quoted: true }); // como Sheets: texto forzado
-    else if (typeof v === 'string' && /^[=+]/.test(v)) this.cells.set(k, { f: v, v: '#CALC' });
+    } else if (typeof v === 'string' && v.startsWith('=')) this.cells.set(k, { f: v, v: '#CALC' });
     else if (v === '' || v == null) this.cells.delete(k);
     else this.cells.set(k, { v });
   }
   lastRow() { let m = 0; for (const [k, cell] of this.cells) if (cell.v !== '' || cell.d || cell.f) m = Math.max(m, Number(k.split(',')[0])); return m; }
   getName() { return this.name; }
-  setFrozenRows() { return this; }
-  hideColumns(c, n) { this.hiddenCols = [c, n]; return this; }
   isSheetHidden() { return this.hidden; }
   showSheet() { this.hidden = false; }
   hideSheet() { this.hidden = true; }
+  setFrozenRows() {}
   getLastRow() { return this.lastRow(); }
   getLastColumn() { let m = 0; for (const k of this.cells.keys()) m = Math.max(m, Number(k.split(',')[1])); return m; }
   getMaxRows() { return this.maxRows; }
   getMaxColumns() { return this.maxCols; }
   insertRowsAfter(after, n) { if (after !== this.maxRows) throw new Error('solo se simula insertar al final'); this.maxRows += n; }
-  insertRowAfter(row) {
-    for (const m of [this.cells, this.formats, this.dv, this.notes]) {
-      const moved = [...m.entries()].filter(([k]) => Number(k.split(',')[0]) > row).sort((a, b) => Number(b[0].split(',')[0]) - Number(a[0].split(',')[0]));
-      for (const [k, v] of moved) { const [r, c] = k.split(',').map(Number); m.delete(k); m.set(`${r + 1},${c}`, v); }
-    }
-    this.maxRows += 1;
-    this.inserted = (this.inserted || 0) + 1;
-  }
   setRowHeight(r, h) { this.heights[r] = h; }
   getRowHeight(r) { return this.heights[r] || 21; }
   appendRow(arr) { const r = this.lastRow() + 1; arr.forEach((v, i) => this.put(r, i + 1, v)); }
@@ -219,8 +198,13 @@ class FakeFolder {
   constructor(name, drive) { this.name = name; this.drive = drive; this.id = 'fld' + (++drive.n); this.files = []; this.folders = []; drive.byId[this.id] = this; }
   getId() { return this.id; }
   getName() { return this.name; }
-  setTrashed(t) { this.trashed = t; }
   createFolder(n) { const f = new FakeFolder(n, this.drive); this.folders.push(f); return f; }
+  getUrl() { return 'https://drive.google.com/drive/folders/' + this.id; }
+  getFilesByName(n) {
+    const d = this.drive.planosDir, fp = d && path.join(d, n);
+    const l = this.name === 'Planos' && fp && fs.existsSync(fp) ? [{ getLastUpdated: () => new Date(), getBlob: () => ({ getBytes: () => Array.from(fs.readFileSync(fp)), getDataAsString: () => fs.readFileSync(fp, 'utf8') }) }] : [];
+    let i = 0; return { hasNext: () => i < l.length, next: () => l[i++] };
+  }
   getFoldersByName(n) { const l = this.folders.filter(f => f.name === n); let i = 0; return { hasNext: () => i < l.length, next: () => l[i++] }; }
   createFile(blob) {
     const id = 'file' + (++this.drive.n);
@@ -231,10 +215,11 @@ class FakeFolder {
 }
 
 function createGas(ss, props = {}, extra = {}) {
-  if (!('PIE_TOKEN' in props)) props.PIE_TOKEN = 'clave-prueba';
-  const drive = { n: 0, byId: {} };
+  const drive = { n: 0, byId: {}, planosDir: process.env.PIE_PLANOS || '' };
   const root = new FakeFolder('Mi unidad', drive);
-  const src = fs.readFileSync(path.join(__dirname, '../apps-script/Code.gs'), 'utf8');
+  const gsDir = path.join(__dirname, '../../' + (process.env.PIE_VER || 'v2.0-beta') + '/apps-script');
+  // la v2.3 trae Beta.gs además de Code.gs: en Apps Script ambos comparten el mismo ámbito
+  const src = fs.readFileSync(path.join(gsDir, 'Code.gs'), 'utf8') + (fs.existsSync(path.join(gsDir, 'Beta.gs')) ? '\n' + fs.readFileSync(path.join(gsDir, 'Beta.gs'), 'utf8') : '');
   const appDir = path.join(__dirname, '../app');
   class Html {
     constructor(c) { this.c = c; this.meta = {}; }
@@ -250,7 +235,7 @@ function createGas(ss, props = {}, extra = {}) {
       getActiveSpreadsheet: () => ss,
       openById: (id) => { if (!extra.books || !extra.books[id]) throw new Error('No se encontró la hoja ' + id); return extra.books[id]; },
       flush() {},
-      CopyPasteType: { PASTE_NORMAL: 'PASTE_NORMAL', PASTE_FORMAT: 'PASTE_FORMAT', PASTE_DATA_VALIDATION: 'PASTE_DATA_VALIDATION' },
+      CopyPasteType: { PASTE_NORMAL: 'PASTE_NORMAL' },
       getUi() { throw new Error('sin UI'); }
     },
     LockService: { getDocumentLock: () => ({ tryLock: () => true, releaseLock() {} }) },
@@ -258,7 +243,6 @@ function createGas(ss, props = {}, extra = {}) {
     DriveApp: {
       getRootFolder: () => root,
       getFileById: (id) => {
-        if (extra.noDriveScope) throw new Error('No tienes permiso para llamar a DriveApp.getFileById. Permisos necesarios: https://www.googleapis.com/auth/drive');
         const f = (extra.files || {})[id];
         if (!f) throw new Error('No se encontró el archivo');
         return { getMimeType: () => f.mime, getName: () => f.name, getId: () => id, getLastUpdated: () => new Date(f.updated || 0),
@@ -275,10 +259,10 @@ function createGas(ss, props = {}, extra = {}) {
       extra.conversions = (extra.conversions || 0) + 1;
       return { id };
     } } } : undefined,
-    Session: { getScriptTimeZone: () => 'UTC', getEffectiveUser: () => { throw new Error('No tienes permiso para llamar a Session.getEffectiveUser'); } },
-    Logger: { log() {} },
+    Session: { getScriptTimeZone: () => 'UTC', getEffectiveUser: () => ({ getEmail: () => 'dueño@kir.com' }) },
     Utilities: {
       formatDate(d) { const p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; },
+      base64Encode: (b) => Buffer.from(b).toString('base64'),
       base64Decode: (s) => Array.from(Buffer.from(s, 'base64')),
       newBlob: (bytes, mime, name) => ({ bytes, mime, name })
     },
@@ -295,9 +279,6 @@ function createGas(ss, props = {}, extra = {}) {
   };
   vm.createContext(ctx);
   vm.runInContext(src, ctx);
-  // las pruebas llaman api() sin clave salvo que la pasen explícitamente
-  const rawApi = ctx.api;
-  ctx.api = (req) => rawApi(Object.assign({ token: props.PIE_TOKEN }, req));
   return ctx;
 }
 

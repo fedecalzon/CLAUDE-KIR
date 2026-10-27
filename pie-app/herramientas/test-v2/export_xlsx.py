@@ -19,11 +19,7 @@ out=[]
 for ws in wbv.worksheets:
     wf=wbf[ws.title]
     rows=[]
-    # última fila con contenido (algunos libros declaran 65000 filas con formato vacío)
-    lastr=0
-    for row in ws.iter_rows():
-        if any(c.value not in (None,'') for c in row): lastr=row[0].row
-    for r in range(1,lastr+1):
+    for r in range(1,ws.max_row+1):
         row=[]
         for c in range(1,ws.max_column+1):
             v=ws.cell(r,c).value; f=wf.cell(r,c).value
@@ -32,6 +28,6 @@ for ws in wbv.worksheets:
             else: row.append(v)
         rows.append(row)
     out.append({"name":ws.title,"hidden":ws.sheet_state!="visible","values":rows,
-      "heights":{r:ws.row_dimensions[r].height for r in range(1,lastr+1) if ws.row_dimensions[r].height},
+      "heights":{r:ws.row_dimensions[r].height for r in range(1,ws.max_row+1) if ws.row_dimensions[r].height},
       "merges":[str(m) for m in ws.merged_cells.ranges],"dv":dvs(ws.title)})
 json.dump(out,open(sys.argv[2],"w"))

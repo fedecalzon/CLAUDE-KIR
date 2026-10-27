@@ -1,0 +1,11 @@
+{
+  "name": "pie-control-obra",
+  "version": "2.3.0",
+  "private": true,
+  "description": "C\u00f3digo fuente de PIE: Apps Script y PWA",
+  "scripts": {
+    "check": "node herramientas/comprobar.mjs",
+    "test": "node tests/beta.test.mjs && node tests/gestures.test.mjs && node tests/pin_colors.test.mjs && node tests/beta4.test.mjs",
+    "serve": "python3 -m http.server 8080 --directory pwa"
+  }
+}
