@@ -2,10 +2,12 @@
   "name": "pie-control-obra",
   "version": "2.3.1",
   "private": true,
-  "description": "C\u00f3digo fuente de PIE: Apps Script y PWA",
+  "description": "Código fuente de PIE: Apps Script y PWA",
   "scripts": {
     "check": "node herramientas/comprobar.mjs",
     "test": "node tests/beta.test.mjs && node tests/gestures.test.mjs && node tests/pin_colors.test.mjs && node tests/beta4.test.mjs",
+    "dev": "node herramientas/dev-server.js ../datos-prueba/wb.json ../datos-prueba/fod.json --planos ../datos-prueba/planos",
+    "copiar-html": "node -e \"require('fs').copyFileSync('pwa/index.html','apps-script/Index.html')\"",
     "serve": "python3 -m http.server 8080 --directory pwa"
   }
 }

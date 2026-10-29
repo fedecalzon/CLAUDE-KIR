@@ -48,6 +48,9 @@ La fecha de la liberación es la del día en que se decidió (sin adelantar ni a
 | `tests/` | Pruebas de reglas, gestos, colores y fotos (Node, sin dependencias). |
 | `herramientas/` | Simulador de Apps Script (`test-v2/`), comprobación de sintaxis y conversión de PDF a láminas. |
 
+## Documentación para desarrollo
+Ver [`docs/`](docs/README.md): funcionamiento, API y datos, mapa del front, método de trabajo y reglas de obra. Para trabajar el front sin Google: `node herramientas/dev-server.js <wb.json> [fod.json] --planos <carpeta>`.
+
 ## Instalar o actualizar
 Ver [`INSTALAR.md`](INSTALAR.md).
 
